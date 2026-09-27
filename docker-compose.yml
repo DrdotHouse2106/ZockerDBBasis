@@ -1,0 +1,109 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ZockDB Basis – Docker Compose
+#
+# Diese Datei genügt, um die App zu betreiben – kein git clone nötig.
+# Einfach als docker-compose.yml speichern (oder in Portainer, Dockge, Synology
+# Container Manager … als Stack einfügen), Werte unten anpassen und starten:
+#
+#   docker compose up -d            # herunterladen und im Hintergrund starten
+#   docker compose pull && docker compose up -d   # auf die neueste Version aktualisieren
+#   docker compose logs -f          # Protokoll ansehen
+#   docker compose down             # anhalten (Daten bleiben erhalten)
+#
+# Alle Einstellungen stehen als Einträge unter „environment“. Leere Werte ("")
+# bedeuten „nicht gesetzt“ bzw. Standardwert. Viele Werte lassen sich später auch
+# in der App unter Administration → Einstellungen ändern – diese haben dann Vorrang.
+#
+# Achtung: Enthält ein Wert ein Dollarzeichen, muss es doppelt geschrieben werden ($$).
+# Die Datei enthält Geheimnisse (API-Schlüssel) – nicht öffentlich teilen.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  sammlung:
+    # Fertiges Image von der GitHub Container Registry (amd64 und arm64, z. B. Raspberry Pi/NAS).
+    # „latest“ = aktueller Stand; für feste Versionen z. B. :1.2 verwenden.
+    image: ghcr.io/drdothouse2106/zockdbbasis:latest
+    # Wer das Repository geklont hat und selbst bauen möchte, ersetzt „image“ durch:
+    # build: .
+    container_name: zockdb
+
+    # Nach Absturz oder Neustart des Hosts automatisch wieder starten –
+    # außer der Container wurde bewusst angehalten.
+    restart: unless-stopped
+
+    # Host-Port → Port im Container (im Container immer 3000).
+    # Hinter einem Reverse-Proxy (Caddy, nginx, Traefik …) auf demselben Server
+    # besser nur lokal freigeben:  - "127.0.0.1:3000:3000"
+    ports:
+      - "3000:3000"
+
+    # Datenbank, Fotos, Scans und der automatisch erzeugte Schlüssel geheimnis.key.
+    # Statt des Volumes geht auch ein Ordner auf dem Host (einmalig:
+    # mkdir -p data && sudo chown 1000:1000 data):  - ./data:/app/data
+    volumes:
+      - sammlung-daten:/app/data
+
+    environment:
+      # ── Konten & Sicherheit ─────────────────────────────────────
+      # Dürfen sich neue Benutzer selbst registrieren? Das erste Konto wird immer Administrator.
+      REGISTRATION_OPEN: "true"
+      # Zwei-Faktor-Anmeldung für alle Pflicht (empfohlen, wenn der Server aus dem Internet erreichbar ist)
+      REQUIRE_2FA: "false"
+      # Schlüssel zum Verschlüsseln von 2FA-Geheimnissen und API-Schlüsseln.
+      # Empfohlen: einmalig mit „openssl rand -base64 32“ erzeugen und NIE wieder ändern.
+      # Leer = wird automatisch erzeugt und als geheimnis.key im Volume gespeichert.
+      APP_SECRET: ""
+      # Spam-Schutz für Registrierung & „Passwort vergessen“: altcha (ohne Google/Cookies), recaptcha oder aus.
+      # reCAPTCHA v3 überträgt Daten an Google und wird erst nach Einwilligung geladen.
+      CAPTCHA_PROVIDER: "altcha"
+      RECAPTCHA_SITE_KEY: ""
+      RECAPTCHA_SECRET: ""
+      RECAPTCHA_MIN_SCORE: "0.5"
+      # Wie lange eine Anmeldung gültig bleibt (Tage)
+      SESSION_DAYS: "30"
+      # Registrierungen pro Stunde und IP-Adresse (Schutz vor Missbrauch)
+      REGISTRATIONS_PER_HOUR: "5"
+      # Hinter einem Reverse-Proxy mit HTTPS: "1" setzen (richtige Besucher-IP, sichere Cookies)
+      TRUST_PROXY: ""
+      # Sichere Cookies: auto (erkennt HTTPS), true oder false
+      COOKIE_SECURE: "auto"
+
+      # ── E-Mail (SMTP) für „Passwort vergessen“ & Benachrichtigungen ─
+      # Links in E-Mails werden nur mit PUBLIC_URL erzeugt. Auch unter Administration → Einstellungen änderbar.
+      SMTP_HOST: ""
+      SMTP_PORT: "587"
+      SMTP_SECURE: "auto"            # auto (465 = TLS, sonst STARTTLS), true, false
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM: ""                  # z. B. "ZockDB <noreply@zockdb.de>"
+      REQUIRE_EMAIL: "false"         # E-Mail bei der Registrierung Pflicht?
+
+      # Adresse der App ohne / am Ende, z. B. https://sammlung.example.de (für Links in E-Mails)
+      PUBLIC_URL: ""
+
+      # ── Uploads & Speicher ──────────────────────────────────────
+      # Speicherplatz je Benutzer für eigene Fotos und Scans in MB (0 = unbegrenzt)
+      STORAGE_QUOTA_MB: "1024"
+      # Maximale Größe eines Artikelfotos bzw. eines Scans/PDFs in MB
+      MAX_UPLOAD_MB: "8"
+      MEDIA_MAX_MB: "200"
+      # Automatische Datenbank-Sicherung im Datenordner: 7 Tage täglich, 12 Monate monatlich
+      BACKUP_ENABLED: "true"
+      BACKUP_DAYS: "7"
+      BACKUP_MONTHS: "12"
+
+      # ── Spieledaten (IGDB) & Barcodes ───────────────────────────
+      # Kostenlos unter https://dev.twitch.tv/console → „Anwendung registrieren“
+      TWITCH_CLIENT_ID: ""
+      TWITCH_CLIENT_SECRET: ""
+      # Online-Dienste für die Barcode-Suche (Reihenfolge = Abfragereihenfolge)
+      BARCODE_PROVIDERS: "opengtindb,upcitemdb"
+      OPENGTINDB_QUERYID: ""
+
+    # Ein Healthcheck (GET /api/health) ist bereits im Image hinterlegt –
+    # „docker compose ps“ zeigt „healthy“, sobald die App bereit ist.
+
+volumes:
+  # Benanntes Docker-Volume für Datenbank, Uploads und geheimnis.key.
+  # Achtung: „docker compose down -v“ löscht es samt allen Daten!
+  sammlung-daten:

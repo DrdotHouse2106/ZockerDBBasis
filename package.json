@@ -1,0 +1,39 @@
+{
+  "name": "zockdb-basis",
+  "version": "1.0.0",
+  "description": "Selbst gehostete Verwaltung für deine Spielesammlung – Spiele, Konsolen & Zubehör mit Barcode-Scanner. Basis-Version von zockdb.de.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "vite",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "express": "^5.2.1",
+    "multer": "^2.0.2",
+    "nodemailer": "^10.0.10",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "html5-qrcode": "^2.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.1"
+  }
+}

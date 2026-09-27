@@ -1,0 +1,201 @@
+import { useState } from 'react';
+import { MARKE } from '../../../shared/marke.js';
+import { api, ApiFehler } from '../api.js';
+import { useSitzung } from '../sitzung.js';
+import Symbol from '../komponenten/Symbole.jsx';
+import Fusszeile from '../komponenten/Fusszeile.jsx';
+import { captchaNachweis, CaptchaHinweis } from '../captcha.jsx';
+import { MODUL } from '../erweiterungen.jsx';
+
+export default function Anmelden() {
+  const { auth, aktualisiere } = useSitzung();
+  const [modus, setModus] = useState(auth?.ersteinrichtung || (auth?.registrierungOffen && window.location.hash.includes('registrieren=1')) ? 'registrieren' : 'anmelden');
+  const [werte, setWerte] = useState({ benutzername: '', passwort: '', passwort2: '', anzeigename: '', email: '' });
+  const [akzeptiert, setAkzeptiert] = useState(false);
+  const [captchaZustimmung, setCaptchaZustimmung] = useState(false);
+  const [zweiFaktor, setZweiFaktor] = useState(null); // { token }
+  const [code, setCode] = useState('');
+  const [mitWiederherstellung, setMitWiederherstellung] = useState(false);
+  const [fehler, setFehler] = useState(null);
+  const [felder, setFelder] = useState({});
+  const [laedt, setLaedt] = useState(false);
+
+  const setze = (feld) => (e) => setWerte((w) => ({ ...w, [feld]: e.target.value }));
+
+  async function absenden(e) {
+    e.preventDefault();
+    setFehler(null);
+    setFelder({});
+    if (modus === 'registrieren' && werte.passwort !== werte.passwort2) {
+      setFelder({ passwort2: 'Die Passwörter stimmen nicht überein.' });
+      return;
+    }
+    setLaedt(true);
+    try {
+      if (zweiFaktor) {
+        await api.zweiterFaktor(mitWiederherstellung
+          ? { token: zweiFaktor.token, wiederherstellungscode: code }
+          : { token: zweiFaktor.token, code });
+        await aktualisiere();
+      } else if (modus === 'registrieren') {
+        const captcha = auth?.ersteinrichtung ? undefined : await captchaNachweis(auth?.captcha, 'registrieren', { zustimmung: captchaZustimmung });
+        await api.registrieren({
+          captcha,
+          benutzername: werte.benutzername, passwort: werte.passwort, anzeigename: werte.anzeigename, email: werte.email, bedingungen_akzeptiert: akzeptiert,
+        });
+        await aktualisiere();
+      } else {
+        const antwort = await api.anmelden({ benutzername: werte.benutzername, passwort: werte.passwort });
+        if (antwort.zweiFaktor) {
+          setZweiFaktor({ token: antwort.token });
+          setWerte((w) => ({ ...w, passwort: '' }));
+        } else await aktualisiere();
+      }
+    } catch (err) {
+      if (err instanceof ApiFehler && err.code === 'abgelaufen') {
+        setZweiFaktor(null);
+        setCode('');
+      }
+      setFehler(err.message);
+      if (err.felder) setFelder(err.felder);
+    } finally {
+      setLaedt(false);
+    }
+  }
+
+  const registrierungMoeglich = auth?.registrierungOffen;
+
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <img src="/icons/icon.svg" alt="" className="size-16" />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{MARKE.name}</h1>
+            <p className="font-medium text-akzent-hell">{MARKE.untertitel}</p>
+          </div>
+          {MODUL.oeffentlicheSeiten && <p className="text-sm text-leise">Spiele, Konsolen und Zubehör verwalten – mit Barcode-Scanner und Wertübersicht.</p>}
+        </div>
+
+        {auth?.ersteinrichtung && (
+          <p className="rounded-xl border border-akzent/40 bg-akzent/10 p-3 text-sm">
+            <strong>Willkommen!</strong> Es gibt noch kein Konto. Das erste Konto wird automatisch Administrator.
+          </p>
+        )}
+
+        <form onSubmit={absenden} className="karte space-y-4 p-5" noValidate>
+          {zweiFaktor ? (
+            <>
+              <div className="flex items-center gap-2">
+                <Symbol name="schild" className="size-6 text-akzent-hell" />
+                <h2 className="text-lg font-semibold">Zwei-Faktor-Anmeldung</h2>
+              </div>
+              <p className="text-sm text-leise">
+                {mitWiederherstellung
+                  ? 'Gib einen deiner Wiederherstellungscodes ein. Jeder Code funktioniert nur einmal.'
+                  : 'Gib den 6-stelligen Code aus deiner Authenticator-App ein.'}
+              </p>
+              <label className="block">
+                <span className="beschriftung">{mitWiederherstellung ? 'Wiederherstellungscode' : 'Code'}</span>
+                <input
+                  className="eingabe text-center font-mono text-xl tracking-[0.3em]"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  inputMode={mitWiederherstellung ? 'text' : 'numeric'}
+                  autoComplete="one-time-code"
+                  maxLength={mitWiederherstellung ? 12 : 6}
+                  placeholder={mitWiederherstellung ? 'XXXX-XXXX' : '123456'}
+                  autoFocus
+                />
+              </label>
+              <button type="button" className="text-sm text-akzent-hell underline" onClick={() => { setMitWiederherstellung((m) => !m); setCode(''); }}>
+                {mitWiederherstellung ? 'Doch Code aus der App verwenden' : 'Kein Zugriff auf die App? Wiederherstellungscode verwenden'}
+              </button>
+            </>
+          ) : (
+            <>
+              {registrierungMoeglich && !auth?.ersteinrichtung && (
+                <div className="grid grid-cols-2 gap-2" role="tablist">
+                  {[['anmelden', 'Anmelden'], ['registrieren', 'Registrieren']].map(([wert, label]) => (
+                    <button key={wert} type="button" role="tab" aria-selected={modus === wert}
+                      className={`${modus === wert ? 'chip-aktiv' : 'chip'} justify-center rounded-xl py-2`}
+                      onClick={() => { setModus(wert); setFehler(null); setFelder({}); }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Feld label="Benutzername" fehler={felder.benutzername}>
+                <input className="eingabe" value={werte.benutzername} onChange={setze('benutzername')} autoComplete="username" autoCapitalize="none" required autoFocus />
+              </Feld>
+              {modus === 'registrieren' && (
+                <Feld label="Anzeigename (optional)" fehler={felder.anzeigename}>
+                  <input className="eingabe" value={werte.anzeigename} onChange={setze('anzeigename')} autoComplete="nickname" maxLength={60} />
+                </Feld>
+              )}
+              {modus === 'registrieren' && auth?.emailAktiv && (
+                <Feld label={auth.emailPflicht ? 'E-Mail-Adresse' : 'E-Mail-Adresse (optional, für „Passwort vergessen“)'} fehler={felder.email}>
+                  <input type="email" className="eingabe" value={werte.email} onChange={setze('email')} autoComplete="email" inputMode="email" maxLength={254} required={auth.emailPflicht} />
+                </Feld>
+              )}
+              <Feld label="Passwort" fehler={felder.passwort}>
+                <input type="password" className="eingabe" value={werte.passwort} onChange={setze('passwort')}
+                  autoComplete={modus === 'registrieren' ? 'new-password' : 'current-password'} required />
+              </Feld>
+              {modus === 'registrieren' && (
+                <>
+                  <Feld label="Passwort wiederholen" fehler={felder.passwort2}>
+                    <input type="password" className="eingabe" value={werte.passwort2} onChange={setze('passwort2')} autoComplete="new-password" required />
+                  </Feld>
+                  <p className="text-xs text-leise">Mindestens 10 Zeichen. Nach der Registrierung kannst du unter „Konto“ die Zwei-Faktor-Anmeldung aktivieren.</p>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" className="mt-1 size-4 accent-akzent" checked={akzeptiert} onChange={(e) => setAkzeptiert(e.target.checked)} />
+                    <span>
+                      Ich akzeptiere die <a href="#/seite/nutzungsbedingungen" className="text-akzent-hell underline" target="_blank">Nutzungsbedingungen</a> und
+                      habe die <a href="#/seite/datenschutz" className="text-akzent-hell underline" target="_blank">Datenschutzerklärung</a> gelesen.
+                    </span>
+                  </label>
+                  {felder.bedingungen && <p className="text-sm text-gefahr">{felder.bedingungen}</p>}
+                  {!auth?.ersteinrichtung && <CaptchaHinweis info={auth?.captcha} zustimmung={captchaZustimmung} setZustimmung={setCaptchaZustimmung} />}
+                </>
+              )}
+            </>
+          )}
+
+          {fehler && <p className="rounded-xl bg-gefahr/10 p-3 text-sm text-gefahr" role="alert">{fehler}</p>}
+
+          <button type="submit" className="knopf-primaer w-full" disabled={laedt}>
+            {laedt ? 'Bitte warten …' : zweiFaktor ? 'Bestätigen' : modus === 'registrieren' ? 'Konto erstellen' : 'Anmelden'}
+          </button>
+          {zweiFaktor && (
+            <button type="button" className="knopf-sekundaer w-full" onClick={() => { setZweiFaktor(null); setCode(''); setFehler(null); }}>
+              Abbrechen
+            </button>
+          )}
+          {!zweiFaktor && modus === 'anmelden' && auth?.emailAktiv && (
+            <p className="text-center text-sm"><a href="#/passwort-vergessen" className="text-akzent-hell underline">Passwort vergessen?</a></p>
+          )}
+        </form>
+
+        {MODUL.oeffentlicheSeiten && auth?.oeffentlicherKatalog && !zweiFaktor && (
+          <p className="text-center text-sm"><a href="/suche" className="text-akzent-hell underline">Spiele ohne Anmeldung suchen und stöbern</a></p>
+        )}
+        {/* Die Basis-Version zeigt nur die Anmeldemaske; rechtliche Seiten braucht erst ein öffentliches Angebot */}
+        {MODUL.oeffentlicheSeiten && <Fusszeile className="py-2" />}
+        {!registrierungMoeglich && !zweiFaktor && (
+          <p className="text-center text-xs text-leise">Die Registrierung neuer Konten ist auf diesem Server geschlossen.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Feld({ label, fehler, children }) {
+  return (
+    <label className="block">
+      <span className="beschriftung">{label}</span>
+      {children}
+      {fehler && <span className="mt-1 block text-sm text-gefahr">{fehler}</span>}
+    </label>
+  );
+}
