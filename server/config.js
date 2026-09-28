@@ -53,6 +53,11 @@ export function ladeKonfiguration(env = process.env) {
       url: zentraleUrl(env.ZOCKERDB_CENTRAL),
       spende: jaNein(env.ZOCKERDB_DONATE, false),
     },
+    // Update per Knopf: Watchtower-HTTP-API (z. B. http://watchtower:8080/v1/update) und deren Token
+    aktualisierung: {
+      url: /^https?:\/\/\S+$/i.test(String(env.UPDATE_URL ?? '').trim()) ? String(env.UPDATE_URL).trim() : '',
+      token: String(env.UPDATE_TOKEN ?? '').trim(),
+    },
     igdb: {
       clientId: (env.TWITCH_CLIENT_ID || '').trim(),
       clientSecret: (env.TWITCH_CLIENT_SECRET || '').trim(),

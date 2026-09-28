@@ -45,7 +45,7 @@ export function zentralZuEintrag(e) {
   };
 }
 
-export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fetch, version = '', cache }) {
+export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fetch, version = '', build = {}, cache }) {
   const einstellungLesen = db.prepare('SELECT wert FROM einstellungen WHERE schluessel = ?');
   const einstellungSchreiben = db.prepare(`INSERT INTO einstellungen (schluessel, wert) VALUES (?, ?)
     ON CONFLICT (schluessel) DO UPDATE SET wert = excluded.wert`);
@@ -259,7 +259,8 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
     const letzte = lies('zentrale_version');
     if (letzte && Date.now() - Date.parse(letzte.geprueft) < 12 * 60 * 60 * 1000) return letzte;
     const r = await roh('/api/zentral/version');
-    const stand = { version: text(r.version, 30), hinweise: /^https:\/\//.test(r.hinweise ?? '') ? r.hinweise : null, geprueft: new Date().toISOString() };
+    const gebaut = Number.isNaN(Date.parse(r.gebaut ?? '')) ? null : new Date(r.gebaut).toISOString();
+    const stand = { version: text(r.version, 30), gebaut, hinweise: /^https:\/\//.test(r.hinweise ?? '') ? r.hinweise : null, geprueft: new Date().toISOString() };
     schreibe('zentrale_version', stand);
     return stand;
   }
@@ -284,7 +285,12 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
       spendeHinweisAus: Boolean(hinweise.spendeHinweisAus),
       // Update-Hinweis: neuere Version bei zockerdb.de verfügbar?
       version,
-      neueVersion: (() => { const v = lies('zentrale_version'); return v?.version && neuer(version, v.version) ? v : null; })(),
+      // Neuer ist eine höhere Versionsnummer oder ein Image, das über eine Stunde nach dem eigenen gebaut wurde (derselbe Stand baut in Basis und Zentrale leicht versetzt)
+      neueVersion: (() => {
+        const v = lies('zentrale_version');
+        const spaeter = v?.gebaut && build.datum && Date.parse(v.gebaut) - Date.parse(build.datum) > 60 * 60 * 1000;
+        return v?.version && (neuer(version, v.version) || spaeter) ? v : null;
+      })(),
       aktiv: Boolean(url()),
       url: url(),
       angemeldet: Boolean(z?.schluessel && z.url === url()),
@@ -301,6 +307,6 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
     setzeKatalog(dienst) { katalog = dienst; },
     /** Merker für Hinweise in der Administration (gefragt, weggeklickt). */
     merkeHinweis(schluessel) { schreibe('zentrale_hinweise', { ...(lies('zentrale_hinweise') ?? {}), [schluessel]: new Date().toISOString() }); },
-    anfrage, roh, suche, barcode, abgleich, einreichen, pruefeEinreichungen, spendeDaten, spende, statistik, lauf, status,
+    anfrage, roh, suche, barcode, abgleich, einreichen, pruefeEinreichungen, spendeDaten, spende, statistik, pruefeVersion, lauf, status,
   };
 }

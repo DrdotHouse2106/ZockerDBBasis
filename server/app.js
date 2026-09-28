@@ -24,6 +24,7 @@ import { erstelleSpeicherDienst } from './services/speicher.js';
 import { erstellePlattformDienst } from './services/plattformen.js';
 import { erstelleEinstellungsDienst } from './services/einstellungen.js';
 import { erstelleSicherungsDienst } from './services/sicherung.js';
+import { erstelleAktualisierung, leseBuild } from './services/aktualisierung.js';
 import { erstelleMailDienst } from './services/mail.js';
 import { erstelleCaptchaDienst } from './services/captcha.js';
 import { erstelleKontoMailDienst } from './services/kontomail.js';
@@ -46,6 +47,8 @@ import { adminRouter } from './routes/admin.js';
 import { plattformenRouter } from './routes/plattformen.js';
 
 const { version } = JSON.parse(fs.readFileSync(path.join(PROJEKT_WURZEL, 'package.json'), 'utf8'));
+// Stand des Docker-Images (Commit und Bauzeit), leer bei einer Installation ohne Docker
+const build = leseBuild();
 
 export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.datenbankPfad), fetchFn } = {}) {
   const datenVerzeichnis = konfiguration.datenbankPfad === ':memory:'
@@ -62,13 +65,14 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const igdb = erstelleIgdbDienst(konfiguration.igdb, db, { fetchFn });
   const barcode = erstelleBarcodeDienst(konfiguration.barcode, { fetchFn });
   const plattformen = erstellePlattformDienst(db);
-  const zentrale = erstelleZentrale(db, { konfiguration, fetchFn, version, cache });
+  const zentrale = erstelleZentrale(db, { konfiguration, fetchFn, version, build, cache });
   const katalog = erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, erweiterungen, zentrale });
   zentrale.setzeKatalog(katalog);
   const konten = erstelleKontenDienst(db, { schluessel, sitzungTage: konfiguration.konten.sitzungTage });
   const dateien = erstelleDateiDienst(db, { uploadVerzeichnis: konfiguration.uploadVerzeichnis, erweiterungen });
   const speicher = erstelleSpeicherDienst(db, { standardMb: () => konfiguration.speicherKontingentMb ?? 1024, dateien, erweiterungen });
   const sicherung = erstelleSicherungsDienst(db, konfiguration);
+  const aktualisierung = erstelleAktualisierung({ konfiguration, sicherung, build, fetchFn });
   const neuesCaptcha = () => erstelleCaptchaDienst(konfiguration.captcha, { schluessel, fetchFn });
   const captcha = neuesCaptcha();
   const neueMail = () => erstelleMailDienst(konfiguration.mail, { transportFn: konfiguration.mailTransportFn });
@@ -78,8 +82,8 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const konvolute = erstelleKonvolutDienst(db, { erweiterungen });
   const sync = erstelleSyncDienst(db, { zentrale, katalog, schluessel, dateien, speicher, plattformen, erweiterungen });
   const kontext = {
-    db, cache, igdb, barcode, zentrale, katalog, konten, dateien, speicher, plattformen, einstellungen, sicherung, mail, kontoMail,
-    benachrichtigungen, sync, konvolute, captcha, konfiguration, version, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
+    db, cache, igdb, barcode, zentrale, katalog, konten, dateien, speicher, plattformen, einstellungen, sicherung, aktualisierung, mail, kontoMail,
+    benachrichtigungen, sync, konvolute, captcha, konfiguration, version, build, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
   };
   // Zusatzmodule legen ihre Dienste im Kontext ab und registrieren sich an den Andockpunkten
   for (const modul of MODULE) modul.erstelle?.(kontext, { fetchFn });

@@ -12,6 +12,7 @@ import AdminEinstellungen from './AdminEinstellungen.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { MODUL, Andockpunkt } from '../erweiterungen.jsx';
 import { AdminZockerdb } from '../komponenten/Zockerdb.jsx';
+import AdminUpdate from '../komponenten/AdminUpdate.jsx';
 
 const REITER = [['uebersicht', 'Übersicht'], ['benutzer', 'Benutzer & Rollen'], ['einstellungen', 'Einstellungen'], ['rechtliches', 'Rechtliches'], ['sicherungen', 'Sicherungen']];
 const MODUL_REITER = MODUL.adminReiter ?? [];
@@ -76,6 +77,7 @@ function Uebersicht({ d }) {
       </div>
       <Andockpunkt name="admin.uebersicht" d={d} />
       <AdminZockerdb />
+      <AdminUpdate />
       <section className="karte p-4">
         <h2 className="mb-2 font-semibold">Dienste & Einstellungen</h2>
         <ul className="grid gap-1 text-sm sm:grid-cols-2">

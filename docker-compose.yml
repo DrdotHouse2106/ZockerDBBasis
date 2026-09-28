@@ -7,6 +7,7 @@
 #
 #   docker compose up -d            # herunterladen und im Hintergrund starten
 #   docker compose pull && docker compose up -d   # auf die neueste Version aktualisieren
+#   (oder bequemer: Knopf „Jetzt aktualisieren“ in der Administration – dafür unten Watchtower einschalten)
 #   docker compose logs -f          # Protokoll ansehen
 #   docker compose down             # anhalten (Daten bleiben erhalten)
 #
@@ -107,8 +108,32 @@ services:
       BARCODE_PROVIDERS: "opengtindb,upcitemdb"
       OPENGTINDB_QUERYID: ""
 
+      # ── Update per Knopf (Administration → Übersicht) ───────────
+      # Braucht den Watchtower-Dienst weiter unten. Token: einmalig mit „openssl rand -hex 32“ erzeugen
+      # und bei beiden Diensten eintragen.
+      UPDATE_URL: ""                  # mit Watchtower: "http://watchtower:8080/v1/update"
+      UPDATE_TOKEN: ""
+
     # Ein Healthcheck (GET /api/health) ist bereits im Image hinterlegt –
     # „docker compose ps“ zeigt „healthy“, sobald die App bereit ist.
+
+  # ── Optional: Update per Knopf ──────────────────────────────
+  # Watchtower lädt auf Knopfdruck in der Administration das neue Image und startet ZockerDB damit neu.
+  # Nur Watchtower bekommt Zugriff auf Docker, nicht die App. Einschalten: die Zeilen unten
+  # auskommentieren (# entfernen), denselben Token wie bei UPDATE_TOKEN eintragen und oben
+  # UPDATE_URL: "http://watchtower:8080/v1/update" setzen.
+  # watchtower:
+  #   image: nickfedor/watchtower:latest
+  #   container_name: watchtower
+  #   restart: unless-stopped
+  #   # Nur ZockerDB aktualisieren, und nur auf Knopfdruck (keine automatischen Updates)
+  #   command: zockerdb
+  #   environment:
+  #     WATCHTOWER_HTTP_API_UPDATE: "true"
+  #     WATCHTOWER_HTTP_API_TOKEN: "hier-denselben-token-wie-bei-UPDATE_TOKEN"
+  #     WATCHTOWER_CLEANUP: "true"     # altes Image danach löschen
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   # Benanntes Docker-Volume für Datenbank, Uploads und geheimnis.key.

@@ -5,7 +5,7 @@ import { erstelleDrossel } from '../services/drossel.js';
 // Nur über die .env änderbar – zur Information in der Oberfläche
 const NUR_ENV = ['APP_SECRET', 'DATABASE_PATH', 'UPLOAD_DIR', 'PORT', 'HOST', 'TRUST_PROXY', 'COOKIE_SECURE', 'SESSION_DAYS', 'REGISTRATIONS_PER_HOUR'];
 
-export function adminRouter({ db, konten, dateien, speicher, sicherung, mail, benachrichtigungen, igdb, einstellungen, konfiguration, erweiterungen }) {
+export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualisierung, mail, benachrichtigungen, igdb, einstellungen, konfiguration, erweiterungen }) {
   const router = Router();
   const bestaetigungsDrossel = erstelleDrossel({ maxVersuche: 5 });
   const anzahlAdmins = () => db.prepare("SELECT COUNT(*) AS n FROM benutzer WHERE rolle = 'admin' AND gesperrt = 0").get().n;
@@ -51,6 +51,10 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, mail, be
     for (const fn of erweiterungen.alle('admin.uebersicht')) fn(ergebnis);
     res.json(ergebnis);
   });
+
+  // ── Update per Knopf (Watchtower) ──────────────────────────
+  router.get('/aktualisierung', (_req, res) => res.json(aktualisierung.status()));
+  router.post('/aktualisierung', async (_req, res) => res.json(await aktualisierung.starte()));
 
   // ── Server-Einstellungen (Vorrang vor der .env, wirken sofort) ─────────
   router.get('/einstellungen', (_req, res) => {

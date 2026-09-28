@@ -172,6 +172,20 @@ Heimnetz eignen sich auch [Tailscale](https://tailscale.com) oder der Proxy dein
 - **Komplett:** Sichere das gesamte Datenverzeichnis `/app/data` (inklusive `geheimnis.key`) – z. B. per
   Proxmox-/NAS-Backup – und bewahre eine Kopie außer Haus auf.
 
+## Update per Knopf
+
+Statt `docker compose pull && docker compose up -d` geht das Update auch mit dem Knopf **„Jetzt aktualisieren“** unter
+*Administration → Übersicht → Update*. Die App selbst bekommt dafür keinen Zugriff auf Docker, das übernimmt ein kleiner
+[Watchtower](https://github.com/nicholas-fedor/watchtower)-Container auf Anfrage:
+
+1. In der `docker-compose.yml` den auskommentierten Dienst `watchtower` einschalten.
+2. Einen Token erzeugen (`openssl rand -hex 32`) und bei `WATCHTOWER_HTTP_API_TOKEN` und `UPDATE_TOKEN` eintragen.
+3. `UPDATE_URL: "http://watchtower:8080/v1/update"` setzen und `docker compose up -d` ausführen.
+
+Beim Klick sichert ZockerDB zuerst die Datenbank. Dann lädt Watchtower das neue Image, falls es eins gibt, und startet
+ZockerDB damit neu (etwa eine Minute nicht erreichbar). Die Seite lädt danach von selbst neu. Unter *Update* steht auch,
+welcher Stand installiert ist, und ein Hinweis erscheint, sobald ein neuerer Stand verfügbar ist.
+
 ## Installation ohne Docker
 
 Voraussetzung: **Node.js 22** oder neuer.

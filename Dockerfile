@@ -14,6 +14,11 @@ RUN npm run build && npm prune --omit=dev
 
 # ── Stufe 2: schlankes Laufzeit-Image ────────────────────────
 FROM node:22-bookworm-slim
+# Stand des Images (von der CI gesetzt) – Anzeige und Update-Hinweis in der Administration
+ARG ZOCKERDB_BUILD=""
+ARG ZOCKERDB_BUILD_DATE=""
+ENV ZOCKERDB_BUILD=$ZOCKERDB_BUILD \
+    ZOCKERDB_BUILD_DATE=$ZOCKERDB_BUILD_DATE
 ENV NODE_ENV=production \
     PORT=3000 \
     DATABASE_PATH=/app/data/sammlung.db \

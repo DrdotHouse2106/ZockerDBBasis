@@ -228,7 +228,7 @@ export function AdminZockerdb() {
       {d.neueVersion && (
         <p className="rounded-lg border border-akzent/50 p-2">
           🆕 <strong>Neue Version {d.neueVersion.version}</strong> verfügbar (installiert: {d.version}).
-          {' '}Mit Docker: <code>docker compose pull && docker compose up -d</code>
+          {' '}Installieren mit „Jetzt aktualisieren“ im Abschnitt Update weiter unten.
           {d.neueVersion.hinweise && <> · <a className="underline" href={d.neueVersion.hinweise} target="_blank" rel="noopener">Hinweise</a></>}
         </p>
       )}
