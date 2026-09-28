@@ -22,7 +22,7 @@ sich sauber erfassen – per Titelsuche, **Barcode-Scan mit der Handykamera** od
   &nbsp;
   <img src="docs/bilder/scans-mobil.png" alt="Scans und Dokumente zu einem Spiel" width="200" />
   &nbsp;
-  <img src="docs/bilder/druck-mobil.png" alt="Cover-Scan in Originalgröße drucken" width="200" />
+  <img src="docs/bilder/druck-mobil.png" alt="Scan des eigenen Covers ausdrucken" width="200" />
 </p>
 
 ## Funktionen
@@ -36,7 +36,8 @@ sich sauber erfassen – per Titelsuche, **Barcode-Scan mit der Handykamera** od
   Erfolge sammeln; Scans bleiben zu Hause
 - **Plattformen als feste Kategorien** (PS5, Switch, N64 …) nach Hersteller gruppiert, **Varianten/Revisionen** als Sammel-Checkliste,
   mehrere Exemplare je Spiel
-- **Scans & Handbücher** je Spiel (auch hochauflösende TIFF-Scans und PDFs) und **Cover-Druck in Originalgröße**
+- **Scans & Handbücher deiner eigenen Originale** privat archivieren (auch TIFF und PDF) – mit Druckansicht in
+  Originalgröße für den privaten Gebrauch
 - **Ohne Kaufpreis kein Problem:** Herkunft (Konvolut, Geschenk, „schon immer“ …), ungefähres Kaufdatum (nur Jahr) und
   **Konvolute** mit Gesamtpreis, der automatisch auf die Artikel verteilt wird
 - **Private Kommentare**, **Statistik**, **Filter & Suche**

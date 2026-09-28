@@ -1,5 +1,6 @@
-// Druckansicht für Cover-Scans: Ausdruck in Originalgröße (anhand der Scan-Auflösung),
+// Druckansicht für Scans eigener Originale (Privatkopie): Ausdruck in Originalgröße (anhand der Scan-Auflösung),
 // in einer festen Größe (z. B. DVD-Hülle) oder seitenfüllend – mit optionalen Schnittmarken.
+// Weitergabe und Verkauf von Ausdrucken sind nicht erlaubt – darauf weist die Ansicht hin.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MEDIENARTEN, beschriftung } from '../../../shared/konstanten.js';
@@ -116,6 +117,10 @@ export default function Druck({ route, id }) {
         <div className="space-y-4">
           <section className="karte space-y-3 p-4">
             <h2 className="font-semibold">{medium.titel || beschriftung(MEDIENARTEN, medium.art)}</h2>
+            <p className="rounded-lg border border-warnung/50 bg-warnung/10 p-2 text-xs">
+              Nur für den privaten Gebrauch – z. B. als Ersatz für ein beschädigtes Cover deines eigenen Originals.
+              Cover und Anleitungen sind urheberrechtlich geschützt: Weitergabe und Verkauf von Kopien sind nicht erlaubt.
+            </p>
             <p className="text-sm text-leise">{medium.breite} × {medium.hoehe} Pixel{medium.dpi ? ` · ${medium.dpi} dpi laut Datei` : ' · keine DPI-Angabe in der Datei'}</p>
 
             <fieldset className="space-y-2">

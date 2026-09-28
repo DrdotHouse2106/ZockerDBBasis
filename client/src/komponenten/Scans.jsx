@@ -75,7 +75,7 @@ export default function Scans({ katalogId, artikelId, nurLesen = false, onKatalo
         <p className="text-sm text-leise">
           {nurLesen
             ? 'Keine freigegebenen Scans vorhanden.'
-            : 'Noch keine Scans. Lade hochauflösende Cover-Scans (z. B. 600 dpi) hoch, um sie bei Bedarf in Originalgröße nachzudrucken – oder das Handbuch als PDF.'}
+            : 'Noch keine Scans. Archiviere Scans deiner eigenen Originale (Cover, Anleitung als PDF) – nur für dich, z. B. als Sicherung, falls das Original beschädigt wird.'}
         </p>
       )}
 
