@@ -415,7 +415,19 @@ export function oeffneDatenbank(dateipfad) {
   if (dateipfad !== ':memory:') {
     fs.mkdirSync(path.dirname(dateipfad), { recursive: true });
   }
-  const db = new Database(dateipfad);
+  let db;
+  try {
+    db = new Database(dateipfad);
+  } catch (fehler) {
+    // Häufigster Fall bei Docker: eingebundener Ordner gehört root, die App läuft aber als Benutzer 1000
+    if (fehler.code === 'SQLITE_CANTOPEN' || fehler.code === 'SQLITE_READONLY') {
+      const ordner = path.dirname(path.resolve(dateipfad));
+      console.error(`\n❌ Die Datenbank ${dateipfad} lässt sich nicht öffnen oder beschreiben.
+   Der Ordner ${ordner} muss für den Benutzer beschreibbar sein, unter dem die App läuft${process.getuid ? ` (Benutzer-ID ${process.getuid()})` : ''}.
+   Bei Docker mit eingebundenem Ordner auf dem Server z. B.:  chown -R 1000:1000 /pfad/zum/ordner\n`);
+    }
+    throw fehler;
+  }
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
