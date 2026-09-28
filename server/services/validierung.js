@@ -19,7 +19,7 @@ const TEXTFELDER = {
   notizen: 5000,
 };
 
-const AUSWAHLFELDER = ['zustand', 'vollstaendigkeit', 'region'];
+const AUSWAHLFELDER = ['zustand', 'vollstaendigkeit', 'region', 'herkunft'];
 
 export function leerZuNull(wert) {
   if (wert === undefined || wert === null) return null;
@@ -89,8 +89,10 @@ export function pruefeArtikel(eingabe, teilweise = false) {
 
   if (!teilweise || hat('kaufdatum')) {
     const datum = leerZuNull(eingabe.kaufdatum);
-    if (datum && (!/^\d{4}-\d{2}-\d{2}$/.test(datum) || Number.isNaN(Date.parse(datum)))) {
-      fehler.kaufdatum = 'Bitte ein gültiges Datum angeben.';
+    // Auch ungefähr: nur Jahr (1995) oder Monat und Jahr (1995-03) – oft weiß man den Tag nicht mehr
+    if (datum && (!/^\d{4}(-\d{2}(-\d{2})?)?$/.test(datum) || Number.isNaN(Date.parse(datum.length === 4 ? `${datum}-01-01` : datum.length === 7 ? `${datum}-01` : datum))
+      || Number(datum.slice(0, 4)) < 1950 || Number(datum.slice(0, 4)) > 2100)) {
+      fehler.kaufdatum = 'Bitte ein gültiges Datum angeben (auch nur Jahr oder Monat.Jahr).';
     }
     daten.kaufdatum = datum;
   }
@@ -101,7 +103,7 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     else daten.anzahl = anzahl;
   }
 
-  for (const feld of ['plattform_id', 'variante_id']) {
+  for (const feld of ['plattform_id', 'variante_id', 'konvolut_id']) {
     if (teilweise && !hat(feld)) continue;
     const id = eingabe[feld] === '' || eingabe[feld] == null ? null : Number(eingabe[feld]);
     if (id !== null && !Number.isInteger(id)) fehler[feld] = 'Ungültige Auswahl.';

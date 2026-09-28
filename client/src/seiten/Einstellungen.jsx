@@ -53,6 +53,7 @@ export default function Einstellungen({ route }) {
             // Einträge von Zusatzmodulen
             ...(MODUL.menue ?? []).filter((m) => !m.sichtbar || m.sichtbar({ auth, benutzer })).map((m) => [m.href, m.symbol, m.titel, m.text]),
             ['#/statistik', 'statistik', 'Statistik', 'Verteilung nach Plattform, Region, Zustand'],
+            ['#/konvolute', 'dokument', 'Konvolute', 'Pakete zu einem Gesamtpreis – automatisch verteilt'],
             ...(benutzer?.rolle === 'admin' ? [['#/admin', 'benutzer', 'Administration', 'Übersicht, Benutzer, Einstellungen, Sicherungen']] : []),
           ].map(([href, symbol, titel, text]) => (
             <a key={href} href={href} className="flex items-center gap-3 p-4 hover:bg-karte-hover">
@@ -155,7 +156,7 @@ export default function Einstellungen({ route }) {
         </section>
 
         <section className="space-y-1 px-1 pb-4 text-xs text-leise">
-          <p>{MARKE.name} ist <a className="underline" href="https://github.com/DrdotHouse2106/ZockDBBasis" target="_blank" rel="noreferrer">quelloffen auf GitHub</a> unter der PolyForm-Noncommercial-Lizenz – private und gemeinnützige Nutzung frei, kommerzielle Nutzung nur mit Erlaubnis.</p>
+          <p>{MARKE.name} ist <a className="underline" href="https://github.com/DrdotHouse2106/ZockerDBBasis" target="_blank" rel="noreferrer">quelloffen auf GitHub</a> unter der PolyForm-Noncommercial-Lizenz – private und gemeinnützige Nutzung frei, kommerzielle Nutzung nur mit Erlaubnis.</p>
           <Andockpunkt name="impressum.quellen" />
           <p>Spieldaten und Coverbilder werden von <a className="underline" href="https://www.igdb.com" target="_blank" rel="noreferrer">IGDB.com</a> bereitgestellt.</p>
         </section>

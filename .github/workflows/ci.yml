@@ -69,8 +69,8 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # ghcr.io/drdothouse2106/zockdbbasis
-          images: ghcr.io/${{ github.repository_owner }}/zockdbbasis
+          # ghcr.io/drdothouse2106/zockerdbbasis
+          images: ghcr.io/${{ github.repository_owner }}/zockerdbbasis
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}

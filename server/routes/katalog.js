@@ -8,7 +8,7 @@ import { normalisiereBarcode } from '../services/titel.js';
 
 const nichtGefunden = (res, was = 'Katalogeintrag') => res.status(404).json({ fehler: `${was} nicht gefunden.` });
 
-export function katalogRouter({ db, katalog, dateien, erweiterungen }) {
+export function katalogRouter({ db, katalog, dateien, erweiterungen, zentrale }) {
   const router = Router();
 
   // Eigene, noch nicht freigegebene Einträge darf der Ersteller ändern; Moderatoren alle Einträge.
@@ -24,7 +24,10 @@ export function katalogRouter({ db, katalog, dateien, erweiterungen }) {
   // Kombinierte Suche: lokaler Katalog (freigegeben + eigene) + IGDB.
   router.get('/suche', async (req, res) => {
     const typ = ['spiel', 'konsole', 'zubehoer'].includes(req.query.typ) ? req.query.typ : null;
-    const ergebnis = await katalog.suche(String(req.query.q ?? ''), typ, req.benutzer);
+    const ergebnis = await katalog.suche(String(req.query.q ?? ''), typ, req.benutzer, {
+      online: req.query.online === '1',
+      seite: Math.min(20, Math.max(0, Number.parseInt(req.query.seite, 10) || 0)),
+    });
     const f = (e) => fuerBenutzer(e, req.benutzer);
     res.json({ ...ergebnis, lokal: ergebnis.lokal.map(f), online: ergebnis.online.map(f) });
   });
@@ -47,13 +50,19 @@ export function katalogRouter({ db, katalog, dateien, erweiterungen }) {
     if (eintrag) res.json(fuerBenutzer(eintrag, req.benutzer));
   });
 
-  router.post('/', (req, res) => {
+  // Eigener Katalogeintrag – auch als „Titel vorschlagen“ für Exoten ohne Barcode (ohne Artikel in der Sammlung)
+  router.post('/', async (req, res) => {
     const daten = pruefeKatalogEintrag(req.body);
     const eintrag = katalog.legeEigenenAn(daten, req.benutzer, {
       einreichen: Boolean(req.body?.einreichen), veroeffentlichen: Boolean(req.body?.veroeffentlichen),
     });
     if (eintrag.status === 'eingereicht') erweiterungen.melde('katalog.eingereicht');
-    res.status(201).json(eintrag);
+    // Ohne eigene Moderation (selbst gehostet): Vorschlag an zockerdb.de – nach der Freigabe dort für alle im Katalog
+    let zentralFehler = null;
+    if (req.body?.einreichen && !katalog.moderiert() && zentrale?.aktiv) {
+      await zentrale.einreichen(eintrag).catch((e) => { zentralFehler = e.message; });
+    }
+    res.status(201).json({ ...katalog.holeEintrag(eintrag.id), zentral_fehler: zentralFehler });
   });
 
   router.put('/:id', (req, res) => {
@@ -98,7 +107,7 @@ export function katalogRouter({ db, katalog, dateien, erweiterungen }) {
     const daten = pruefeVariante(req.body);
     let status = 'privat';
     if (istModerator(req.benutzer) && req.body?.veroeffentlichen) status = 'freigegeben';
-    else if (req.body?.einreichen) status = 'eingereicht';
+    else if (req.body?.einreichen && katalog.moderiert()) status = 'eingereicht';
     const v = db.prepare(`
       INSERT INTO katalog_varianten (katalog_id, bezeichnung, modellnummer, farbe, edition, region, erscheinungsjahr, beschreibung, status, erstellt_von, eingereicht_am)
       VALUES (@katalog_id, @bezeichnung, @modellnummer, @farbe, @edition, @region, @erscheinungsjahr, @beschreibung, @status, @erstellt_von,

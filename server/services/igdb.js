@@ -7,6 +7,9 @@ const BILD_URL = 'https://images.igdb.com/igdb/image/upload';
 
 export class IgdbFehler extends Error {}
 
+/** Nur echte Seiten auf igdb.com übernehmen (Quellenangabe „Auf IGDB.com ansehen“). */
+export const igdbSeite = (url) => (/^https:\/\/www\.igdb\.com\/[\w/-]+$/.test(url ?? '') ? url : null);
+
 export function igdbBildUrl(imageId, groesse = 't_cover_big') {
   return imageId ? `${BILD_URL}/${groesse}/${imageId}.jpg` : null;
 }
@@ -18,6 +21,41 @@ function suchtext(text) {
 
 function jahr(unixSekunden) {
   return unixSekunden ? new Date(unixSekunden * 1000).getUTCFullYear() : null;
+}
+
+/** Felder eines Spiels, die für einen Katalogeintrag gebraucht werden (auch mit Präfix, z. B. „similar_games.“). */
+export const SPIEL_FELDER = 'name, first_release_date, summary, cover.image_id, platforms.name, '
+  + 'involved_companies.company.name, involved_companies.publisher, involved_companies.developer, '
+  + 'alternative_names.name, alternative_names.comment, url';
+
+/**
+ * Echter deutscher Titel: IGDB führt ihn als Alternativnamen mit Vermerk wie „German title“. Titel werden
+ * nie maschinell übersetzt – gibt es keinen deutschen Titel, bleibt der Originalname.
+ */
+export function deutscherTitel(spiel) {
+  const treffer = (spiel.alternative_names ?? [])
+    .find((a) => a.name && /\b(german|deutsch|germany|deutschland)\b/i.test(a.comment ?? '') && !/translat|übersetz/i.test(a.comment ?? ''));
+  return treffer?.name.trim() || null;
+}
+
+/** Wandelt ein IGDB-Spiel in einen vereinheitlichten Katalog-Datensatz um. */
+export function spielZuEintrag(spiel) {
+  const firmen = spiel.involved_companies ?? [];
+  const hersteller = (firmen.find((f) => f.publisher) ?? firmen.find((f) => f.developer) ?? firmen[0])?.company?.name ?? null;
+  const deutsch = deutscherTitel(spiel);
+  return {
+    quelle: 'igdb',
+    externe_id: `game:${spiel.id}`,
+    typ: 'spiel',
+    titel: deutsch ?? spiel.name,
+    titel_original: deutsch && deutsch !== spiel.name ? spiel.name : null,
+    igdb_url: igdbSeite(spiel.url),
+    plattformen: (spiel.platforms ?? []).map((p) => p.name),
+    erscheinungsjahr: jahr(spiel.first_release_date),
+    hersteller,
+    cover_url: igdbBildUrl(spiel.cover?.image_id),
+    beschreibung: spiel.summary ?? null,
+  };
 }
 
 export function erstelleIgdbDienst({ clientId, clientSecret }, db, { fetchFn = globalThis.fetch } = {}) {
@@ -71,39 +109,24 @@ export function erstelleIgdbDienst({ clientId, clientSecret }, db, { fetchFn = g
   }
 
   /** Spiele per Titel suchen. Liefert vereinheitlichte Katalog-Datensätze. */
-  async function sucheSpiele(begriff, limit = 20) {
+  async function sucheSpiele(begriff, limit = 20, offset = 0) {
     const ergebnis = await abfrage(
       'games',
       `search "${suchtext(begriff)}";
-       fields name, first_release_date, summary, cover.image_id, platforms.name,
-              involved_companies.company.name, involved_companies.publisher, involved_companies.developer;
-       limit ${limit};`,
+       fields ${SPIEL_FELDER};
+       limit ${limit}; offset ${offset};`,
     );
-    return ergebnis.map((spiel) => {
-      const firmen = spiel.involved_companies ?? [];
-      const hersteller = (firmen.find((f) => f.publisher) ?? firmen.find((f) => f.developer) ?? firmen[0])?.company?.name ?? null;
-      return {
-        quelle: 'igdb',
-        externe_id: `game:${spiel.id}`,
-        typ: 'spiel',
-        titel: spiel.name,
-        plattformen: (spiel.platforms ?? []).map((p) => p.name),
-        erscheinungsjahr: jahr(spiel.first_release_date),
-        hersteller,
-        cover_url: igdbBildUrl(spiel.cover?.image_id),
-        beschreibung: spiel.summary ?? null,
-      };
-    });
+    return ergebnis.map(spielZuEintrag);
   }
 
   /** Konsolen/Systeme per Name suchen (IGDB-Endpunkt „platforms“). */
-  async function sucheKonsolen(begriff, limit = 20) {
+  async function sucheKonsolen(begriff, limit = 20, offset = 0) {
     const ergebnis = await abfrage(
       'platforms',
       `search "${suchtext(begriff)}";
-       fields name, abbreviation, alternative_name, generation, summary, platform_logo.image_id,
+       fields name, abbreviation, alternative_name, generation, summary, url, platform_logo.image_id,
               versions.name, versions.platform_logo.image_id;
-       limit ${limit};`,
+       limit ${limit}; offset ${offset};`,
     );
     return ergebnis.map((plattform) => ({
       quelle: 'igdb',
@@ -115,8 +138,10 @@ export function erstelleIgdbDienst({ clientId, clientSecret }, db, { fetchFn = g
       hersteller: null,
       cover_url: igdbBildUrl(plattform.platform_logo?.image_id, 't_logo_med'),
       beschreibung: plattform.summary ?? null,
+      igdb_url: igdbSeite(plattform.url),
     }));
   }
 
-  return { konfiguriert, sucheSpiele, sucheKonsolen };
+  // `abfrage` für Zusatzmodule, die weitere IGDB-Daten nutzen
+  return { konfiguriert, sucheSpiele, sucheKonsolen, abfrage };
 }

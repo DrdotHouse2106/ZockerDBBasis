@@ -23,6 +23,7 @@ const SEITEN = [
   ['/einstellungen', 'Mehr'],
   ['/import', 'Sammlung importieren'],
   ['/katalog', 'Katalog'],
+  ['/konvolute', 'Konvolute'],
   ['/benachrichtigungen', 'Benachrichtigungen'],
   ['/admin', 'Administration'],
   ['/admin?reiter=sicherungen', 'Administration'],
@@ -40,3 +41,30 @@ for (const [pfad, titel] of SEITEN) {
     expect(fehler).toEqual([]);
   });
 }
+
+test('Konvolut: Gesamtpreis anlegen, Artikel erfassen, Anteil wird angezeigt', async ({ page }) => {
+  const fehler = fehlerSammeln(page);
+  await anmelden(page, 'konvolut_e2e');
+  await page.goto('/?app=1#/konvolute');
+  await page.getByRole('button', { name: 'Neues Konvolut' }).click();
+  await page.getByLabel('Name').fill('Flohmarkt-Kiste');
+  await page.getByLabel('Gesamtpreis').fill('20');
+  await page.getByLabel('Kaufdatum').fill('1998');
+  await page.getByRole('button', { name: 'Anlegen' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Flohmarkt-Kiste' })).toBeVisible();
+
+  // Artikel aus dem Konvolut erfassen (eigener Eintrag) – nach dem Speichern geht es direkt mit dem nächsten weiter
+  await page.getByRole('button', { name: 'Artikel erfassen' }).click();
+  for (const titel of ['Kistenspiel Eins', 'Kistenspiel Zwei']) {
+    await expect(page.getByText('Du erfasst Artikel für das Konvolut')).toBeVisible();
+    await page.getByRole('searchbox').first().fill(titel);
+    await page.getByRole('button', { name: 'Eigenen Eintrag anlegen' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Neuer Artikel' })).toBeVisible();
+    await page.getByRole('button', { name: /Speichern|Hinzufügen/ }).last().click();
+  }
+  await page.getByRole('link', { name: 'Fertig – zum Konvolut' }).click();
+  await expect(page.getByText('2 Artikel · verteilt 20,00 € von 20,00 €')).toBeVisible();
+  await expect(page.getByText('10,00 €').first()).toBeVisible();
+  await keinQuerScrollen(page);
+  expect(fehler).toEqual([]);
+});

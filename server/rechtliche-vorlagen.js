@@ -52,6 +52,8 @@ Nur ein technisch notwendiges Sitzungs-Cookie für die Anmeldung. Die App speich
 
 - **Spieldaten und Coverbilder (IGDB):** Suchen stellt der Server; Coverbilder lädt dein Browser von images.igdb.com (Twitch Interactive, Inc., USA). Dabei wird deine IP-Adresse übertragen.
 - **Barcode-Datenbanken:** Der Server fragt Produktnamen zu Barcodes ab, ohne Daten über dich zu übermitteln.
+- **Zentraler Katalog (zockerdb.de):** Suchbegriffe und Barcodes schickt der Server – nicht dein Browser – an zockerdb.de, um Spieldaten zu finden. Dabei werden keine Daten über dich übertragen. [Falls die anonyme Datenspende eingeschaltet ist:] Wöchentlich meldet der Server nur, wie viele Sammler hier einen Titel besitzen – ohne Namen, Preise oder Notizen; du kannst dich im Konto ausnehmen.
+- **Sync mit zockerdb.de (nur wenn du ihn selbst einrichtest):** Deine Sammlung wird mit deinem Konto auf zockerdb.de abgeglichen. Dafür gelten zusätzlich die Datenschutzhinweise von zockerdb.de.
 - **Kamera (Barcode-Scanner):** Das Bild wird nur lokal im Browser ausgewertet.
 
 ## 6. Speicherdauer und deine Rechte
@@ -98,7 +100,7 @@ Passwörter werden nur als sicherer Hash gespeichert, die Zwei-Faktor-Anmeldung 
 
 Bitte vertraulich melden:
 
-- **Für die Software ZockDB:** per E-Mail an [security@zockdb.de](mailto:security@zockdb.de)
+- **Für die Software ZockerDB:** per E-Mail an [security@zockerdb.de](mailto:security@zockerdb.de)
 - **Für diesen Server:** [E-Mail-Adresse des Betreibers]
 
 Bitte greife bei der Suche nicht auf fremde Daten zu und beeinträchtige den Betrieb nicht.

@@ -17,7 +17,7 @@ const ERLAUBTE_BILDTYPEN = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/w
 const FELDER = [
   'typ', 'titel', 'plattform', 'katalog_id', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region',
   'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert',
-  'plattform_id', 'variante_id',
+  'plattform_id', 'variante_id', 'herkunft', 'konvolut_id',
 ];
 
 export function artikelZuObjekt(zeile) {
@@ -28,7 +28,7 @@ export function artikelZuObjekt(zeile) {
   };
 }
 
-export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen, speicher, erweiterungen }) {
+export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen, speicher, erweiterungen, zentrale, konvolute }) {
   const router = Router();
 
   const upload = () => multer({
@@ -43,9 +43,9 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
 
   const basisAbfrage = `
     SELECT a.*, k.cover_url AS katalog_cover_url, k.erscheinungsjahr, k.quelle AS katalog_quelle, k.status AS katalog_status,
-           p.kurz AS plattform_kurz, p.hersteller AS plattform_hersteller, v.bezeichnung AS variante_bezeichnung
+           p.kurz AS plattform_kurz, p.hersteller AS plattform_hersteller, v.bezeichnung AS variante_bezeichnung, kv.name AS konvolut_name
     FROM artikel a LEFT JOIN katalog k ON k.id = a.katalog_id LEFT JOIN plattformen p ON p.id = a.plattform_id
-    LEFT JOIN katalog_varianten v ON v.id = a.variante_id`;
+    LEFT JOIN katalog_varianten v ON v.id = a.variante_id LEFT JOIN konvolute kv ON kv.id = a.konvolut_id`;
   const perId = db.prepare(`${basisAbfrage} WHERE a.id = ? AND a.benutzer_id = ?`);
   const einfuegen = db.prepare(
     `INSERT INTO artikel (benutzer_id, ${FELDER.join(', ')}) VALUES (@benutzer_id, ${FELDER.map((f) => `@${f}`).join(', ')}) RETURNING id`,
@@ -92,13 +92,19 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
   router.get('/', (req, res) => {
     const bedingungen = ['a.benutzer_id = @benutzer_id'];
     const parameter = { benutzer_id: req.benutzer.id };
-    const { typ, q, plattform, region, zustand, vollstaendigkeit } = req.query;
+    const { typ, q, plattform, region, zustand, vollstaendigkeit, herkunft } = req.query;
+    if (req.query.ohne_preis === '1') bedingungen.push('a.kaufpreis IS NULL');
+    const konvolutId = Number(req.query.konvolut_id);
+    if (Number.isInteger(konvolutId) && konvolutId > 0) {
+      bedingungen.push('a.konvolut_id = @konvolut_id');
+      parameter.konvolut_id = konvolutId;
+    }
     const plattformId = Number(req.query.plattform_id);
     if (Number.isInteger(plattformId) && plattformId > 0) {
       bedingungen.push('a.plattform_id = @plattform_id');
       parameter.plattform_id = plattformId;
     }
-    for (const [feld, wert] of Object.entries({ typ, plattform, region, zustand, vollstaendigkeit })) {
+    for (const [feld, wert] of Object.entries({ typ, plattform, region, zustand, vollstaendigkeit, herkunft })) {
       if (typeof wert === 'string' && wert) {
         bedingungen.push(`a.${feld} = @${feld}`);
         parameter[feld] = wert;
@@ -130,9 +136,19 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     if (artikel) res.json(artikelZuObjekt(artikel));
   });
 
+  /** Konvolut muss dem Benutzer gehören; Artikel darin haben die Herkunft „Konvolut“. */
+  function pruefeKonvolut(daten, req) {
+    if (!daten.konvolut_id) return;
+    if (!db.prepare('SELECT 1 FROM konvolute WHERE id = ? AND benutzer_id = ?').get(daten.konvolut_id, req.benutzer.id)) {
+      throw new ValidierungsFehler({ konvolut_id: 'Unbekanntes Konvolut.' });
+    }
+    daten.herkunft ??= 'konvolut';
+  }
+
   router.post('/', (req, res) => {
     const daten = pruefeArtikel(req.body);
     pruefeKatalog(daten.katalog_id, req);
+    pruefeKonvolut(daten, req);
     loesePlattform(daten);
     pruefeVariante(daten.variante_id, daten.katalog_id, req);
     const id = db.transaction(() => {
@@ -147,7 +163,19 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
       if (daten.barcode) katalog.verknuepfeBarcode(daten.barcode, daten.katalog_id, req.benutzer.id);
       return neueId;
     })();
-    if (req.body?.katalog_einreichen) erweiterungen.melde('katalog.eingereicht');
+    // Im Konvolut ohne eigenen Preis: Anteil am Gesamtpreis
+    if (daten.konvolut_id) {
+      if (daten.kaufpreis == null) db.prepare('UPDATE artikel SET kaufpreis_anteilig = 1 WHERE id = ?').run(id);
+      konvolute.aufteilen(daten.konvolut_id);
+    }
+    if (req.body?.katalog_einreichen) {
+      erweiterungen.melde('katalog.eingereicht');
+      // Selbst gehostet ohne eigene Moderation: Eintrag bei zockerdb.de einreichen (im Hintergrund)
+      const eintrag = katalog.holeEintrag(daten.katalog_id);
+      if (!katalog.moderiert() && zentrale?.aktiv && eintrag?.quelle === 'eigen' && !eintrag.zentral_status) {
+        zentrale.einreichen(eintrag).catch((e) => console.warn('[zockerdb.de]', e.message));
+      }
+    }
     erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
     res.status(201).json(artikelZuObjekt(perId.get(id, req.benutzer.id)));
   });
@@ -157,6 +185,9 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     if (!vorhanden) return;
     const daten = pruefeArtikel(req.body, true);
     if (daten.katalog_id) pruefeKatalog(daten.katalog_id, req);
+    pruefeKonvolut(daten, req);
+    // Selbst eingetragener Preis ist fest; leerer Preis im Konvolut = wieder Anteil am Gesamtpreis
+    if (Object.hasOwn(daten, 'kaufpreis')) daten.kaufpreis_anteilig = daten.kaufpreis == null && (daten.konvolut_id ?? vorhanden.konvolut_id) ? 1 : 0;
     loesePlattform(daten);
     if (daten.variante_id) pruefeVariante(daten.variante_id, daten.katalog_id ?? vorhanden.katalog_id, req);
     const felder = Object.keys(daten);
@@ -170,6 +201,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
         if (barcode && katalogId) katalog.verknuepfeBarcode(barcode, katalogId, req.benutzer.id);
       })();
     }
+    for (const k of new Set([vorhanden.konvolut_id, daten.konvolut_id].filter(Boolean))) konvolute.aufteilen(k);
     res.json(artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)));
   });
 
@@ -177,6 +209,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     const vorhanden = holeOder404(req, res);
     if (!vorhanden) return;
     loeschen.run(vorhanden.id);
+    if (vorhanden.konvolut_id) konvolute.aufteilen(vorhanden.konvolut_id);
     bildEntfernen(vorhanden.bild_datei);
     res.status(204).end();
   });
@@ -197,7 +230,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
       bildEntfernen(req.file.filename);
       throw fehler;
     }
-    db.prepare("UPDATE artikel SET bild_datei = ?, bild_groesse = ?, aktualisiert_am = datetime('now') WHERE id = ?")
+    db.prepare("UPDATE artikel SET bild_datei = ?, bild_groesse = ?, sync_bild_hash = NULL, aktualisiert_am = datetime('now') WHERE id = ?")
       .run(req.file.filename, req.file.size, vorhanden.id);
     bildEntfernen(vorhanden.bild_datei);
     res.json(artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)));
@@ -206,7 +239,8 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
   router.delete('/:id/bild', (req, res) => {
     const vorhanden = holeOder404(req, res);
     if (!vorhanden) return;
-    db.prepare("UPDATE artikel SET bild_datei = NULL, bild_groesse = NULL, aktualisiert_am = datetime('now') WHERE id = ?").run(vorhanden.id);
+    // „geloescht“ merkt sich der Sync: das Foto wird auch auf der Gegenseite entfernt
+    db.prepare("UPDATE artikel SET bild_datei = NULL, bild_groesse = NULL, sync_bild_hash = 'geloescht', aktualisiert_am = datetime('now') WHERE id = ?").run(vorhanden.id);
     bildEntfernen(vorhanden.bild_datei);
     res.json(artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)));
   });

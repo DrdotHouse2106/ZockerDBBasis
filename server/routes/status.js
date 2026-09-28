@@ -19,6 +19,8 @@ export function statusRouter({ igdb, barcode, plattformen, konfiguration, versio
       maxUploadMb: konfiguration.maxUploadMb,
       maxMedienMb: konfiguration.maxMedienMb,
       speicherKontingentMb: konfiguration.speicherKontingentMb,
+      zentrale: konfiguration.zentrale?.url || null,
+      zentraleSpende: konfiguration.zentrale?.url ? Boolean(konfiguration.zentrale.spende) : null,
       ...erweiterungen.sammle('status'),
     });
   });

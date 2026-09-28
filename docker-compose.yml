@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# ZockDB Basis – Docker Compose
+# ZockerDB Basis – Docker Compose
 #
 # Diese Datei genügt, um die App zu betreiben – kein git clone nötig.
 # Einfach als docker-compose.yml speichern (oder in Portainer, Dockge, Synology
@@ -22,10 +22,10 @@ services:
   sammlung:
     # Fertiges Image von der GitHub Container Registry (amd64 und arm64, z. B. Raspberry Pi/NAS).
     # „latest“ = aktueller Stand; für feste Versionen z. B. :1.2 verwenden.
-    image: ghcr.io/drdothouse2106/zockdbbasis:latest
+    image: ghcr.io/drdothouse2106/zockerdbbasis:latest
     # Wer das Repository geklont hat und selbst bauen möchte, ersetzt „image“ durch:
     # build: .
-    container_name: zockdb
+    container_name: zockerdb
 
     # Nach Absturz oder Neustart des Hosts automatisch wieder starten –
     # außer der Container wurde bewusst angehalten.
@@ -75,7 +75,7 @@ services:
       SMTP_SECURE: "auto"            # auto (465 = TLS, sonst STARTTLS), true, false
       SMTP_USER: ""
       SMTP_PASSWORD: ""
-      SMTP_FROM: ""                  # z. B. "ZockDB <noreply@zockdb.de>"
+      SMTP_FROM: ""                  # z. B. "ZockerDB <noreply@zockerdb.de>"
       REQUIRE_EMAIL: "false"         # E-Mail bei der Registrierung Pflicht?
 
       # Adresse der App ohne / am Ende, z. B. https://sammlung.example.de (für Links in E-Mails)
@@ -92,7 +92,14 @@ services:
       BACKUP_DAYS: "7"
       BACKUP_MONTHS: "12"
 
-      # ── Spieledaten (IGDB) & Barcodes ───────────────────────────
+      # ── Spieledaten über zockerdb.de ──────────────────────────────
+      # Suche und Barcodes laufen über den zentralen Katalog von zockerdb.de: deutsche Titel und Texte,
+      # keine eigenen IGDB-Zugangsdaten nötig. "aus" = nur eigene IGDB-Zugangsdaten (siehe unten).
+      ZOCKERDB_CENTRAL: ""
+      # Anonyme Datenspende: wöchentlich nur Anzahlen je Titel (keine Namen, Preise, Notizen)
+      ZOCKERDB_DONATE: "false"
+
+      # ── Eigener IGDB-Zugang & Barcodes (nur mit ZOCKERDB_CENTRAL: "aus" nötig) ──
       # Kostenlos unter https://dev.twitch.tv/console → „Anwendung registrieren“
       TWITCH_CLIENT_ID: ""
       TWITCH_CLIENT_SECRET: ""

@@ -18,6 +18,7 @@ import Kommentare from '../komponenten/Kommentare.jsx';
 import Scans from '../komponenten/Scans.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { Andockpunkt } from '../erweiterungen.jsx';
+import { KatalogZockerdb } from '../komponenten/Zockerdb.jsx';
 
 export default function KatalogSeite({ route, id }) {
   const { benutzer } = useSitzung();
@@ -65,6 +66,7 @@ export default function KatalogSeite({ route, id }) {
           {bearbeiten && <KatalogBearbeiten eintrag={e} plattformIds={daten.plattformen.map((p) => p.id)} onFertig={(neu) => { setBearbeiten(false); if (neu) laden(); }} />}
           <div className="space-y-2">
             <h2 className="text-2xl font-bold">{e.titel}</h2>
+            {e.titel_original && <p className="text-sm text-leise">Originaltitel: <span lang="en">{e.titel_original}</span></p>}
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="abzeichen">{beschriftung(ARTIKELTYPEN, e.typ)}</span>
               {daten.plattformen.map((p) => (
@@ -77,11 +79,21 @@ export default function KatalogSeite({ route, id }) {
               )}
             </div>
             {e.hersteller && <p className="text-sm text-leise">{e.hersteller}</p>}
-            {e.beschreibung && <p className="text-sm whitespace-pre-line">{e.beschreibung}</p>}
+            {/* Zusatzmodule können die Beschreibung in der Sprache des Benutzers liefern */}
+            {(daten.beschreibungSprache?.text ?? e.beschreibung) && (
+              <p className="text-sm whitespace-pre-line" lang={daten.beschreibungSprache?.sprache}>{daten.beschreibungSprache?.text ?? e.beschreibung}</p>
+            )}
             <div className="flex flex-wrap gap-3 text-xs text-leise">
-              {e.quelle === 'igdb' && <span>Daten: IGDB.com{e.manuell_bearbeitet ? ' (vom Moderationsteam überarbeitet)' : ''}</span>}
+              {/* Quellenangabe für IGDB (Bedingung der Partnerschaft): Link zur Seite des Spiels auf IGDB.com */}
+              {(e.quelle === 'igdb' || e.igdb_url) && (
+                <a href={e.igdb_url ?? 'https://www.igdb.com'} target="_blank" rel="noopener" className="underline hover:text-text">
+                  Auf IGDB.com ansehen{e.manuell_bearbeitet ? ' (vom Moderationsteam überarbeitet)' : ''}
+                </a>
+              )}
+              {e.quelle === 'zockerdb' && !e.igdb_url && <span>Daten: zockerdb.de und IGDB.com</span>}
               <Andockpunkt name="katalog.kopf" {...erweiterung} />
             </div>
+            {e.quelle === 'zockerdb' && <KatalogZockerdb eintrag={e} laden={laden} />}
           </div>
 
           {e.sammlerhinweise ? (
@@ -95,6 +107,7 @@ export default function KatalogSeite({ route, id }) {
           {e.eigener && e.status !== 'freigegeben' && (
             <div className="rounded-xl border border-rand p-3 text-sm">
               {e.status === 'privat' && <p>Dieser Eintrag ist <strong>privat</strong> – nur du siehst ihn.</p>}
+              <KatalogZockerdb eintrag={e} laden={laden} />
               <Andockpunkt name="katalog.einreichung" {...erweiterung} />
             </div>
           )}

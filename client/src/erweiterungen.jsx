@@ -1,6 +1,6 @@
 // Andockpunkte der Oberfläche für Zusatzmodule.
 //
-// Vite bindet unter „@zockdb/modul“ die Oberfläche eines Zusatzmoduls ein (siehe vite.config.js) – in der
+// Vite bindet unter „@zockerdb/modul“ die Oberfläche eines Zusatzmoduls ein (siehe vite.config.js) – in der
 // Basis-Version ist das ein leeres Objekt (modul-leer.js). Ein Modul kann liefern:
 //   routen        – eigene Seiten: [{ pfad | muster, Komponente, props?(treffer) }]
 //   navigation    – Einträge der Hauptnavigation (Desktop) und der Seite „Mehr“
@@ -8,7 +8,7 @@
 //   adminReiter   – zusätzliche Reiter der Administration
 //   vorladen      – Ladefunktionen der Seiten, die im Leerlauf vorgeladen werden
 import { Suspense } from 'react';
-import modul from '@zockdb/modul';
+import modul from '@zockerdb/modul';
 
 export const MODUL = modul ?? {};
 

@@ -1,7 +1,7 @@
 {
-  "name": "zockdb-basis",
+  "name": "zockerdb-basis",
   "version": "1.0.0",
-  "description": "Selbst gehostete Verwaltung für deine Spielesammlung – Spiele, Konsolen & Zubehör mit Barcode-Scanner. Basis-Version von zockdb.de.",
+  "description": "Selbst gehostete Verwaltung für deine Spielesammlung – Spiele, Konsolen & Zubehör mit Barcode-Scanner. Basis-Version von zockerdb.de.",
   "license": "PolyForm-Noncommercial-1.0.0",
   "private": true,
   "type": "module",

@@ -20,7 +20,7 @@ export function erstelleSicherungsDienst(db, konfiguration) {
     if (!aktivMoeglich) return { taeglich: [], monatlich: [] };
     const lesen = (art) => {
       try {
-        return fs.readdirSync(ordner(art)).filter((n) => /^zockdb-[\d-]+\.db$/.test(n)).sort().reverse()
+        return fs.readdirSync(ordner(art)).filter((n) => /^zockerdb-[\d-]+\.db$/.test(n)).sort().reverse()
           .map((name) => {
             const s = fs.statSync(path.join(ordner(art), name));
             return { name, groesse: s.size, erstellt_am: s.mtime.toISOString() };
@@ -46,14 +46,14 @@ export function erstelleSicherungsDienst(db, konfiguration) {
       const monate = Math.max(0, konfiguration.sicherung?.monate ?? 12);
       fs.mkdirSync(ordner('taeglich'), { recursive: true });
       fs.mkdirSync(ordner('monatlich'), { recursive: true });
-      const tagesDatei = path.join(ordner('taeglich'), `zockdb-${heute()}.db`);
+      const tagesDatei = path.join(ordner('taeglich'), `zockerdb-${heute()}.db`);
       if (erzwingen || !fs.existsSync(tagesDatei)) {
         const temp = `${tagesDatei}.tmp`;
         await db.backup(temp);
         fs.renameSync(temp, tagesDatei);
         fs.chmodSync(tagesDatei, 0o600); // enthält Passwort-Hashes – nur für den Dienst lesbar
       }
-      const monatsDatei = path.join(ordner('monatlich'), `zockdb-${monat()}.db`);
+      const monatsDatei = path.join(ordner('monatlich'), `zockerdb-${monat()}.db`);
       if (monate > 0 && !fs.existsSync(monatsDatei)) {
         fs.copyFileSync(tagesDatei, monatsDatei);
         fs.chmodSync(monatsDatei, 0o600);

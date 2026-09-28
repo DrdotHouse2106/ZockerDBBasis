@@ -8,8 +8,29 @@ export const anzahl = (wert) => zahl.format(wert ?? 0);
 /** "2024-05-01" → "01.05.2024" (ohne Zeitzonen-Verschiebung). */
 export function datumDe(iso) {
   if (!iso) return '–';
+  // Ungefähre Angaben: nur Jahr („1995“) oder Monat und Jahr („03/1995“)
+  if (/^\d{4}$/.test(iso)) return iso;
+  if (/^\d{4}-\d{2}$/.test(iso)) return `${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
   const [j, m, t] = iso.slice(0, 10).split('-').map(Number);
   return datum.format(new Date(j, m - 1, t));
+}
+
+/** Datum für ein Eingabefeld: 1995-03-12 → „12.03.1995“, 1995-03 → „03.1995“, 1995 → „1995“. */
+export const datumFeld = (iso) => (iso ? iso.split('-').reverse().join('.') : '');
+
+/**
+ * Eingabe im deutschen Format lesen – auch ungefähr: „12.3.1995“, „3.1995“, „03/1995“ oder „1995“.
+ * Liefert JJJJ, JJJJ-MM oder JJJJ-MM-TT; unverständliche Eingaben bleiben unverändert (der Server meldet den Fehler).
+ */
+export function leseDatum(text) {
+  const t = String(text ?? '').trim();
+  if (!t) return '';
+  if (/^\d{4}(-\d{2}(-\d{2})?)?$/.test(t)) return t;
+  const teile = t.split(/[./\s-]+/).filter(Boolean);
+  const zwei = (z) => String(z).padStart(2, '0');
+  if (teile.length === 3 && /^\d{4}$/.test(teile[2])) return `${teile[2]}-${zwei(teile[1])}-${zwei(teile[0])}`;
+  if (teile.length === 2 && /^\d{4}$/.test(teile[1])) return `${teile[1]}-${zwei(teile[0])}`;
+  return t;
 }
 
 /** Preis für ein Eingabefeld im deutschen Format: 49.9 → "49,90". */

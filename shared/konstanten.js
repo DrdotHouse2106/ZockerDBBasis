@@ -90,7 +90,24 @@ export const PLATTFORMEN = PLATTFORM_STAMMDATEN.map((p) => p.name);
 
 export const HERSTELLER_REIHENFOLGE = ['Nintendo', 'Sony', 'Microsoft', 'Sega', 'Atari', 'Commodore', 'SNK', 'NEC', 'PC', 'Sonstige'];
 
+/** Wie ein Artikel in die Sammlung kam – oft gibt es keinen Einzelpreis (lange her, Konvolut, Geschenk). */
+export const HERKUNFT = [
+  { value: 'gekauft', label: 'Einzeln gekauft', kurz: 'Gekauft' },
+  { value: 'konvolut', label: 'Aus einem Konvolut / Paket', kurz: 'Konvolut' },
+  { value: 'geschenk', label: 'Geschenkt bekommen', kurz: 'Geschenk' },
+  { value: 'getauscht', label: 'Getauscht', kurz: 'Getauscht' },
+  { value: 'schon_immer', label: 'Schon immer da (z. B. aus der Kindheit)', kurz: 'Schon immer' },
+  { value: 'unbekannt', label: 'Weiß ich nicht mehr', kurz: 'Unbekannt' },
+];
+
+/** Wie wird der Gesamtpreis eines Konvoluts auf die Artikel verteilt? */
+export const KONVOLUT_AUFTEILUNG = [
+  { value: 'gleich', label: 'Gleichmäßig je Stück' },
+  { value: 'wert', label: 'Nach geschätztem Wert' },
+];
+
 export const ALLE_WERTE = {
+  herkunft: HERKUNFT.map((e) => e.value),
   typ: ARTIKELTYPEN.map((e) => e.value),
   zustand: ZUSTAENDE.map((e) => e.value),
   vollstaendigkeit: VOLLSTAENDIGKEITEN.map((e) => e.value),

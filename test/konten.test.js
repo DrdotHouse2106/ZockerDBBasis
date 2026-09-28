@@ -59,7 +59,7 @@ test('Zwei-Faktor-Anmeldung: Einrichtung, Anmeldung, Wiederherstellungscode', as
   const ohnePasswort = await gabi.api('/api/konto/2fa/einrichten', { methode: 'POST', daten: { passwort: 'falsch' } });
   assert.equal(ohnePasswort.status, 400);
   const einrichtung = (await gabi.api('/api/konto/2fa/einrichten', { methode: 'POST', daten: { passwort: 'sehr-geheimes-passwort' } })).json;
-  assert.match(einrichtung.otpauthUrl, /^otpauth:\/\/totp\/ZockDB:gabi\?secret=/);
+  assert.match(einrichtung.otpauthUrl, /^otpauth:\/\/totp\/ZockerDB:gabi\?secret=/);
   assert.match(einrichtung.qrSvg, /<svg/);
   assert.equal(base32Dekodieren(einrichtung.geheimnis).length, 20);
 

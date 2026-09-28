@@ -6,7 +6,7 @@ import Fusszeile from './Fusszeile.jsx';
 import Glocke from './Glocke.jsx';
 import { MODUL, Andockpunkt } from '../erweiterungen.jsx';
 
-// Der zweite Eintrag kann von einem Zusatzmodul kommen (zockdb.de: „Wert“), sonst die Statistik
+// Der zweite Eintrag kann von einem Zusatzmodul kommen (zockerdb.de: „Wert“), sonst die Statistik
 const NAVIGATION = [
   { pfad: '/', label: 'Sammlung', symbol: 'sammlung' },
   MODUL.hauptnavigation ?? { pfad: '/statistik', label: 'Statistik', symbol: 'statistik' },

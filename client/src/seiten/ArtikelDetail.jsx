@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, beschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, beschriftung,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
@@ -14,6 +14,7 @@ import Scans from '../komponenten/Scans.jsx';
 import Kommentare from '../komponenten/Kommentare.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import { Andockpunkt } from '../erweiterungen.jsx';
+import { ArtikelFotoSync } from '../komponenten/Zockerdb.jsx';
 
 /**
  * Detailansicht eines Artikels. Mit „sammlerName“ und „fremdLaden“ (von einem Zusatzmodul, z. B. Community)
@@ -94,7 +95,11 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     ['Seriennummer', artikel.seriennummer],
     ['Barcode', artikel.barcode],
     ['Anzahl', artikel.anzahl > 1 ? `${artikel.anzahl} Stück` : null],
-    ['Kaufpreis', artikel.kaufpreis != null ? euro(artikel.kaufpreis) : null],
+    ['Herkunft', beschriftung(HERKUNFT, artikel.herkunft)],
+    ['Konvolut', artikel.konvolut_id ? <a href={`#/konvolut/${artikel.konvolut_id}`} className="underline">{artikel.konvolut_name}</a> : null],
+    ['Kaufpreis', artikel.kaufpreis != null
+      ? `${euro(artikel.kaufpreis)}${artikel.kaufpreis_anteilig ? ' (Anteil am Konvolut)' : ''}`
+      : eigener && artikel.herkunft ? 'unbekannt' : null],
     ['Marktwert', artikel.marktwert != null ? `${euro(artikel.marktwert)} (eigene Schätzung)` : null],
     ['Kaufdatum', artikel.kaufdatum ? datumDe(artikel.kaufdatum) : null],
     ['Erscheinungsjahr', artikel.erscheinungsjahr],
@@ -124,6 +129,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
               <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={bildEntfernen}>Foto entfernen</button>
             )}
           </div>}
+          {eigener && <ArtikelFotoSync artikel={artikel} onGeaendert={setArtikel} />}
         </div>
 
         <div className="min-w-0 space-y-4">

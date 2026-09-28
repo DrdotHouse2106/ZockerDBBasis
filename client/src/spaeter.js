@@ -6,11 +6,11 @@ import { lazy } from 'react';
  */
 export function spaeter(laden, exportName = 'default') {
   return lazy(() => laden().then((m) => {
-    try { sessionStorage.removeItem('zockdb-neu-geladen'); } catch { /* egal */ }
+    try { sessionStorage.removeItem('zockerdb-neu-geladen'); } catch { /* egal */ }
     return { default: m[exportName] };
   }).catch((fehler) => {
     let schonVersucht = false;
-    try { schonVersucht = sessionStorage.getItem('zockdb-neu-geladen') === '1'; sessionStorage.setItem('zockdb-neu-geladen', '1'); } catch { /* egal */ }
+    try { schonVersucht = sessionStorage.getItem('zockerdb-neu-geladen') === '1'; sessionStorage.setItem('zockerdb-neu-geladen', '1'); } catch { /* egal */ }
     if (navigator.onLine && !schonVersucht) window.location.reload();
     throw fehler;
   }));

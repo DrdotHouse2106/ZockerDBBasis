@@ -14,6 +14,15 @@ if (fs.existsSync(envDatei) && typeof process.loadEnvFile === 'function') {
   process.loadEnvFile(envDatei);
 }
 
+/** Adresse der Zentrale: Standard zockerdb.de, „aus“ schaltet ab. Nur https (http nur für localhost, z. B. Tests). */
+function zentraleUrl(wert) {
+  const roh = String(wert ?? '').trim();
+  if (['aus', 'false', '0', 'nein', 'off'].includes(roh.toLowerCase())) return '';
+  const url = basisUrl(roh || 'https://zockerdb.de');
+  if (/^https:\/\//.test(url) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(url)) return url;
+  return '';
+}
+
 export function ladeKonfiguration(env = process.env) {
   const konfiguration = {
     port: zahl(env.PORT, 3000),
@@ -37,6 +46,12 @@ export function ladeKonfiguration(env = process.env) {
       tage: Math.max(1, zahl(env.BACKUP_DAYS, 7)),
       monate: Math.max(0, zahl(env.BACKUP_MONTHS, 12)),
       verzeichnis: env.BACKUP_DIR ? pfad(env.BACKUP_DIR, '') : '',
+    },
+    // Verbindung zu zockerdb.de: zentraler Katalog (Suche, Barcodes, deutsche Titel und Texte), Einreichungen,
+    // freiwillige anonyme Datenspende und Sync der Sammlung. ZOCKERDB_CENTRAL=aus → eigene IGDB-Zugangsdaten nutzen.
+    zentrale: {
+      url: zentraleUrl(env.ZOCKERDB_CENTRAL),
+      spende: jaNein(env.ZOCKERDB_DONATE, false),
     },
     igdb: {
       clientId: (env.TWITCH_CLIENT_ID || '').trim(),
@@ -67,7 +82,7 @@ export function ladeKonfiguration(env = process.env) {
       sicher: (env.SMTP_SECURE || 'auto').trim().toLowerCase(), // auto (465 = TLS), true, false (STARTTLS)
       benutzer: (env.SMTP_USER || '').trim(),
       passwort: env.SMTP_PASSWORD || '',
-      absender: (env.SMTP_FROM || '').trim(), // z. B. "ZockDB <noreply@zockdb.de>"
+      absender: (env.SMTP_FROM || '').trim(), // z. B. "ZockerDB <noreply@zockerdb.de>"
     },
     // Spam-Schutz für Registrierung und „Passwort vergessen“: altcha, recaptcha oder aus
     captcha: {

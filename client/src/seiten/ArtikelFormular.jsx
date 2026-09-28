@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, istModerator,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, istModerator,
 } from '../../../shared/konstanten.js';
 import { usePlattformen } from '../plattformen.js';
 import { useSitzung } from '../sitzung.js';
@@ -8,7 +8,7 @@ import PlattformAuswahl from '../komponenten/PlattformAuswahl.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import { api, ApiFehler } from '../api.js';
 import { navigiere } from '../router.js';
-import { preisFeld } from '../format.js';
+import { preisFeld, datumFeld, leseDatum, euro } from '../format.js';
 import Layout from '../komponenten/Layout.jsx';
 import Cover from '../komponenten/Cover.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
@@ -24,7 +24,7 @@ const FARBVORSCHLAEGE = [
 const LEER = {
   typ: 'spiel', titel: '', plattform: '', plattform_id: null, variante_id: null, katalog_id: null, barcode: '', cover_url: '', zustand: '', vollstaendigkeit: '',
   region: 'pal_de', farbe: '', edition: '', modellnummer: '', seriennummer: '', notizen: '', kaufpreis: '', kaufdatum: '', anzahl: 1,
-  marktwert: '',
+  marktwert: '', herkunft: '', konvolut_id: null,
 };
 
 export default function ArtikelFormular({ route, artikelId }) {
@@ -36,12 +36,14 @@ export default function ArtikelFormular({ route, artikelId }) {
   const [katalogFreigabe, setKatalogFreigabe] = useState('privat'); // privat | einreichen | veroeffentlichen
   const [varianten, setVarianten] = useState([]);
   const plattformen = usePlattformen();
-  const { benutzer } = useSitzung();
+  const { benutzer, status } = useSitzung();
   const [fehler, setFehler] = useState({});
   const [allgemeinerFehler, setAllgemeinerFehler] = useState(null);
   const [speichert, setSpeichert] = useState(false);
   const [bildDatei, setBildDatei] = useState(null);
   const [scannerOffen, setScannerOffen] = useState(false);
+  const [konvolute, setKonvolute] = useState([]);
+  useEffect(() => { api.konvolute().then(setKonvolute).catch(() => {}); }, []);
 
   useEffect(() => {
     (async () => {
@@ -50,7 +52,8 @@ export default function ArtikelFormular({ route, artikelId }) {
           const a = await api.artikel(artikelId);
           setWerte({
             ...LEER, ...Object.fromEntries(Object.entries(a).map(([k, v]) => [k, v ?? ''])),
-            kaufpreis: preisFeld(a.kaufpreis), marktwert: preisFeld(a.marktwert),
+            kaufpreis: a.kaufpreis_anteilig ? '' : preisFeld(a.kaufpreis), marktwert: preisFeld(a.marktwert),
+            kaufdatum: datumFeld(a.kaufdatum), konvolut_id: a.konvolut_id,
             katalog_id: a.katalog_id, plattform_id: a.plattform_id, variante_id: a.variante_id,
           });
           if (a.katalog_id) {
@@ -60,6 +63,8 @@ export default function ArtikelFormular({ route, artikelId }) {
           return;
         }
         const basis = { ...LEER, typ: p.typ ?? 'spiel', titel: p.titel ?? '', barcode: p.barcode ?? '' };
+        // Aus einem Konvolut: nächsten Artikel direkt diesem Paket zuordnen
+        if (p.konvolut) Object.assign(basis, { konvolut_id: Number(p.konvolut), herkunft: 'konvolut' });
         // „Weiteres Exemplar“: Grunddaten eines vorhandenen Artikels übernehmen
         if (p.von) {
           const vorlage = await api.artikel(p.von);
@@ -149,6 +154,8 @@ export default function ArtikelFormular({ route, artikelId }) {
       const daten = { ...werte };
       const felder = Object.keys(LEER);
       const nutzdaten = Object.fromEntries(felder.map((f) => [f, daten[f]]));
+      nutzdaten.kaufdatum = leseDatum(daten.kaufdatum);
+      if (daten.herkunft !== 'konvolut') nutzdaten.konvolut_id = null;
       // Ohne Katalogeintrag legt der Server einen eigenen an: privat, eingereicht oder (Moderation) veröffentlicht
       if (!bearbeiten && !daten.katalog_id) {
         nutzdaten.katalog_einreichen = katalogFreigabe === 'einreichen';
@@ -163,7 +170,9 @@ export default function ArtikelFormular({ route, artikelId }) {
         }
       }
       zeigeHinweis(bearbeiten ? 'Änderungen gespeichert.' : `„${artikel.titel}“ wurde zur Sammlung hinzugefügt.`);
-      navigiere(`/artikel/${artikel.id}`);
+      // Konvolut erfassen: gleich mit dem nächsten Artikel aus dem Paket weitermachen
+      if (!bearbeiten && p.konvolut && artikel.konvolut_id) navigiere('/neu', { konvolut: artikel.konvolut_id });
+      else navigiere(`/artikel/${artikel.id}`);
     } catch (fehlerObjekt) {
       if (fehlerObjekt instanceof ApiFehler && Object.keys(fehlerObjekt.felder).length) setFehler(fehlerObjekt.felder);
       setAllgemeinerFehler(fehlerObjekt.message);
@@ -272,11 +281,34 @@ export default function ArtikelFormular({ route, artikelId }) {
         </Abschnitt>
 
         <Abschnitt titel="Kauf & Details">
-          <Feld label="Kaufpreis (€)" fehler={fehler.kaufpreis}>
-            {(id) => <input id={id} className="eingabe" value={werte.kaufpreis} onChange={setze('kaufpreis')} inputMode="decimal" placeholder="z. B. 49,99" />}
+          <Feld label="Herkunft" fehler={fehler.herkunft}>
+            {(id) => (
+              <select id={id} className="eingabe" value={werte.herkunft} onChange={setze('herkunft')}>
+                <option value="">– keine Angabe –</option>
+                {HERKUNFT.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
+              </select>
+            )}
+          </Feld>
+          {werte.herkunft === 'konvolut' ? (
+            <KonvolutWahl konvolute={konvolute} wert={werte.konvolut_id} fehler={fehler.konvolut_id}
+              onWahl={(id) => setWerte((w) => ({ ...w, konvolut_id: id }))} onNeu={(k) => { setKonvolute((l) => [k, ...l]); setWerte((w) => ({ ...w, konvolut_id: k.id })); }} />
+          ) : <div className="hidden sm:block" />}
+          <Feld label="Kaufpreis (€, je Stück)" fehler={fehler.kaufpreis}>
+            {(id) => (
+              <>
+                <input id={id} className="eingabe" value={werte.kaufpreis} onChange={setze('kaufpreis')} inputMode="decimal"
+                  placeholder={werte.konvolut_id ? 'leer = Anteil am Gesamtpreis' : ['geschenk', 'schon_immer', 'unbekannt'].includes(werte.herkunft) ? 'leer lassen, wenn unbekannt' : 'z. B. 49,99'} />
+                {werte.konvolut_id && <span className="mt-1 block text-xs text-leise">Leer lassen: Der Gesamtpreis des Konvoluts wird automatisch verteilt.</span>}
+              </>
+            )}
           </Feld>
           <Feld label="Kaufdatum" fehler={fehler.kaufdatum}>
-            {(id) => <input id={id} type="date" className="eingabe" value={werte.kaufdatum} onChange={setze('kaufdatum')} />}
+            {(id) => (
+              <>
+                <input id={id} className="eingabe" value={werte.kaufdatum} onChange={setze('kaufdatum')} inputMode="numeric" placeholder="TT.MM.JJJJ, MM.JJJJ oder nur JJJJ" />
+                <span className="mt-1 block text-xs text-leise">Auch ungefähr – z. B. nur das Jahr.</span>
+              </>
+            )}
           </Feld>
           <Feld label="Marktwert (€, eigene Schätzung)" fehler={fehler.marktwert}>
             {(id) => <input id={id} className="eingabe" value={werte.marktwert} onChange={setze('marktwert')} inputMode="decimal" placeholder="optional, pro Stück" />}
@@ -312,6 +344,7 @@ export default function ArtikelFormular({ route, artikelId }) {
             {[
               ['privat', 'Nur für mich (privat)', 'Niemand sonst sieht diesen Eintrag.'],
               ...(MODUL.moderation ? [['einreichen', 'Zur Aufnahme in die globale Datenbank einreichen', 'Das Moderationsteam prüft den Eintrag; danach können ihn alle finden.']] : []),
+              ...(!MODUL.moderation && status?.zentrale ? [['einreichen', 'Zu ZockerDB freigeben', 'zockerdb.de prüft den Eintrag; danach steht er allen im gemeinsamen Katalog zur Verfügung.']] : []),
               ...(istModerator(benutzer) ? [['veroeffentlichen', 'Direkt veröffentlichen (Moderation)', 'Sofort für alle sichtbar.']] : []),
             ].map(([wert, titel, text]) => (
               <label key={wert} className="flex items-start gap-3">
@@ -340,6 +373,49 @@ export default function ArtikelFormular({ route, artikelId }) {
         />
       )}
     </Layout>
+  );
+}
+
+/** Konvolut wählen oder direkt ein neues anlegen (Name, Gesamtpreis, Datum). */
+function KonvolutWahl({ konvolute, wert, fehler, onWahl, onNeu }) {
+  const [neu, setNeu] = useState(null);
+  const [fehlerNeu, setFehlerNeu] = useState(null);
+  if (neu) {
+    return (
+      <div className="space-y-2 rounded-xl border border-rand p-3 sm:col-span-2">
+        <p className="font-semibold">Neues Konvolut</p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <input className="eingabe" value={neu.name} onChange={(e) => setNeu({ ...neu, name: e.target.value })} placeholder="Name, z. B. Flohmarkt-Kiste" aria-label="Name" />
+          <input className="eingabe" value={neu.preis} onChange={(e) => setNeu({ ...neu, preis: e.target.value })} inputMode="decimal" placeholder="Gesamtpreis € (optional)" aria-label="Gesamtpreis" />
+          <input className="eingabe" value={neu.kaufdatum} onChange={(e) => setNeu({ ...neu, kaufdatum: e.target.value })} placeholder="Datum oder Jahr (optional)" aria-label="Kaufdatum" />
+        </div>
+        {fehlerNeu && <p className="text-sm text-gefahr">{fehlerNeu}</p>}
+        <div className="flex gap-2">
+          <button type="button" className="knopf-primaer px-3 py-1.5" onClick={async () => {
+            try {
+              onNeu(await api.konvolutAnlegen({ ...neu, kaufdatum: leseDatum(neu.kaufdatum) }));
+              setNeu(null);
+            } catch (e) { setFehlerNeu(Object.values(e.felder ?? {})[0] ?? e.message); }
+          }}>Anlegen</button>
+          <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setNeu(null)}>Abbrechen</button>
+        </div>
+      </div>
+    );
+  }
+  const gewaehlt = konvolute.find((k) => k.id === wert);
+  return (
+    <Feld label="Konvolut" fehler={fehler}>
+      {(id) => (
+        <>
+          <select id={id} className="eingabe" value={wert ?? ''} onChange={(e) => (e.target.value === 'neu' ? setNeu({ name: '', preis: '', kaufdatum: '' }) : onWahl(e.target.value ? Number(e.target.value) : null))}>
+            <option value="">– ohne Konvolut –</option>
+            {konvolute.map((k) => <option key={k.id} value={k.id}>{k.name}{k.preis != null ? ` (${euro(k.preis)})` : ''}</option>)}
+            <option value="neu">+ Neues Konvolut …</option>
+          </select>
+          {gewaehlt && <a className="mt-1 block text-xs text-akzent-hell underline" href={`#/konvolut/${gewaehlt.id}`}>Konvolut ansehen ({gewaehlt.artikel} Artikel)</a>}
+        </>
+      )}
+    </Feld>
   );
 }
 

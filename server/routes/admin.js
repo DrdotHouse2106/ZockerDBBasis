@@ -90,7 +90,7 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, mail, be
     if (!an) throw new KontoFehler('Bitte eine Empfängeradresse angeben oder unter „Konto“ eine E-Mail-Adresse hinterlegen.');
     if (!mail.aktiv) throw new KontoFehler('Der E-Mail-Versand ist nicht eingerichtet (SMTP-Server und Absender fehlen).');
     try {
-      await mail.sende({ an, betreff: 'ZockDB: Test-E-Mail', text: 'Der E-Mail-Versand funktioniert. 🎮' });
+      await mail.sende({ an, betreff: 'ZockerDB: Test-E-Mail', text: 'Der E-Mail-Versand funktioniert. 🎮' });
     } catch (e) {
       throw new KontoFehler(`Versand fehlgeschlagen: ${e.message}`, 502);
     }

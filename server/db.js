@@ -255,7 +255,7 @@ const MIGRATIONEN = [
   `,
   (db) => {
     const einfuegen = db.prepare('INSERT OR IGNORE INTO seiten (slug, titel, inhalt) VALUES (?, ?, ?)');
-    // Ein Zusatzmodul kann ausführlichere Vorlagen mitbringen (z. B. für zockdb.de)
+    // Ein Zusatzmodul kann ausführlichere Vorlagen mitbringen (z. B. für zockerdb.de)
     const vorlagen = MODULE.find((m) => m.rechtlicheVorlagen)?.rechtlicheVorlagen ?? RECHTLICHE_VORLAGEN;
     for (const v of vorlagen) einfuegen.run(v.slug, v.titel, v.inhalt);
   },
@@ -270,7 +270,7 @@ const MIGRATIONEN = [
   ALTER TABLE katalog_varianten ADD COLUMN ki_hinweis TEXT;
   UPDATE katalog_varianten SET eingereicht_am = erstellt_am WHERE status = 'eingereicht';
   `,
-  // 8: (frei – gehört inzwischen zum Zusatzmodul von zockdb.de)
+  // 8: (frei – gehört inzwischen zum Zusatzmodul von zockerdb.de)
   'SELECT 1',
   // 9: Speicherplatz-Kontingent je Benutzer (Größen inkl. abgeleiteter Dateien)
   `
@@ -337,13 +337,77 @@ const MIGRATIONEN = [
   ALTER TABLE benutzer ADD COLUMN freigabe_wert INTEGER NOT NULL DEFAULT 0;
   CREATE UNIQUE INDEX idx_benutzer_freigabe ON benutzer (freigabe_token) WHERE freigabe_token IS NOT NULL;
   `,
-  // 14: (frei – Erfolge gehören inzwischen zum Zusatzmodul von zockdb.de)
+  // 14: (frei – Erfolge gehören inzwischen zum Zusatzmodul von zockerdb.de)
   'SELECT 1',
-  // 15: (frei – gehört inzwischen zum Zusatzmodul von zockdb.de)
+  // 15: (frei – gehört inzwischen zum Zusatzmodul von zockerdb.de)
   'SELECT 1',
   // 16: Versionsstand der Migrationen von Zusatzmodulen (jedes Modul zählt für sich)
   `
   CREATE TABLE modul_versionen (modul TEXT PRIMARY KEY, version INTEGER NOT NULL DEFAULT 0);
+  `,
+  // 17: Originaltitel (z. B. englischer IGDB-Name), wenn der Katalog den echten deutschen Titel führt
+  `
+  ALTER TABLE katalog ADD COLUMN titel_original TEXT;
+  `,
+  // 18: Verbindung zu zockerdb.de – zentraler Katalog, Einreichungen, Datenspende und Sync der Sammlung
+  `
+  ALTER TABLE katalog ADD COLUMN zentral_id INTEGER;        -- eigener Eintrag: ID der Einreichung bei zockerdb.de
+  ALTER TABLE katalog ADD COLUMN zentral_status TEXT;       -- eingereicht, freigegeben, abgelehnt
+  ALTER TABLE katalog ADD COLUMN zentral_hinweis TEXT;      -- Begründung der Moderation von zockerdb.de
+  ALTER TABLE katalog ADD COLUMN zentral_abgleich TEXT;     -- zuletzt mit zockerdb.de abgeglichen (Titel, Texte)
+  ALTER TABLE artikel ADD COLUMN sync_uuid TEXT;            -- gleiche Kennung auf allen verbundenen Servern
+  ALTER TABLE artikel ADD COLUMN sync_bild INTEGER NOT NULL DEFAULT 0;   -- eigenes Foto zu zockerdb.de übertragen
+  ALTER TABLE artikel ADD COLUMN sync_bild_hash TEXT;       -- Prüfsumme des zuletzt übertragenen/geladenen Fotos
+  UPDATE artikel SET sync_uuid = lower(hex(randomblob(16)));
+  CREATE UNIQUE INDEX idx_artikel_sync ON artikel (benutzer_id, sync_uuid);
+  CREATE INDEX idx_artikel_aktualisiert ON artikel (benutzer_id, aktualisiert_am);
+  CREATE TRIGGER artikel_sync_uuid AFTER INSERT ON artikel WHEN NEW.sync_uuid IS NULL
+  BEGIN UPDATE artikel SET sync_uuid = lower(hex(randomblob(16))) WHERE id = NEW.id; END;
+  -- Gelöschte Artikel merken, damit der Sync die Löschung weitergeben kann (ohne Fremdschlüssel: Konten-Löschung)
+  CREATE TABLE artikel_geloescht (
+    benutzer_id  INTEGER NOT NULL,
+    sync_uuid    TEXT    NOT NULL,
+    geloescht_am TEXT    NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (benutzer_id, sync_uuid)
+  );
+  CREATE TRIGGER artikel_geloescht_merken AFTER DELETE ON artikel WHEN OLD.benutzer_id IS NOT NULL AND OLD.sync_uuid IS NOT NULL
+  BEGIN INSERT OR REPLACE INTO artikel_geloescht (benutzer_id, sync_uuid) VALUES (OLD.benutzer_id, OLD.sync_uuid); END;
+  -- Selbst gehostet: Verbindung eines Benutzers mit seinem Konto auf zockerdb.de
+  CREATE TABLE sync_verbindungen (
+    benutzer_id   INTEGER PRIMARY KEY REFERENCES benutzer (id) ON DELETE CASCADE,
+    token         TEXT    NOT NULL,          -- verschlüsselt
+    konto         TEXT,                      -- Benutzername auf zockerdb.de
+    stand_entfernt TEXT,                     -- bis hierhin Änderungen von zockerdb.de übernommen
+    stand_lokal   TEXT,                      -- bis hierhin eigene Änderungen übertragen
+    letzter_lauf  TEXT,
+    fehler        TEXT,
+    erstellt_am   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  -- Darf die eigene Sammlung (anonym, nur Anzahlen) in die Datenspende an zockerdb.de einfließen?
+  ALTER TABLE benutzer ADD COLUMN datenspende INTEGER NOT NULL DEFAULT 1;
+  `,
+  // 19: Herkunft ohne Einzelpreis (Konvolut, Geschenk, „schon immer“) und Konvolute mit Gesamtpreis
+  `
+  CREATE TABLE konvolute (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    benutzer_id  INTEGER NOT NULL REFERENCES benutzer (id) ON DELETE CASCADE,
+    name         TEXT    NOT NULL,
+    preis        REAL,                       -- Gesamtpreis (leer = unbekannt)
+    kaufdatum    TEXT,                       -- auch ungefähr (JJJJ oder JJJJ-MM)
+    quelle       TEXT,                       -- z. B. Flohmarkt, Kleinanzeigen
+    notizen      TEXT,
+    aufteilung   TEXT    NOT NULL DEFAULT 'gleich',   -- gleich, wert
+    erstellt_am  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX idx_konvolute_benutzer ON konvolute (benutzer_id);
+  ALTER TABLE artikel ADD COLUMN herkunft TEXT;
+  ALTER TABLE artikel ADD COLUMN konvolut_id INTEGER REFERENCES konvolute (id) ON DELETE SET NULL;
+  ALTER TABLE artikel ADD COLUMN kaufpreis_anteilig INTEGER NOT NULL DEFAULT 0;  -- Kaufpreis = Anteil am Konvolut
+  CREATE INDEX idx_artikel_konvolut ON artikel (konvolut_id);
+  `,
+  // 20: Link zur Seite des Spiels auf IGDB.com (Quellenangabe „Auf IGDB.com ansehen“)
+  `
+  ALTER TABLE katalog ADD COLUMN igdb_url TEXT;
   `,
 ];
 

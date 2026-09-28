@@ -8,7 +8,7 @@ let mod;
 let nutzer;
 
 before(async () => {
-  server = await starteTestServer({ env: { PUBLIC_URL: 'https://zockdb.example', SMTP_FROM: 'x@zockdb.example' }, mailFn: async (m) => { postfach.push(m); } });
+  server = await starteTestServer({ env: { PUBLIC_URL: 'https://zockerdb.example', SMTP_FROM: 'x@zockerdb.example' }, mailFn: async (m) => { postfach.push(m); } });
   mod = await server.registriere('moderatorin');
   nutzer = await server.registriere('sammler');
 });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, beschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, beschriftung,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { euro, anzahl, datumDe } from '../format.js';
@@ -25,6 +25,15 @@ export default function Statistik({ route }) {
             <Kachel titel="Stück gesamt" wert={anzahl(daten.gesamt.stueck)} />
             <Kachel titel="Kaufwert" wert={euro(daten.gesamt.kaufwert)} breit />
           </div>
+          {daten.ohnePreis?.eintraege > 0 && (
+            <p className="karte flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+              <span>
+                <strong>{anzahl(daten.ohnePreis.stueck)} Stück ohne Kaufpreis</strong> – zählen nicht zum Kaufwert (z. B. lange her,
+                geschenkt oder aus einem Konvolut ohne Gesamtpreis).
+              </span>
+              <a href="#/konvolute" className="underline">Konvolute{daten.konvolute?.anzahl ? ` (${anzahl(daten.konvolute.anzahl)})` : ''}</a>
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-3">
             {ARTIKELTYPEN.map((t) => (
               <Kachel key={t.value} titel={t.mehrzahl} wert={anzahl(daten.nachTyp.find((z) => z.wert === t.value)?.stueck ?? 0)} klein />
@@ -36,6 +45,9 @@ export default function Statistik({ route }) {
             <Balkenliste titel="Nach Region" zeilen={daten.nachRegion} beschrifte={(w) => (w ? beschriftung(REGIONEN, w) : 'Keine Angabe')} />
             <Balkenliste titel="Nach Zustand" zeilen={daten.nachZustand} beschrifte={(w) => (w ? beschriftung(ZUSTAENDE, w) : 'Keine Angabe')} />
             <Balkenliste titel="Nach Vollständigkeit" zeilen={daten.nachVollstaendigkeit} beschrifte={(w) => (w ? beschriftung(VOLLSTAENDIGKEITEN, w) : 'Keine Angabe')} />
+            {daten.nachHerkunft?.some((z) => z.wert) && (
+              <Balkenliste titel="Nach Herkunft" zeilen={daten.nachHerkunft} beschrifte={(w) => (w ? beschriftung(HERKUNFT, w) : 'Keine Angabe')} />
+            )}
           </div>
 
           {daten.zuletzt.length > 0 && (

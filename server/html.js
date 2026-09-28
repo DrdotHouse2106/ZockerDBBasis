@@ -21,7 +21,7 @@ nav.pfad{font-size:14px;color:var(--leise);margin-bottom:12px}nav.pfad a{color:v
 h1{font-size:28px;line-height:1.2;margin:0 0 6px}h2{font-size:20px;margin:0 0 10px}h3{font-size:17px;margin:14px 0 6px}
 .kopfbereich{display:grid;gap:16px}@media(min-width:640px){.kopfbereich{grid-template-columns:220px 1fr}}
 .cover{width:100%;max-width:220px;aspect-ratio:3/4;object-fit:cover;border-radius:14px;background:var(--karte);border:1px solid var(--rand)}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.chip{padding:3px 10px;border-radius:999px;background:var(--karte);border:1px solid var(--rand);font-size:13px;color:var(--text);text-decoration:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.chip{padding:3px 10px;border-radius:999px;background:var(--karte);border:1px solid var(--rand);font-size:13px;color:var(--text);text-decoration:none}.chip.aktiv{background:var(--akzent);border-color:var(--akzent);color:var(--akzent-text)}
 .karte{background:var(--karte);border:1px solid var(--rand);border-radius:16px;padding:16px;margin:16px 0}
 .zahlen{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
 .zahl{background:var(--hg);border-radius:12px;padding:10px}.zahl b{display:block;font-size:22px}

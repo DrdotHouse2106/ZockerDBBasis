@@ -1,18 +1,18 @@
-# Mitwirken an ZockDB
+# Mitwirken an ZockerDB
 
 Schön, dass du helfen möchtest! Beiträge jeder Art sind willkommen: Fehlerberichte,
 Ideen, Übersetzungen, Dokumentation und Code.
 
-> **Bitte vor dem ersten Pull Request lesen:** ZockDB ist *source-available* unter der
-> PolyForm-Noncommercial-Lizenz. Der Projektinhaber betreibt ZockDB unter
-> [zockdb.de](https://zockdb.de) gewerblich (u. a. mit Affiliate-Links und später einem Shop).
+> **Bitte vor dem ersten Pull Request lesen:** ZockerDB ist *source-available* unter der
+> PolyForm-Noncommercial-Lizenz. Der Projektinhaber betreibt ZockerDB unter
+> [zockerdb.de](https://zockerdb.de) gewerblich (u. a. mit Affiliate-Links und später einem Shop).
 > Code-Beiträge können deshalb nur angenommen werden, wenn du der
 > [Beitragslizenz](#beitragslizenz) unten zustimmst.
 
 ## Sicherheitslücken
 
 **Bitte nicht als öffentliches Issue melden!** Sicherheit ist mir sehr wichtig – melde Schwachstellen vertraulich per E-Mail an
-[security@zockdb.de](mailto:security@zockdb.de).
+[security@zockerdb.de](mailto:security@zockerdb.de).
 Details stehen in der [SECURITY.md](SECURITY.md). Danke!
 
 ## Fehler melden & Wünsche äußern
@@ -27,8 +27,8 @@ Details stehen in der [SECURITY.md](SECURITY.md). Danke!
 Voraussetzung: Node.js ≥ 22.
 
 ```bash
-git clone https://github.com/DrdotHouse2106/ZockDB.git
-cd ZockDB
+git clone https://github.com/DrdotHouse2106/ZockerDBBasis.git
+cd ZockerDB
 npm install
 cp .env.example .env     # optional: IGDB-Zugangsdaten eintragen
 npm run dev              # Server (Port 3000) + Oberfläche mit Hot-Reload (Port 5173)
@@ -58,7 +58,7 @@ server/            Express-Backend
   db.js            SQLite-Schema und Migrationen
 shared/            Gemeinsamer Code für Server und Client
   konstanten.js    Zustände, Regionen, Plattformen …
-  marke.js         Sichtbarer Name und Untertitel (ZockDB)
+  marke.js         Sichtbarer Name und Untertitel (ZockerDB)
   seo.js           Adressen der öffentlichen Seiten
 client/            React-Oberfläche (Vite + Tailwind CSS)
   src/seiten/      Einzelne Seiten der App
@@ -111,13 +111,13 @@ Mit dem Einreichen eines Beitrags (Code, Dokumentation, Grafiken, Übersetzungen
 1. **Eigene Rechte:** Der Beitrag stammt von dir, oder du bist berechtigt, ihn einzureichen – etwa weil er unter einer
    verträglichen Open-Source-Lizenz steht, die du angibst. Wenn du ihn im Rahmen einer Anstellung erstellt hast,
    hat dein Arbeitgeber zugestimmt.
-2. **Veröffentlichung:** Der Beitrag darf als Teil von ZockDB unter der
+2. **Veröffentlichung:** Der Beitrag darf als Teil von ZockerDB unter der
    [PolyForm Noncommercial License 1.0.0](LICENSE) veröffentlicht werden.
 3. **Nutzungsrecht für den Projektinhaber:** Du räumst dem Projektinhaber (GitHub-Konto
    [DrdotHouse2106](https://github.com/DrdotHouse2106)) ein **einfaches, zeitlich und räumlich unbeschränktes,
    unwiderrufliches und unentgeltliches** Recht ein, den Beitrag in jeder Form zu nutzen, zu bearbeiten,
    zu vervielfältigen, öffentlich zugänglich zu machen und unterzulizenzieren – **auch kommerziell**, insbesondere für
-   den Betrieb von ZockDB unter zockdb.de mit Werbung, Affiliate-Links oder Shop sowie für kommerzielle Lizenzen an Dritte.
+   den Betrieb von ZockerDB unter zockerdb.de mit Werbung, Affiliate-Links oder Shop sowie für kommerzielle Lizenzen an Dritte.
 4. **Dein Urheberrecht bleibt bestehen:** Du darfst deinen Beitrag weiterhin selbst frei verwenden. Du wirst auf Wunsch
    als Mitwirkender genannt; darüber hinaus besteht kein Anspruch auf Vergütung.
 

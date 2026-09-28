@@ -16,6 +16,7 @@ export async function starteTestServer({ env = {}, fetchFn, kiAnbieterFn, mailFn
     REGISTRATIONS_PER_HOUR: '1000',
     CAPTCHA_PROVIDER: 'aus',
     SCRAPER_PROTECTION: 'false', // Tests mit vielen Anfragen; eigener Test in schutz.test.js
+    ZOCKERDB_CENTRAL: 'aus', // keine Anfragen an zockerdb.de – Tests mit Zentrale setzen die Adresse selbst
     ...env,
   });
   if (kiAnbieterFn) konfiguration.kiAnbieterFn = kiAnbieterFn;

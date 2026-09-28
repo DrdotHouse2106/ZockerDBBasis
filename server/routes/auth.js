@@ -138,6 +138,8 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
       benachrichtigung_email: Boolean(req.benutzer.benachrichtigung_email),
       freigabe: freigabeInfo(req.benutzer),
       speicher: speicher.info(req.benutzer.id),
+      datenspende: Boolean(req.benutzer.datenspende),
+      datenspendeAktiv: Boolean(konfiguration.zentrale?.url && konfiguration.zentrale.spende),
       ...erweiterungen.sammle('konto.info', req.benutzer),
     });
   });
@@ -210,6 +212,9 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     const { anzeigename, sammlung_oeffentlich: oeffentlich, benachrichtigung_email: perEmail } = req.body ?? {};
     // Einstellungen von Zusatzmodulen (z. B. wöchentliche Zusammenfassung)
     for (const fn of erweiterungen.alle('konto.aendern')) fn(req.benutzer, req.body ?? {});
+    if (req.body?.datenspende !== undefined) {
+      db.prepare('UPDATE benutzer SET datenspende = ? WHERE id = ?').run(req.body.datenspende ? 1 : 0, req.benutzer.id);
+    }
     if (perEmail !== undefined) {
       db.prepare('UPDATE benutzer SET benachrichtigung_email = ? WHERE id = ?').run(perEmail ? 1 : 0, req.benutzer.id);
     }

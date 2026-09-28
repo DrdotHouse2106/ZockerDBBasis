@@ -3,8 +3,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = process.env.E2E_PORT || '4310';
-// Mit ZOCKDB_MODULE=aus nur die Basis-Version testen (Oberfläche vorher ebenso bauen)
-const nurBasis = ['aus', 'false', '0', 'nein'].includes(String(process.env.ZOCKDB_MODULE ?? '').toLowerCase());
+// Mit ZOCKERDB_MODULE=aus nur die Basis-Version testen (Oberfläche vorher ebenso bauen)
+const nurBasis = ['aus', 'false', '0', 'nein'].includes(String(process.env.ZOCKERDB_MODULE ?? '').toLowerCase());
 
 export default defineConfig({
   // Kern-Tests in e2e/, Tests der Geschäftsfunktionen in geschaeft/e2e/ (fehlt in der Basis-Version)

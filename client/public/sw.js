@@ -1,4 +1,4 @@
-// Service-Worker von ZockDB.
+// Service-Worker von ZockerDB.
 // - App-Hülle: Netzwerk zuerst, bei fehlender Verbindung aus dem Cache
 // - Gebaute Assets & Coverbilder: Cache zuerst (Dateinamen enthalten Hashes)
 // - API-GET-Anfragen: Netzwerk zuerst, offline die zuletzt gesehene Antwort
@@ -92,7 +92,7 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   let daten = {};
   try { daten = event.data?.json() ?? {}; } catch { daten = { titel: event.data?.text() }; }
-  event.waitUntil(self.registration.showNotification(daten.titel || 'ZockDB', {
+  event.waitUntil(self.registration.showNotification(daten.titel || 'ZockerDB', {
     body: daten.text || '',
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',

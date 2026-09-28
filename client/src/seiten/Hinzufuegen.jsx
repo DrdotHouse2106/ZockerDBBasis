@@ -9,6 +9,8 @@ import Cover from '../komponenten/Cover.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import { MODUL } from '../erweiterungen.jsx';
+import { gueltigerBarcode } from '../../../shared/barcode.js';
+import TitelVorschlag from '../komponenten/TitelVorschlag.jsx';
 
 export default function Hinzufuegen({ route }) {
   const p = route.parameter;
@@ -17,6 +19,10 @@ export default function Hinzufuegen({ route }) {
   const [suchtext, setSuchtext] = useState(p.q ?? '');
   const [ergebnis, setErgebnis] = useState(null);
   const [sucht, setSucht] = useState(false);
+  const [laedtMehr, setLaedtMehr] = useState(false);
+  const [vorschlagOffen, setVorschlagOffen] = useState(false);
+  // Wer nimmt Vorschläge auf? Das eigene Moderationsteam (zockerdb.de) oder – selbst gehostet – zockerdb.de
+  const vorschlagZiel = MODUL.moderation ? 'das Moderationsteam' : status?.zentrale ? 'zockerdb.de' : null;
   const [barcodeErgebnis, setBarcodeErgebnis] = useState(null);
   const [barcodeFehler, setBarcodeFehler] = useState(null);
 
@@ -27,6 +33,14 @@ export default function Hinzufuegen({ route }) {
     const text = suchtext.trim();
     if (text.length < 2) {
       setErgebnis(null);
+      return undefined;
+    }
+    // Eingetippte EAN/UPC: wie ein Scan als Barcode suchen (wird dabei gelernt) statt als Titel
+    const code = gueltigerBarcode(text);
+    if (code) {
+      setSuchtext('');
+      setErgebnis(null);
+      navigiere('/neu', { ...p, barcode: code });
       return undefined;
     }
     const abbruch = new AbortController();
@@ -40,6 +54,29 @@ export default function Hinzufuegen({ route }) {
     return () => { clearTimeout(t); abbruch.abort(); };
   }, [suchtext, typ]);
 
+  // Weitere Treffer bei IGDB nachladen (erst auf Wunsch, seitenweise – spart API-Anfragen)
+  const weitereLaden = async () => {
+    if (!ergebnis) return;
+    setLaedtMehr(true);
+    try {
+      const naechste = await api.katalogSuche(suchtext.trim(), typ, undefined, { online: true, seite: (ergebnis.seite ?? -1) + 1 });
+      setErgebnis((alt) => {
+        const bekannt = new Set([...alt.lokal, ...alt.online].map((e) => e.id));
+        return {
+          ...alt,
+          online: [...alt.online, ...naechste.online.filter((e) => !bekannt.has(e.id))],
+          fehler: naechste.fehler,
+          mehrOnline: naechste.mehrOnline,
+          seite: naechste.seite,
+        };
+      });
+    } catch (e) {
+      setErgebnis((alt) => ({ ...alt, fehler: e.message, mehrOnline: false }));
+    } finally {
+      setLaedtMehr(false);
+    }
+  };
+
   // Barcode-Suche
   useEffect(() => {
     if (!p.barcode) {
@@ -51,14 +88,23 @@ export default function Hinzufuegen({ route }) {
     api.katalogBarcode(p.barcode).then(setBarcodeErgebnis).catch((e) => setBarcodeFehler(e.message));
   }, [p.barcode]);
 
-  const waehle = (eintrag) => navigiere('/neu/formular', { katalog: eintrag.id, typ: eintrag.typ, barcode: p.barcode });
+  const waehle = (eintrag) => navigiere('/neu/formular', { katalog: eintrag.id, typ: eintrag.typ, barcode: p.barcode, konvolut: p.konvolut });
   const eigenerEintrag = () => navigiere('/neu/formular', {
-    typ, barcode: p.barcode, titel: suchtext.trim() || barcodeErgebnis?.suchbegriff,
+    typ, barcode: p.barcode, titel: suchtext.trim() || barcodeErgebnis?.suchbegriff, konvolut: p.konvolut,
   });
+  // Konvolut erfassen: Name anzeigen, damit klar ist, wohin die Artikel kommen
+  const [konvolut, setKonvolut] = useState(null);
+  useEffect(() => { if (p.konvolut) api.konvolut(p.konvolut).then(setKonvolut).catch(() => setKonvolut(null)); else setKonvolut(null); }, [p.konvolut]);
 
   return (
     <Layout route={route} titel={p.scan === '1' ? 'Barcode scannen' : 'Artikel hinzufügen'}>
       <div className="mx-auto max-w-3xl space-y-4">
+        {konvolut && (
+          <p className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-akzent/50 bg-akzent/10 p-3 text-sm" role="status">
+            <span>Du erfasst Artikel für das Konvolut <strong>{konvolut.name}</strong> ({konvolut.artikel.length} bisher).</span>
+            <a href={`#/konvolut/${konvolut.id}`} className="underline">Fertig – zum Konvolut</a>
+          </p>
+        )}
         <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Artikeltyp">
           {ARTIKELTYPEN.map((t) => (
             <button
@@ -83,7 +129,7 @@ export default function Hinzufuegen({ route }) {
               type="search"
               value={suchtext}
               onChange={(e) => setSuchtext(e.target.value)}
-              placeholder={typ === 'spiel' ? 'Spieltitel suchen …' : typ === 'konsole' ? 'Konsole suchen, z. B. „PlayStation“' : 'Zubehör suchen …'}
+              placeholder={typ === 'spiel' ? 'Spieltitel oder EAN suchen …' : typ === 'konsole' ? 'Konsole suchen, z. B. „PlayStation“' : 'Zubehör suchen …'}
               className="eingabe pl-10"
               autoFocus={p.scan !== '1'}
             />
@@ -156,6 +202,12 @@ export default function Hinzufuegen({ route }) {
             {!sucht && !ergebnis.lokal.length && !ergebnis.online.length && !ergebnis.fehler && (
               <p className="text-sm text-leise">Keine Treffer für „{suchtext.trim()}“.</p>
             )}
+            {!sucht && ergebnis.mehrOnline && (
+              <button type="button" className="knopf-sekundaer self-start" onClick={weitereLaden} disabled={laedtMehr}>
+                <Symbol name="suche" className="size-4" />
+                {laedtMehr ? 'Lädt …' : 'Weitere Ergebnisse bei IGDB laden'}
+              </button>
+            )}
           </>
         )}
 
@@ -164,13 +216,25 @@ export default function Hinzufuegen({ route }) {
             <p className="font-semibold">Nicht gefunden?</p>
             <p className="text-sm text-leise">
               Lege einen eigenen Eintrag an – ideal für Hardware, Zubehör, Sondermodelle und seltene deutsche Veröffentlichungen.
+              {vorschlagZiel && ' Oder schlage den Titel für den gemeinsamen Katalog vor – auch alte Spiele ohne Barcode.'}
             </p>
           </div>
-          <button type="button" className="knopf-sekundaer" onClick={eigenerEintrag}>
-            <Symbol name="stift" className="size-4" />
-            Eigenen Eintrag anlegen
-          </button>
+          <div className="flex flex-col gap-2">
+            <button type="button" className="knopf-sekundaer" onClick={eigenerEintrag}>
+              <Symbol name="stift" className="size-4" />
+              Eigenen Eintrag anlegen
+            </button>
+            {vorschlagZiel && !vorschlagOffen && (
+              <button type="button" className="knopf-sekundaer" onClick={() => setVorschlagOffen(true)}>
+                <Symbol name="plus" className="size-4" />
+                Titel vorschlagen
+              </button>
+            )}
+          </div>
         </section>
+        {vorschlagOffen && (
+          <TitelVorschlag titel={suchtext.trim()} typ={typ} zielName={vorschlagZiel} onSchliessen={() => setVorschlagOffen(false)} />
+        )}
       </div>
 
       {p.scan === '1' && (
@@ -195,7 +259,7 @@ function Trefferliste({ titel, eintraege, onWaehle }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{e.titel}</p>
                 <p className="line-clamp-2 text-xs text-leise">
-                  {[e.erscheinungsjahr, e.hersteller, e.plattformen.slice(0, 4).join(', ')].filter(Boolean).join(' · ')}
+                  {[e.titel_original && `Original: ${e.titel_original}`, e.erscheinungsjahr, e.hersteller, e.plattformen.slice(0, 4).join(', ')].filter(Boolean).join(' · ')}
                 </p>
                 {e.status && e.status !== 'freigegeben'
                   ? <StatusAbzeichen status={e.status} className="mt-1" />

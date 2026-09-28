@@ -13,6 +13,11 @@ import { erstelleCache } from './services/cache.js';
 import { erstelleIgdbDienst } from './services/igdb.js';
 import { erstelleBarcodeDienst } from './services/barcode.js';
 import { erstelleKatalogDienst } from './services/katalog.js';
+import { erstelleZentrale } from './services/zentrale.js';
+import { erstelleSyncDienst } from './services/sync.js';
+import { erstelleKonvolutDienst } from './services/konvolute.js';
+import { konvoluteRouter } from './routes/konvolute.js';
+import { zentraleRouter, zentraleAdminRouter } from './routes/zentrale.js';
 import { erstelleKontenDienst, KontoFehler } from './services/konten.js';
 import { erstelleDateiDienst } from './services/dateien.js';
 import { erstelleSpeicherDienst } from './services/speicher.js';
@@ -57,7 +62,9 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const igdb = erstelleIgdbDienst(konfiguration.igdb, db, { fetchFn });
   const barcode = erstelleBarcodeDienst(konfiguration.barcode, { fetchFn });
   const plattformen = erstellePlattformDienst(db);
-  const katalog = erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen });
+  const zentrale = erstelleZentrale(db, { konfiguration, fetchFn, version, cache });
+  const katalog = erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, erweiterungen, zentrale });
+  zentrale.setzeKatalog(katalog);
   const konten = erstelleKontenDienst(db, { schluessel, sitzungTage: konfiguration.konten.sitzungTage });
   const dateien = erstelleDateiDienst(db, { uploadVerzeichnis: konfiguration.uploadVerzeichnis, erweiterungen });
   const speicher = erstelleSpeicherDienst(db, { standardMb: () => konfiguration.speicherKontingentMb ?? 1024, dateien, erweiterungen });
@@ -68,9 +75,11 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const mail = neueMail();
   const kontoMail = erstelleKontoMailDienst(db, { mail, konfiguration, konten });
   const benachrichtigungen = erstelleBenachrichtigungsDienst(db, { mail, konfiguration });
+  const konvolute = erstelleKonvolutDienst(db, { erweiterungen });
+  const sync = erstelleSyncDienst(db, { zentrale, katalog, schluessel, dateien, speicher, plattformen, erweiterungen });
   const kontext = {
-    db, cache, igdb, barcode, katalog, konten, dateien, speicher, plattformen, einstellungen, sicherung, mail, kontoMail,
-    benachrichtigungen, captcha, konfiguration, version, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
+    db, cache, igdb, barcode, zentrale, katalog, konten, dateien, speicher, plattformen, einstellungen, sicherung, mail, kontoMail,
+    benachrichtigungen, sync, konvolute, captcha, konfiguration, version, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
   };
   // Zusatzmodule legen ihre Dienste im Kontext ab und registrieren sich an den Andockpunkten
   for (const modul of MODULE) modul.erstelle?.(kontext, { fetchFn });
@@ -145,12 +154,13 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
 
   app.use('/api', angemeldet, statusRouter(kontext));
   app.use('/api/artikel', angemeldet, artikelRouter(kontext));
+  app.use('/api/konvolute', angemeldet, konvoluteRouter(kontext));
   app.use('/api/katalog', angemeldet, katalogRouter(kontext));
   app.use('/api/statistik', angemeldet, statistikRouter(kontext));
-  app.use('/api/admin', angemeldet, erfordereAdmin, adminRouter(kontext), seitenAdminRouter(kontext));
+  app.use('/api/admin', angemeldet, erfordereAdmin, adminRouter(kontext), seitenAdminRouter(kontext), zentraleAdminRouter(kontext));
   app.use('/api/moderation/plattformen', angemeldet, plattformenRouter(kontext));
   app.use('/api', angemeldet, katalogUnterRouter(kontext), benachrichtigungenRouter(kontext), importCsvRouter(kontext));
-  app.use('/api', angemeldet, medienRouter(kontext), exportRouter(kontext));
+  app.use('/api', angemeldet, medienRouter(kontext), exportRouter(kontext), zentraleRouter(kontext));
   for (const modul of MODULE) modul.api?.(app, kontext, { angemeldet, erfordereAdmin });
   app.use('/api', (_req, res) => res.status(404).json({ fehler: 'Unbekannter API-Endpunkt.' }));
 

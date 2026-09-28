@@ -27,6 +27,7 @@ const SEITEN = {
   katalogSeite: () => import('./seiten/KatalogSeite.jsx'),
   rechtlicheSeite: () => import('./seiten/RechtlicheSeite.jsx'),
   kontoLinks: () => import('./seiten/KontoLinks.jsx'),
+  konvolute: () => import('./seiten/Konvolute.jsx'),
 };
 
 function vorladen() {
@@ -49,6 +50,8 @@ const Druck = spaeter(SEITEN.druck);
 const Katalog = spaeter(SEITEN.katalog);
 const KatalogSeite = spaeter(SEITEN.katalogSeite);
 const RechtlicheSeite = spaeter(SEITEN.rechtlicheSeite);
+const KonvoluteListe = spaeter(SEITEN.konvolute, 'KonvoluteListe');
+const KonvolutSeite = spaeter(SEITEN.konvolute, 'KonvolutSeite');
 const PasswortVergessen = spaeter(SEITEN.kontoLinks, 'PasswortVergessen');
 const PasswortNeu = spaeter(SEITEN.kontoLinks, 'PasswortNeu');
 const EmailBestaetigen = spaeter(SEITEN.kontoLinks, 'EmailBestaetigen');
@@ -67,12 +70,15 @@ function Seite({ route }) {
   if (pfad === '/import') return <Import route={route} />;
   if (pfad === '/admin') return <Admin route={route} />;
   if (pfad === '/katalog') return <Katalog route={route} />;
+  if (pfad === '/konvolute') return <KonvoluteListe route={route} />;
   let t = passt('/artikel/:id/bearbeiten', pfad);
   if (t) return <ArtikelFormular key={`b${t.id}`} route={route} artikelId={t.id} />;
   t = passt('/artikel/:id', pfad);
   if (t) return <ArtikelDetail key={t.id} route={route} id={t.id} />;
   t = passt('/katalog/:id', pfad);
   if (t) return <KatalogSeite key={t.id} route={route} id={t.id} />;
+  t = passt('/konvolut/:id', pfad);
+  if (t) return <KonvolutSeite key={t.id} route={route} id={t.id} />;
   t = passt('/seite/:slug', pfad);
   if (t) return <RechtlicheSeite key={t.slug} route={route} slug={t.slug} />;
   t = passt('/druck/:id', pfad);

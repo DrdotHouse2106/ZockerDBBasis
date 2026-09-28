@@ -1,6 +1,6 @@
 # Sicherheitslücken bitte vertraulich melden – wir freuen uns über jeden Hinweis!
 # Please report security vulnerabilities privately – every report is appreciated!
-Contact: mailto:security@zockdb.de
-Policy: https://zockdb.de/?app=1#/seite/sicherheit
+Contact: mailto:security@zockerdb.de
+Policy: https://zockerdb.de/?app=1#/seite/sicherheit
 Preferred-Languages: de, en
 Expires: 2027-09-25T00:00:00.000Z

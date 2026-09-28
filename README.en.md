@@ -1,23 +1,26 @@
-# 🎮 ZockDB Basis
+# 🎮 ZockerDB Basis
 
 **Your game collection, self-hosted – mobile-first, German user interface.**
 
 > 🇩🇪 The primary documentation is in German: [README.md](README.md). The app's user interface is German only.
 
-> 🌐 **No server of your own? Use [zockdb.de](https://zockdb.de)** – ready to go, with achievements, trading market, market
-> prices and community. Using it or booking extras **directly supports the development of ZockDB**. Thank you! 💜
+> 🌐 **No server of your own? Use [zockerdb.de](https://zockerdb.de)** – ready to go, with achievements, trading market, market
+> prices and community. Using it or booking extras **directly supports the development of ZockerDB**. Thank you! 💜
 
-ZockDB Basis is the freely available base edition of [zockdb.de](https://zockdb.de): a Progressive Web App for managing
+ZockerDB Basis is the freely available base edition of [zockerdb.de](https://zockerdb.de): a Progressive Web App for managing
 **games, consoles and accessories**, tailored to collectors in German-speaking countries (PAL/USK regions, CIB status,
 special colours, editions and model revisions).
 
-> 🔒 **Found a vulnerability?** Please report it privately by e-mail to [security@zockdb.de](mailto:security@zockdb.de).
+> 🔒 **Found a vulnerability?** Please report it privately by e-mail to [security@zockerdb.de](mailto:security@zockerdb.de).
 
 ## Features
 
 - Games, consoles and accessories with condition, completeness, region, colour, edition, model/serial number, price, notes and photos
 - In-browser **barcode scanner** (EAN/UPC); barcodes are learned on first use
-- **IGDB** search (via Twitch API), cached locally
+- Search and barcodes via the **central zockerdb.de catalogue** (real German titles and descriptions, no own IGDB keys
+  needed; `ZOCKERDB_CENTRAL=aus` uses your own IGDB access instead)
+- Optional **sync with a zockerdb.de account** in both directions (scans stay at home) and optional **anonymous data
+  donation** (only counts per title, with a preview for admins)
 - Fixed platform taxonomy, known variants as a collecting checklist, multiple copies per item
 - Scans & manuals per game (incl. TIFF and PDF), **print covers at original size**
 - Multiple users, roles, **two-factor authentication (TOTP)**, scrypt password hashing

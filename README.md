@@ -1,20 +1,20 @@
-# 🎮 ZockDB Basis
+# 🎮 ZockerDB Basis
 
 **Deine Spielesammlung selbst gehostet – mobil, auf Deutsch, auf deinem eigenen Server.**
 
-<p><img src="client/public/icons/icon.svg" alt="ZockDB-Logo" width="96"></p>
+<p><img src="client/public/icons/icon.svg" alt="ZockerDB-Logo" width="96"></p>
 
-ZockDB Basis ist die frei verfügbare Grundversion von [zockdb.de](https://zockdb.de): eine Progressive Web App (PWA) zur
+ZockerDB Basis ist die frei verfügbare Grundversion von [zockerdb.de](https://zockerdb.de): eine Progressive Web App (PWA) zur
 Verwaltung von **Spielen, Konsolen und Zubehör** – für dich allein oder zusammen mit Familie und Freunden. Gemacht für
 Sammler im deutschsprachigen Raum: PAL-/USK-Regionen, CIB-Status, Sonderfarben, Editionen und Modellrevisionen lassen
 sich sauber erfassen – per Titelsuche, **Barcode-Scan mit der Handykamera** oder als eigener Eintrag.
 
-> 🌐 **Kein eigener Server? Nutze [zockdb.de](https://zockdb.de)** – sofort startklar, mit Erfolgen, Tauschbörse,
-> Marktpreisen und Community. Wer dort mitmacht oder Zusatzleistungen bucht, **unterstützt die Weiterentwicklung von ZockDB**. Danke! 💜
+> 🌐 **Kein eigener Server? Nutze [zockerdb.de](https://zockerdb.de)** – sofort startklar, mit Erfolgen, Tauschbörse,
+> Marktpreisen und Community. Wer dort mitmacht oder Zusatzleistungen bucht, **unterstützt die Weiterentwicklung von ZockerDB**. Danke! 💜
 
 > 🇬🇧 An English version is available in [README.en.md](README.en.md).
 
-> 🔒 **Sicherheitslücke gefunden?** Bitte vertraulich per E-Mail an [security@zockdb.de](mailto:security@zockdb.de) –
+> 🔒 **Sicherheitslücke gefunden?** Bitte vertraulich per E-Mail an [security@zockerdb.de](mailto:security@zockerdb.de) –
 > Details in der [SECURITY.md](SECURITY.md).
 
 <p align="center">
@@ -30,10 +30,15 @@ sich sauber erfassen – per Titelsuche, **Barcode-Scan mit der Handykamera** od
 - **Sammlung** mit Spielen, Konsolen und Zubehör – Zustand, Vollständigkeit (CIB, lose …), Region, Farbe, Edition,
   Modellnummer, Seriennummer, Kaufpreis, eigene Schätzung, Notizen und eigene Fotos
 - **Barcode-Scanner im Browser** (EAN/UPC) über die Kamera – ganz ohne App-Store; einmal zugeordnete Barcodes werden gelernt
-- **Online-Suche über IGDB** (Twitch-API) für Spiele und Konsolen mit Cover, Jahr und Publisher, zwischengespeichert
+- **Zentraler Katalog über zockerdb.de:** Suche und Barcodes mit **echten deutschen Titeln** und deutschen Texten – ohne eigene
+  IGDB-Zugangsdaten. Alternativ direkt über IGDB mit eigenem Twitch-Zugang
+- **Sync mit zockerdb.de (optional):** eigene Sammlung in beide Richtungen abgleichen – unterwegs und mit Freunden ansehen,
+  Erfolge sammeln; Scans bleiben zu Hause
 - **Plattformen als feste Kategorien** (PS5, Switch, N64 …) nach Hersteller gruppiert, **Varianten/Revisionen** als Sammel-Checkliste,
   mehrere Exemplare je Spiel
 - **Scans & Handbücher** je Spiel (auch hochauflösende TIFF-Scans und PDFs) und **Cover-Druck in Originalgröße**
+- **Ohne Kaufpreis kein Problem:** Herkunft (Konvolut, Geschenk, „schon immer“ …), ungefähres Kaufdatum (nur Jahr) und
+  **Konvolute** mit Gesamtpreis, der automatisch auf die Artikel verteilt wird
 - **Private Kommentare**, **Statistik**, **Filter & Suche**
 - **Mehrere Benutzer** mit eigenem, getrenntem Konto – Rollen *Nutzer*, *Moderator*, *Administrator*
 - **Zwei-Faktor-Anmeldung** (TOTP) mit Wiederherstellungscodes, sichere Passwortspeicherung (scrypt)
@@ -82,7 +87,9 @@ Viele Werte lassen sich zusätzlich unter *Administration → Einstellungen* än
 | `APP_SECRET` | automatisch | Schlüssel für 2FA-Geheimnisse und gespeicherte API-Schlüssel |
 | `REGISTRATION_OPEN` | `true` | Dürfen sich neue Benutzer selbst registrieren? |
 | `REQUIRE_2FA` | `false` | Zwei-Faktor-Anmeldung für alle Pflicht |
-| `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` | – | Zugang für die Online-Suche über IGDB (siehe unten) |
+| `ZOCKERDB_CENTRAL` | `https://zockerdb.de` | Zentraler Katalog für Suche und Barcodes; `aus` = nur eigener IGDB-Zugang |
+| `ZOCKERDB_DONATE` | `false` | Anonyme Datenspende an zockerdb.de (nur Anzahlen je Titel) |
+| `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` | – | Eigener IGDB-Zugang – nur mit `ZOCKERDB_CENTRAL=aus` nötig (siehe unten) |
 | `BARCODE_PROVIDERS` | `opengtindb,upcitemdb` | Barcode-Datenbanken in Abfragereihenfolge; leer = nur gelernte Barcodes |
 | `OPENGTINDB_QUERYID` | – | Zugangsnummer für [opengtindb.org](https://opengtindb.org) |
 | `STORAGE_QUOTA_MB` | `1024` | Speicher je Benutzer für Fotos und Scans (`0` = unbegrenzt) |
@@ -94,7 +101,43 @@ Viele Werte lassen sich zusätzlich unter *Administration → Einstellungen* än
 | `TRUST_PROXY` | – | Hinter einem Reverse-Proxy `1` setzen |
 | `SESSION_DAYS` / `COOKIE_SECURE` | `30` / `auto` | Gültigkeit der Anmeldung, Cookie nur über HTTPS |
 
+## Verbindung zu zockerdb.de
+
+Standardmäßig sucht ZockerDB Basis über den **zentralen Katalog von zockerdb.de**. Das hat mehrere Vorteile:
+
+- **Echte deutsche Titel und deutsche Beschreibungen** – ohne eigene IGDB-Zugangsdaten.
+- **Einheitliche ZockerDB-IDs:** Jeder Titel existiert nur einmal. IGDB wird nur gefragt, wenn der Katalog noch nichts kennt –
+  und der Treffer steht danach allen zur Verfügung.
+- **„Zu ZockerDB freigeben“:** Eigene Einträge (z. B. seltene Hardware) kannst du auf der Katalogseite einreichen. Nach der
+  Prüfung auf zockerdb.de wird dein Eintrag automatisch zum gemeinsamen Eintrag.
+- **Sammlerzahlen:** Auf jeder Katalogseite siehst du, wie viele Sammler einen Titel bei ZockerDB besitzen.
+
+Übertragen werden dabei nur Suchbegriffe und Barcodes – vom Server, nicht von deinem Browser, ohne Daten über dich.
+Die Installation meldet sich beim ersten Kontakt automatisch an (ohne persönliche Daten). Mit `ZOCKERDB_CENTRAL: "aus"`
+nutzt du stattdessen nur deinen eigenen IGDB-Zugang.
+
+### Anonyme Datenspende (freiwillig)
+
+Mit `ZOCKERDB_DONATE: "true"` (oder unter *Administration → Einstellungen*) meldet dein Server wöchentlich **nur Anzahlen**:
+wie viele Sammler hier einen Titel besitzen, wie viele Exemplare es sind, und welche Barcodes zu welchem Titel gehören.
+Keine Benutzernamen, Preise, Notizen oder Fotos. Unter *Administration → Übersicht* siehst du **genau**, was gesendet würde.
+Jeder Benutzer kann sich im Konto ausnehmen. Dafür fließen deine Sammler in die Statistik von zockerdb.de ein – und du
+bekommst Sammlerzahlen aller ZockerDB-Nutzer zurück.
+
+### Sammlung mit zockerdb.de synchronisieren (freiwillig, je Benutzer)
+
+1. Auf zockerdb.de: *Konto → Eigenen Server verbinden → Sync-Schlüssel erstellen*.
+2. Hier: *Konto → zockerdb.de* → Schlüssel einfügen → **Verbinden**.
+
+Danach wird die Sammlung alle 15 Minuten **in beide Richtungen** abgeglichen (bei Konflikten gewinnt die jüngere Änderung,
+Löschungen werden übernommen). So hast du deine Sammlung unterwegs dabei, kannst sie mit Freunden teilen und sammelst
+**Erfolge – die gibt es nur auf zockerdb.de**. **Scans und Handbücher bleiben immer zu Hause.** Eigene Fotos gehen nur mit,
+wenn du es beim Artikel einschaltest („Foto auch auf zockerdb.de“) – verkleinert, und sie zählen dort zu deinem Speicherplatz.
+Fotos, die du unterwegs auf zockerdb.de hinzufügst, werden zu Hause gespeichert.
+
 ## IGDB-Zugang einrichten
+
+> Nur nötig, wenn du ohne zockerdb.de arbeitest (`ZOCKERDB_CENTRAL: "aus"`).
 
 [IGDB](https://www.igdb.com) ist eine kostenlose Spieldatenbank von Twitch.
 
@@ -112,7 +155,7 @@ Zertifikaten, z. B. [Caddy](https://caddyserver.com):
 
 ```caddyfile
 sammlung.example.de {
-    reverse_proxy zockdb:3000
+    reverse_proxy zockerdb:3000
 }
 ```
 
@@ -133,8 +176,8 @@ Heimnetz eignen sich auch [Tailscale](https://tailscale.com) oder der Proxy dein
 Voraussetzung: **Node.js 22** oder neuer.
 
 ```bash
-git clone https://github.com/DrdotHouse2106/ZockDBBasis.git
-cd ZockDBBasis
+git clone https://github.com/DrdotHouse2106/ZockerDBBasis.git
+cd ZockerDBBasis
 npm ci
 cp .env.example .env
 npm run build     # Oberfläche bauen
@@ -147,7 +190,7 @@ Browser-Tests: `npm run test:e2e`.
 ## Mitwirken
 
 Beiträge sind willkommen – siehe [CONTRIBUTING.md](CONTRIBUTING.md). Dieses Repository wird automatisch aus der
-Entwicklung von zockdb.de aktualisiert; Pull Requests werden dort übernommen und erscheinen danach hier.
+Entwicklung von zockerdb.de aktualisiert; Pull Requests werden dort übernommen und erscheinen danach hier.
 
 ## Lizenz
 

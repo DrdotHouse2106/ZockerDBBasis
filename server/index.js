@@ -33,6 +33,15 @@ const sichern = async () => {
 setTimeout(sichern, 60_000).unref();
 setInterval(sichern, 60 * 60 * 1000).unref();
 
+// Verbindung zu zockerdb.de: Katalog-Abgleich, Einreichungen, Datenspende (wöchentlich) und Sync der Sammlungen
+const zentraleLauf = async () => {
+  await kontext.zentrale.lauf().catch((e) => console.warn('[zockerdb.de]', e.message));
+  await kontext.sync.alle().catch((e) => console.warn('[sync]', e.message));
+};
+setTimeout(zentraleLauf, 2 * 60_000).unref();
+setInterval(zentraleLauf, 15 * 60 * 1000).unref();
+if (kontext.zentrale.aktiv) console.log(`   Zentraler Katalog: ${kontext.zentrale.url}`);
+
 // Zeitgesteuerte Aufgaben der Zusatzmodule
 for (const modul of MODULE) modul.zeitplan?.(kontext);
 

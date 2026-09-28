@@ -77,7 +77,8 @@ test('Varianten: freigegebene Liste + private Vorschläge, Exemplare je Variante
   assert.equal(v1.status, 'freigegeben');
   const v2 = (await post(moni, `/api/katalog/${ps1.id}/varianten`, { bezeichnung: 'PSone', modellnummer: 'SCPH-102', veroeffentlichen: true })).json;
   const eigene = (await post(nina, `/api/katalog/${ps1.id}/varianten`, { bezeichnung: 'Debug-Station', modellnummer: 'DTL-H1202', einreichen: true })).json;
-  assert.equal(eigene.status, 'eingereicht');
+  // Ohne Moderation (Basis) gibt es keine Warteschlange – die Variante bleibt privat
+  assert.equal(eigene.status, server.kontext.katalog.moderiert() ? 'eingereicht' : 'privat');
 
   assert.equal((await otto.api(`/api/katalog/${ps1.id}/varianten`)).json.length, 2, 'eingereichte Variante ist für andere unsichtbar');
   assert.equal((await nina.api(`/api/katalog/${ps1.id}/varianten`)).json.length, 3);

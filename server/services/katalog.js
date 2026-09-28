@@ -8,6 +8,7 @@
 import crypto from 'node:crypto';
 import { istModerator } from '../../shared/konstanten.js';
 import { bereinigeProduktname, barcodeVarianten } from './titel.js';
+import { nurZiffern } from '../../shared/barcode.js';
 
 export function katalogZeileZuObjekt(zeile) {
   if (!zeile) return null;
@@ -40,14 +41,18 @@ export function istSichtbar(eintrag, benutzer) {
   return eintrag.status === 'freigegeben' || Boolean(benutzer && (eintrag.erstellt_von === benutzer.id || istModerator(benutzer)));
 }
 
-export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen }) {
+// Suche: ab so vielen Treffern im eigenen Katalog wird IGDB nicht automatisch gefragt
+const MINDEST_TREFFER = 5;
+const ONLINE_JE_SEITE = 20;
+
+export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, erweiterungen, zentrale }) {
   const upsert = db.prepare(`
-    INSERT INTO katalog (quelle, externe_id, typ, titel, plattformen, erscheinungsjahr, hersteller, cover_url, beschreibung,
+    INSERT INTO katalog (quelle, externe_id, typ, titel, titel_original, igdb_url, plattformen, erscheinungsjahr, hersteller, cover_url, beschreibung,
                          erstellt_von, status, eingereicht_am)
-    VALUES (@quelle, @externe_id, @typ, @titel, @plattformen, @erscheinungsjahr, @hersteller, @cover_url, @beschreibung,
+    VALUES (@quelle, @externe_id, @typ, @titel, @titel_original, @igdb_url, @plattformen, @erscheinungsjahr, @hersteller, @cover_url, @beschreibung,
             @erstellt_von, @status, CASE WHEN @status = 'eingereicht' THEN datetime('now') END)
     ON CONFLICT (quelle, externe_id) DO UPDATE SET
-      titel = excluded.titel, plattformen = excluded.plattformen, erscheinungsjahr = excluded.erscheinungsjahr,
+      titel = excluded.titel, titel_original = excluded.titel_original, igdb_url = COALESCE(excluded.igdb_url, katalog.igdb_url), plattformen = excluded.plattformen, erscheinungsjahr = excluded.erscheinungsjahr,
       hersteller = excluded.hersteller, cover_url = excluded.cover_url, beschreibung = excluded.beschreibung,
       aktualisiert_am = datetime('now')
     WHERE katalog.manuell_bearbeitet = 0
@@ -56,7 +61,7 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen })
   const perId = db.prepare('SELECT * FROM katalog WHERE id = ?');
   const lokaleSuche = db.prepare(`
     SELECT k.* FROM katalog k
-    WHERE k.titel LIKE @muster ESCAPE '\\' AND (@typ IS NULL OR k.typ = @typ) AND ${SICHTBAR_SQL}
+    WHERE (k.titel LIKE @muster ESCAPE '\\' OR k.titel_original LIKE @muster ESCAPE '\\') AND (@typ IS NULL OR k.typ = @typ) AND ${SICHTBAR_SQL}
     ORDER BY (k.erstellt_von = @benutzer) DESC, (k.quelle = 'eigen') DESC, (k.titel LIKE @anfang ESCAPE '\\') DESC, length(k.titel)
     LIMIT 15`);
   const barcodeLesen = db.prepare('SELECT * FROM barcodes WHERE code = ?');
@@ -75,13 +80,16 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen })
   function speichere(eintrag) {
     const status = eintrag.status ?? (eintrag.quelle === 'igdb' ? 'freigegeben' : 'privat');
     const zeile = upsert.get({
-      erstellt_von: null, erscheinungsjahr: null, hersteller: null, cover_url: null, beschreibung: null,
+      erstellt_von: null, titel_original: null, igdb_url: null, erscheinungsjahr: null, hersteller: null, cover_url: null, beschreibung: null,
       ...eintrag, status, plattformen: JSON.stringify(eintrag.plattformen ?? []),
     });
     // Manuell bearbeitete Einträge werden von Importen (IGDB) nicht überschrieben
     if (!zeile) return katalogZeileZuObjekt(perQuelle.get(eintrag.quelle, eintrag.externe_id));
     plattformen?.verknuepfeKatalog(zeile.id, eintrag.plattformen);
-    return katalogZeileZuObjekt(zeile);
+    let objekt = katalogZeileZuObjekt(zeile);
+    // Andockpunkt „katalog.importiert“: Zusatzmodule können importierte Einträge ergänzen (Rückgabe = neuer Stand)
+    if (eintrag.quelle !== 'eigen') for (const fn of erweiterungen?.alle('katalog.importiert') ?? []) objekt = fn(objekt) ?? objekt;
+    return objekt;
   }
 
   /** Bearbeitung eines Eintrags durch Ersteller oder Moderation (auch IGDB-Einträge). */
@@ -99,10 +107,13 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen })
   }
 
   /** Legt einen eigenen Katalogeintrag an (Status je nach Rolle und Wunsch). */
+  /** Gibt es hier eine Moderation für Einreichungen (Zusatzmodul)? Sonst gehen Einreichungen an zockerdb.de. */
+  const moderiert = () => (erweiterungen?.alle('katalog.eingereicht').length ?? 0) > 0;
+
   function legeEigenenAn(daten, benutzer, { einreichen = false, veroeffentlichen = false } = {}) {
     let status = 'privat';
     if (istModerator(benutzer) && veroeffentlichen) status = 'freigegeben';
-    else if (einreichen) status = 'eingereicht';
+    else if (einreichen && moderiert()) status = 'eingereicht';
     return speichere({ ...daten, quelle: 'eigen', externe_id: crypto.randomUUID(), erstellt_von: benutzer.id, status });
   }
 
@@ -120,29 +131,74 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen })
       .map(katalogZeileZuObjekt);
   }
 
-  /** Online bei IGDB suchen (mit Cache) und Treffer im lokalen Katalog ablegen. */
-  async function sucheOnline(begriff, typ = 'spiel') {
-    if (!igdb.konfiguriert || typ === 'zubehoer') return [];
-    const schluessel = `igdb:${typ}:${begriff.toLowerCase()}`;
-    const treffer = await cache.merke(schluessel, () =>
-      typ === 'konsole' ? igdb.sucheKonsolen(begriff) : igdb.sucheSpiele(begriff),
-    );
-    return db.transaction(() => treffer.map(speichere))();
+  /**
+   * Konsolen heißen im Katalog wie in der festen Plattformliste (deutscher Markt, z. B. „Super Nintendo“ statt
+   * „Super Nintendo Entertainment System“); der IGDB-Name bleibt als Originaltitel suchbar.
+   */
+  function deutscherKonsolenname(eintrag) {
+    if (eintrag.typ !== 'konsole') return eintrag;
+    const p = plattformen?.zuordnen(eintrag.titel);
+    if (!p || p.name === eintrag.titel) return eintrag;
+    return { ...eintrag, titel: p.name, titel_original: eintrag.titel_original ?? eintrag.titel };
   }
 
-  async function suche(begriff, typ, benutzer) {
+  /** Online bei IGDB suchen (mit Cache, seitenweise) und Treffer im lokalen Katalog ablegen. */
+  async function sucheOnline(begriff, typ = 'spiel', seite = 0) {
+    if (!igdb.konfiguriert || typ === 'zubehoer') return [];
+    const schluessel = `igdb:${typ}:${begriff.toLowerCase()}:${seite}`;
+    const offset = seite * ONLINE_JE_SEITE;
+    const treffer = await cache.merke(schluessel, () =>
+      typ === 'konsole' ? igdb.sucheKonsolen(begriff, ONLINE_JE_SEITE, offset) : igdb.sucheSpiele(begriff, ONLINE_JE_SEITE, offset),
+    );
+    return db.transaction(() => treffer.map(deutscherKonsolenname).map(speichere))();
+  }
+
+  /**
+   * Suche in Stufen, damit IGDB möglichst selten gefragt wird:
+   *  1. Immer zuerst der eigene Katalog.
+   *  2. Nur wenn er weniger als MINDEST_TREFFER Einträge liefert, automatisch bei IGDB nachsehen.
+   *  3. Sonst meldet `mehrOnline`, dass der Benutzer bei Bedarf selbst „Weitere Ergebnisse“ laden kann
+   *     (`online: true`, danach seitenweise mit `seite`).
+   */
+  async function suche(begriff, typ, benutzer, { online: onlineGewuenscht = false, seite = 0, mindestTreffer = MINDEST_TREFFER } = {}) {
     const text = String(begriff ?? '').trim();
-    if (text.length < 2) return { lokal: [], online: [], fehler: null };
+    if (text.length < 2) return { lokal: [], online: [], fehler: null, mehrOnline: false };
     const lokal = sucheLokal(text, typ || null, benutzer);
+    // Mit Verbindung zu zockerdb.de sucht die Zentrale (Katalog + IGDB), sonst IGDB mit eigenen Zugangsdaten.
+    // Reine Nummern (z. B. eine eingetippte EAN) findet IGDB nie – dafür gibt es die Barcode-Suche.
+    const zentral = Boolean(zentrale?.aktiv);
+    const onlineMoeglich = !nurZiffern(text) && (zentral || (igdb.konfiguriert && typ !== 'zubehoer'));
+    const fragen = onlineMoeglich && (onlineGewuenscht || lokal.length < mindestTreffer);
     let online = [];
     let fehler = null;
-    try {
-      online = await sucheOnline(text, typ || 'spiel');
-    } catch (e) {
-      fehler = e.message;
+    let mehr = null;
+    let seiteZentral = null;
+    if (fragen) {
+      try {
+        if (zentral) {
+          const r = await zentrale.suche(text, typ, { online: onlineGewuenscht, seite });
+          online = db.transaction(() => r.treffer.map(speichere))();
+          mehr = r.mehrOnline;
+          seiteZentral = r.seite;
+        } else {
+          online = await sucheOnline(text, typ || 'spiel', seite);
+        }
+      } catch (e) {
+        // zockerdb.de nicht erreichbar: verständlicher Hinweis, die eigenen Treffer bleiben sichtbar
+        fehler = zentral && !e.status
+          ? 'zockerdb.de ist gerade nicht erreichbar – angezeigt werden nur Einträge aus deinem Katalog. Bitte später erneut versuchen.'
+          : e.message;
+      }
     }
     const lokaleIds = new Set(lokal.map((e) => e.id));
-    return { lokal, online: online.filter((e) => !lokaleIds.has(e.id)), fehler };
+    return {
+      lokal,
+      online: online.filter((e) => e && !lokaleIds.has(e.id) && istSichtbar(e, benutzer)),
+      fehler,
+      // Weitere Online-Ergebnisse: noch nicht gefragt, oder die letzte Seite war voll
+      mehrOnline: onlineMoeglich && !fehler && (!fragen || (zentral ? mehr : online.length >= ONLINE_JE_SEITE)),
+      seite: fragen ? (zentral ? seiteZentral : seite) : null,
+    };
   }
 
   /**
@@ -158,6 +214,20 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen })
     if (zugeordnet.length) {
       return { code, produktname: bekannt?.produktname ?? null, quelle: 'lokal', suchbegriff: zugeordnet[0].titel,
         treffer: zugeordnet, vorhandeneArtikel, fehler: null };
+    }
+
+    // Mit Verbindung zu zockerdb.de: Barcode dort auflösen (gemeinsam gelernte Barcodes, Barcode-Datenbanken, IGDB)
+    if (zentrale?.aktiv) {
+      try {
+        const r = await zentrale.barcode(code);
+        if (r.produktname && !bekannt) barcodeSchreiben.run({ code, produktname: r.produktname, quelle: r.quelle });
+        const treffer = db.transaction(() => r.treffer.map(speichere))().filter(Boolean);
+        return { code, produktname: r.produktname ?? bekannt?.produktname ?? null, quelle: r.quelle, suchbegriff: treffer[0]?.titel ?? null,
+          treffer, vorhandeneArtikel, fehler: null };
+      } catch (e) {
+        return { code, produktname: bekannt?.produktname ?? null, quelle: null, suchbegriff: null, treffer: [], vorhandeneArtikel,
+          fehler: e.status ? e.message : 'zockerdb.de ist gerade nicht erreichbar – der Barcode kann erst später erkannt werden. Du kannst den Titel auch per Suche finden.' };
+      }
     }
 
     let fehler = null;
@@ -177,7 +247,8 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen })
     const suchbegriff = produktname ? bereinigeProduktname(produktname) : null;
     let treffer = [];
     if (suchbegriff) {
-      const ergebnis = await suche(suchbegriff, 'spiel', benutzer);
+      // Passt schon ein Eintrag im Katalog, wird IGDB nicht gefragt
+      const ergebnis = await suche(suchbegriff, 'spiel', benutzer, { mindestTreffer: 1 });
       treffer = [...ergebnis.lokal, ...ergebnis.online];
       fehler ??= ergebnis.fehler;
     }
@@ -202,6 +273,6 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen })
   }
 
   return {
-    speichere, aktualisiere, legeEigenenAn, holeEintrag, holeSichtbar, sucheLokal, suche, sucheBarcode, verknuepfeBarcode, stelleSicherFuerArtikel,
+    speichere, aktualisiere, legeEigenenAn, moderiert, holeEintrag, holeSichtbar, sucheLokal, suche, sucheBarcode, verknuepfeBarcode, stelleSicherFuerArtikel,
   };
 }

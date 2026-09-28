@@ -1,4 +1,4 @@
-// Startet eine frische ZockDB-Instanz für die Browser-Tests (leere Datenbank in einem temporären Ordner).
+// Startet eine frische ZockerDB-Instanz für die Browser-Tests (leere Datenbank in einem temporären Ordner).
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -6,7 +6,7 @@ import { ladeKonfiguration } from '../server/config.js';
 import { erstelleApp } from '../server/app.js';
 import { oeffneDatenbank } from '../server/db.js';
 
-const ordner = fs.mkdtempSync(path.join(os.tmpdir(), 'zockdb-e2e-'));
+const ordner = fs.mkdtempSync(path.join(os.tmpdir(), 'zockerdb-e2e-'));
 const konfiguration = ladeKonfiguration({
   PORT: process.env.E2E_PORT || '4310',
   UPLOAD_DIR: path.join(ordner, 'uploads'),

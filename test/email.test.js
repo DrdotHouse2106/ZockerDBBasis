@@ -12,7 +12,7 @@ const tokenAus = (mail, pfad) => mail.text.match(new RegExp(`#/${pfad}\\?token=(
 
 before(async () => {
   server = await starteTestServer({
-    env: { PUBLIC_URL: 'https://zockdb.example', SMTP_FROM: 'ZockDB <noreply@zockdb.example>' },
+    env: { PUBLIC_URL: 'https://zockerdb.example', SMTP_FROM: 'ZockerDB <noreply@zockerdb.example>' },
     mailFn: async (m) => { postfach.push(m); },
   });
   admin = await server.registriere('chefin');
@@ -26,7 +26,7 @@ test('Registrierung mit E-Mail: Bestätigungslink, danach ist die Adresse hinter
   assert.equal(r.status, 201, r.text);
   const mail = letzteMail('mia@example.org');
   assert.match(mail.subject, /bestätige deine E-Mail-Adresse/);
-  assert.match(mail.text, /https:\/\/zockdb\.example\/\?app=1#\/email-bestaetigen\?token=/);
+  assert.match(mail.text, /https:\/\/zockerdb\.example\/\?app=1#\/email-bestaetigen\?token=/);
   let konto = (await gast.api('/api/konto')).json;
   assert.equal(konto.email, null);
   assert.equal(konto.ausstehendeEmail, 'mia@example.org');
@@ -89,7 +89,7 @@ test('Ohne PUBLIC_URL werden keine Links verschickt', async () => {
 test('Test-E-Mail aus der Administration', async () => {
   const r = await admin.api('/api/admin/test-mail', { methode: 'POST', daten: { an: 'test@example.org' } });
   assert.equal(r.status, 200, r.text);
-  assert.equal(letzteMail('test@example.org').subject, 'ZockDB: Test-E-Mail');
+  assert.equal(letzteMail('test@example.org').subject, 'ZockerDB: Test-E-Mail');
 });
 
 test('Bei einer Adressänderung wird die alte Adresse informiert', async () => {

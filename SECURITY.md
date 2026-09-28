@@ -8,7 +8,7 @@ egal wie klein er erscheint.
 
 Bitte melde Schwachstellen **vertraulich** und **nicht** als öffentliches Issue:
 
-👉 **E-Mail an [security@zockdb.de](mailto:security@zockdb.de)**
+👉 **E-Mail an [security@zockerdb.de](mailto:security@zockerdb.de)**
 
 Hilfreich sind:
 
@@ -44,4 +44,4 @@ eine Kontaktadresse für deine Installation ein und passe `client/public/.well-k
 ---
 
 <sub>🇬🇧 Security is taken very seriously. Please report vulnerabilities privately via
-e-mail to [security@zockdb.de](mailto:security@zockdb.de). Thank you!</sub>
+e-mail to [security@zockerdb.de](mailto:security@zockerdb.de). Thank you!</sub>

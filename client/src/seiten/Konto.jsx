@@ -8,6 +8,7 @@ import Symbol from '../komponenten/Symbole.jsx';
 import SpeicherAnzeige from '../komponenten/SpeicherAnzeige.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { Andockpunkt } from '../erweiterungen.jsx';
+import { KontoZockerdb } from '../komponenten/Zockerdb.jsx';
 
 export default function Konto({ route }) {
   const { auth, aktualisiere, abmelden } = useSitzung();
@@ -45,6 +46,7 @@ export default function Konto({ route }) {
             {!pflicht && (
               <>
                 <Sichtbarkeit konto={konto} onSpeichern={speichereProfil} />
+                <KontoZockerdb konto={konto} onSpeichern={speichereProfil} />
                 <Andockpunkt name="konto.einstellungen" konto={konto} onSpeichern={speichereProfil} />
                 <section className="karte space-y-3 p-4">
                   <h2 className="flex items-center gap-2 font-semibold"><Symbol name="dokument" className="size-5" />Speicherplatz</h2>

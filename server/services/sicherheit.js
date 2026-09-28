@@ -51,7 +51,7 @@ export function ladeSchluessel(appGeheimnis, datenVerzeichnis) {
   }
   // Der Präfix darf nach der ersten Installation NIE mehr geändert werden – sonst lassen sich
   // gespeicherte 2FA-Geheimnisse und API-Schlüssel nicht mehr entschlüsseln.
-  return crypto.createHash('sha256').update(`zockdb:${geheimnis}`).digest();
+  return crypto.createHash('sha256').update(`zockerdb:${geheimnis}`).digest();
 }
 
 export function verschluessele(text, schluessel) {

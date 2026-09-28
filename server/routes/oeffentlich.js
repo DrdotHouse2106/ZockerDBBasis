@@ -48,7 +48,7 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
       parameter.plattform = plattformId;
     }
     if (typeof req.query.q === 'string' && req.query.q.trim()) {
-      bedingungen.push("k.titel LIKE @q ESCAPE '\\'");
+      bedingungen.push("(k.titel LIKE @q ESCAPE '\\' OR k.titel_original LIKE @q ESCAPE '\\')");
       parameter.q = `%${req.query.q.trim().replace(/[\\%_]/g, (z) => `\\${z}`)}%`;
     }
     const seite = Math.max(1, Number.parseInt(req.query.seite, 10) || 1);
