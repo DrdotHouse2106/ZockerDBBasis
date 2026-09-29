@@ -24,7 +24,7 @@ import { erstelleSpeicherDienst } from './services/speicher.js';
 import { erstellePlattformDienst } from './services/plattformen.js';
 import { erstelleEinstellungsDienst } from './services/einstellungen.js';
 import { erstelleSicherungsDienst } from './services/sicherung.js';
-import { erstelleAktualisierung, leseBuild } from './services/aktualisierung.js';
+import { erstelleAktualisierung, leseBuild, neuerungsQuellen } from './services/aktualisierung.js';
 import { erstelleVorschlagDienst } from './services/vorschlaege.js';
 import { vorschlaegeRouter } from './routes/vorschlaege.js';
 import { erstelleIdeenDienst } from './services/ideen.js';
@@ -76,7 +76,7 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const dateien = erstelleDateiDienst(db, { uploadVerzeichnis: konfiguration.uploadVerzeichnis, erweiterungen });
   const speicher = erstelleSpeicherDienst(db, { standardMb: () => konfiguration.speicherKontingentMb ?? 1024, dateien, erweiterungen });
   const sicherung = erstelleSicherungsDienst(db, konfiguration);
-  const aktualisierung = erstelleAktualisierung({ konfiguration, sicherung, build, fetchFn });
+  const aktualisierung = erstelleAktualisierung({ konfiguration, sicherung, build, fetchFn, quellen: neuerungsQuellen(MODULE) });
   const neuesCaptcha = () => erstelleCaptchaDienst(konfiguration.captcha, { schluessel, fetchFn });
   const captcha = neuesCaptcha();
   const neueMail = () => erstelleMailDienst(konfiguration.mail, { transportFn: konfiguration.mailTransportFn });

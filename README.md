@@ -185,7 +185,9 @@ Statt `docker compose pull && docker compose up -d` geht das Update auch mit dem
 
 Beim Klick sichert ZockerDB zuerst die Datenbank. Dann lädt Watchtower das neue Image, falls es eins gibt, und startet
 ZockerDB damit neu (etwa eine Minute nicht erreichbar). Die Seite lädt danach von selbst neu. Unter *Update* steht auch,
-welcher Stand installiert ist, und ein Hinweis erscheint, sobald ein neuerer Stand verfügbar ist.
+welcher Stand installiert ist, und ein Hinweis erscheint, sobald ein neuerer Stand verfügbar ist – mit der Liste der
+**Neuerungen gegenüber deiner Version** (aus [NEUERUNGEN.md](NEUERUNGEN.md)). Die Versionshinweise deines installierten
+Stands lassen sich dort ebenfalls aufklappen.
 
 ## Installation ohne Docker
 

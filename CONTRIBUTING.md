@@ -101,6 +101,7 @@ test/              Tests
 
 - [ ] `npm test` und `npm run build` laufen fehlerfrei
 - [ ] Texte auf Deutsch, neue Einstellungen in `.env.example` und README dokumentiert
+- [ ] Sichtbare Änderungen in `NEUERUNGEN.md` eingetragen (neuer Eintrag oben, Überschrift „## TT.MM.JJJJ – Titel“)
 - [ ] Keine Geheimnisse, Partner-IDs oder personenbezogenen Daten im Code
 - [ ] Alle Commits mit Sign-off (`git commit -s`)
 

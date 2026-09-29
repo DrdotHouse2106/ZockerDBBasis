@@ -115,21 +115,41 @@ test('Update-Prüfung bei GitHub: neuer Stand, aktuell, privates Repository ohne
   let lauf = { head_sha: 'abcdef1234567', updated_at: '2026-09-29T09:00:00Z', display_title: 'Widerruf per Knopf' };
   let status = 200;
   const anfragen = [];
+  const INSTALLIERT = '## 28.09.2026 – Update per Knopf\n- Knopf\n';
+  const NEU = `# Neuerungen\n\n## 29.09.2026 – Neuerungen sehen\n- Liste der **Neuerungen**\n* zweiter Punkt\n\n${INSTALLIERT}`;
   const fetchFn = async (url, optionen = {}) => {
-    anfragen.push({ url: String(url), auth: optionen.headers?.Authorization });
-    return status === 200 ? Response.json({ workflow_runs: [lauf] }) : new Response('{}', { status });
+    const u = String(url);
+    anfragen.push({ url: u, auth: optionen.headers?.Authorization, accept: optionen.headers?.Accept });
+    if (status !== 200) return new Response('{}', { status });
+    if (u.includes('/contents/NEUERUNGEN.md')) return new Response(NEU);
+    if (u.includes('/contents/')) return new Response('nicht gefunden', { status: 404 });
+    if (u.includes('/compare/')) return Response.json({ ahead_by: 7 });
+    return Response.json({ workflow_runs: [lauf] });
   };
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const datei = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'neu-')), 'NEUERUNGEN.md');
+  fs.writeFileSync(datei, INSTALLIERT);
+  const quellen = [{ pfad: 'NEUERUNGEN.md', datei }, { pfad: 'modul/NEUERUNGEN.md', datei: '/gibt/es/nicht.md' }];
   const { erstelleAktualisierung } = await import('../server/services/aktualisierung.js');
   const konfiguration = { aktualisierung: { repo: 'beispiel/zockerdb', githubToken: '' } };
-  const a = erstelleAktualisierung({ konfiguration, sicherung: { lauf: async () => {} }, build: { commit: '1111111', datum: '2026-09-28T10:00:00.000Z' }, fetchFn });
+  const a = erstelleAktualisierung({ konfiguration, sicherung: { lauf: async () => {} }, build: { commit: '1111111', datum: '2026-09-28T10:00:00.000Z' }, fetchFn, quellen });
+  assert.deepEqual(a.status().neuerungen.map((e) => e.titel), ['Update per Knopf'], 'installierte Hinweise aus dem Image');
 
   let p = await a.pruefe();
   assert.equal(p.neu, true);
   assert.equal(p.verfuegbar.commit, 'abcdef1');
   assert.match(anfragen[0].url, /repos\/beispiel\/zockerdb\/actions\/workflows\/ci\.yml\/runs\?branch=main&status=success/);
+  // Was ist neu? Nur Einträge, die der installierte Stand noch nicht kennt – vom neuen Stand (ref = Commit des Builds)
+  assert.deepEqual(p.neuerungen, [{ id: '29.09.2026 – Neuerungen sehen', datum: '2026-09-29', titel: 'Neuerungen sehen', punkte: ['Liste der Neuerungen', 'zweiter Punkt'] }]);
+  assert.ok(anfragen.some((x) => x.url.endsWith('/contents/NEUERUNGEN.md?ref=abcdef1234567') && x.accept === 'application/vnd.github.raw+json'));
+  assert.ok(anfragen.some((x) => x.url.endsWith('/compare/1111111...abcdef1234567')));
+  assert.equal(p.aenderungen, 7);
   // Innerhalb einer Stunde aus dem Zwischenspeicher, „jetzt prüfen“ fragt neu
+  const bisher = anfragen.length;
   await a.pruefe();
-  assert.equal(anfragen.length, 1);
+  assert.equal(anfragen.length, bisher);
   lauf = { ...lauf, head_sha: '1111111aaaa' };
   p = await a.pruefe({ erzwingen: true });
   assert.equal(p.neu, false, 'derselbe Stand = aktuell');

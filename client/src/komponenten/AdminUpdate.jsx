@@ -5,6 +5,21 @@ import { api } from '../api.js';
 const zeit = (iso) => (iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : null);
 const standText = (b) => (b?.commit ? `Stand ${b.commit}${b.datum ? ` vom ${zeit(b.datum)}` : ''}` : 'ohne Docker-Image (selbst gebaut)');
 const gleich = (a, b) => (a?.commit ?? null) === (b?.commit ?? null) && (a?.datum ?? null) === (b?.datum ?? null);
+const datumKurz = (iso) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString('de-DE', { dateStyle: 'medium' }) : null);
+
+/** Liste von Versionshinweisen (Einträge aus NEUERUNGEN.md). */
+function Neuerungen({ eintraege }) {
+  return (
+    <ul className="space-y-2">
+      {eintraege.map((e) => (
+        <li key={e.id}>
+          <p className="font-medium">{e.titel}{e.datum && <span className="font-normal text-leise"> · {datumKurz(e.datum)}</span>}</p>
+          {e.punkte.length > 0 && <ul className="list-disc pl-5 text-leise">{e.punkte.map((p) => <li key={p}>{p}</li>)}</ul>}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function AdminUpdate() {
   const [d, setD] = useState(null);
@@ -85,8 +100,23 @@ export default function AdminUpdate() {
         <div className={`rounded-lg border p-2 ${p.neu ? 'border-akzent/60 bg-akzent/10' : 'border-rand'}`} role="status">
           {p.fehler ? <p className="text-warnung">Update-Prüfung nicht möglich: {p.fehler}</p>
             : p.neu ? (
-              <p>🆕 <strong>Neue Version verfügbar:</strong> Stand {p.verfuegbar.commit} vom {zeit(p.verfuegbar.datum)}
-                {p.verfuegbar.titel ? <span className="block text-xs text-leise">„{p.verfuegbar.titel}“</span> : null}</p>
+              <>
+                <p>🆕 <strong>Neue Version verfügbar:</strong> Stand {p.verfuegbar.commit} vom {zeit(p.verfuegbar.datum)}
+                  <span className="block text-xs text-leise">
+                    Installiert: {standText(d.build)}{p.aenderungen ? ` · ${p.aenderungen} Änderungen im Quellcode seitdem` : ''}
+                  </span></p>
+                {p.neuerungen?.length > 0 ? (
+                  <div className="mt-2 space-y-1">
+                    <p className="font-semibold">Das ist neu gegenüber deiner Version:</p>
+                    <Neuerungen eintraege={p.neuerungen} />
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-leise">
+                    Keine Versionshinweise gefunden – vermutlich Fehlerbehebungen und Verbesserungen im Hintergrund
+                    {p.verfuegbar.titel ? ` (zuletzt: „${p.verfuegbar.titel}“)` : ''}.
+                  </p>
+                )}
+              </>
             ) : d.build?.commit ? <p className="text-erfolg">✓ Aktuell – das ist der neueste Stand.</p>
               : <p className="text-leise">Neuester Stand: {p.verfuegbar.commit} vom {zeit(p.verfuegbar.datum)} (installierter Stand unbekannt).</p>}
           <p className="text-xs text-leise">
@@ -94,6 +124,12 @@ export default function AdminUpdate() {
             <button type="button" className="underline" disabled={prueft} onClick={jetztPruefen}>{prueft ? 'prüft …' : 'jetzt prüfen'}</button>
           </p>
         </div>
+      )}
+      {d.neuerungen?.length > 0 && (
+        <details className="rounded-lg border border-rand p-2">
+          <summary className="cursor-pointer">Versionshinweise deines installierten Stands</summary>
+          <div className="mt-2"><Neuerungen eintraege={d.neuerungen} /></div>
+        </details>
       )}
       {d.eingerichtet ? (
         <>
