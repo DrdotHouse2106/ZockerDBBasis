@@ -119,6 +119,8 @@ export default function ArtikelFormular({ route, artikelId }) {
     const treffer = plattformZu(werte.plattform);
     if (treffer) setWerte((w) => ({ ...w, plattform_id: treffer.id }));
   }, [werte?.plattform, plattformen.length]);
+  // Barcodes sind je Plattform eindeutig: bekannte Plattform aus dem Scan steht fest (Ausnahmen über „Andere Plattform …“)
+  const barcodePlattform = !bearbeiten && p.plattform_id ? Number(p.plattform_id) : null;
   // Plattformen, für die es den gewählten Katalogeintrag gibt – nur diese stehen zur Wahl
   const katalogPlattformIds = useMemo(() => [...new Set((katalogEintrag?.plattformen ?? []).map((n) => plattformZu(n)?.id).filter(Boolean))],
     [katalogEintrag?.id, plattformen.length]);
@@ -253,8 +255,11 @@ export default function ArtikelFormular({ route, artikelId }) {
           </Feld>
           <Feld label="Plattform / System" fehler={fehler.plattform_id ?? fehler.plattform}>
             {(id) => (
-              <PlattformAuswahl id={id} wert={werte.plattform_id} nur={katalogPlattformIds}
-                onChange={(pid) => setWerte((w) => ({ ...w, plattform_id: pid, plattform: plattformen.find((x) => x.id === pid)?.name ?? '' }))} />
+              <>
+                <PlattformAuswahl id={id} wert={werte.plattform_id} nur={barcodePlattform ? [barcodePlattform] : katalogPlattformIds}
+                  onChange={(pid) => setWerte((w) => ({ ...w, plattform_id: pid, plattform: plattformen.find((x) => x.id === pid)?.name ?? '' }))} />
+                {barcodePlattform && werte.plattform_id === barcodePlattform && <span className="mt-1 block text-xs text-leise">Aus dem Barcode erkannt</span>}
+              </>
             )}
           </Feld>
           {varianten.length > 0 && (

@@ -150,6 +150,8 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
       produktname: text(r.produktname, 300),
       quelle: r.produktname ? 'zockerdb' : null,
       treffer: (r.treffer ?? []).map(zentralZuEintrag).filter(Boolean),
+      // Plattform des Barcodes (Name – die IDs sind je Server verschieden)
+      plattform: text(r.plattform, 100),
     };
   }
 

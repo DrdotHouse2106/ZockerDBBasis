@@ -212,7 +212,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
         }, req.benutzer, { einreichen: Boolean(req.body?.katalog_einreichen), veroeffentlichen: Boolean(req.body?.katalog_veroeffentlichen) }).id;
       }
       const { id: neueId } = einfuegen.get({ ...daten, benutzer_id: req.benutzer.id });
-      if (daten.barcode) katalog.verknuepfeBarcode(daten.barcode, daten.katalog_id, req.benutzer.id);
+      if (daten.barcode) katalog.verknuepfeBarcode(daten.barcode, daten.katalog_id, req.benutzer.id, daten.plattform_id);
       return neueId;
     })();
     // Im Konvolut ohne eigenen Preis: Anteil am Gesamtpreis
@@ -261,7 +261,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
         ).run({ ...daten, id: vorhanden.id });
         const barcode = daten.barcode ?? vorhanden.barcode;
         const katalogId = daten.katalog_id ?? vorhanden.katalog_id;
-        if (barcode && katalogId) katalog.verknuepfeBarcode(barcode, katalogId, req.benutzer.id);
+        if (barcode && katalogId) katalog.verknuepfeBarcode(barcode, katalogId, req.benutzer.id, daten.plattform_id ?? vorhanden.plattform_id);
       })();
     }
     for (const k of new Set([vorhanden.konvolut_id, daten.konvolut_id].filter(Boolean))) konvolute.aufteilen(k);

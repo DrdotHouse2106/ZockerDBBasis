@@ -199,6 +199,7 @@ export default function Hinzufuegen({ route }) {
                     der Barcode wird dabei gespeichert und beim nächsten Scan sofort erkannt.
                   </p>
                 )}
+                {barcodeErgebnis.plattform && <p className="text-sm">Plattform: <strong>{barcodeErgebnis.plattform}</strong> <span className="text-leise">(aus dem Barcode)</span></p>}
                 {barcodeErgebnis.fehler && <p className="text-sm text-gefahr">{barcodeErgebnis.fehler}</p>}
                 {barcodeErgebnis.treffer.length > 0 && (
                   <Trefferliste titel="Passende Einträge" eintraege={barcodeErgebnis.treffer} onWaehle={waehle} />

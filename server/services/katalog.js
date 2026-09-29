@@ -74,7 +74,12 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
     FROM barcode_zuordnungen z JOIN katalog k ON k.id = z.katalog_id
     WHERE z.code = @code AND (k.status = 'freigegeben' OR z.benutzer_id = @benutzer)
     GROUP BY k.id ORDER BY eigene DESC, (k.status = 'freigegeben') DESC, anzahl DESC LIMIT 5`);
-  const zuordnungSchreiben = db.prepare('INSERT OR IGNORE INTO barcode_zuordnungen (code, katalog_id, benutzer_id) VALUES (?, ?, ?)');
+  const zuordnungSchreiben = db.prepare(`INSERT INTO barcode_zuordnungen (code, katalog_id, benutzer_id, plattform_id) VALUES (?, ?, ?, ?)
+    ON CONFLICT (code, katalog_id, benutzer_id) DO UPDATE SET plattform_id = COALESCE(excluded.plattform_id, plattform_id)`);
+  // Plattform eines Barcodes: eigene Zuordnung zuerst, sonst die häufigste
+  const barcodePlattform = db.prepare(`SELECT z.plattform_id, p.name FROM barcode_zuordnungen z JOIN plattformen p ON p.id = z.plattform_id
+    JOIN katalog k ON k.id = z.katalog_id WHERE z.code = @code AND (k.status = 'freigegeben' OR z.benutzer_id = @benutzer)
+    GROUP BY z.plattform_id ORDER BY SUM(z.benutzer_id = @benutzer) DESC, COUNT(*) DESC LIMIT 1`);
   const artikelMitBarcode = db.prepare('SELECT id, titel, plattform, typ, bestand FROM artikel WHERE barcode = ? AND benutzer_id = ?');
 
   function speichere(eintrag) {
@@ -211,9 +216,10 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
     const vorhandeneArtikel = varianten.flatMap((v) => artikelMitBarcode.all(v, benutzer.id));
     const zugeordnet = varianten.flatMap((v) => barcodeZuordnung.all({ code: v, benutzer: benutzer.id })).map(katalogZeileZuObjekt);
     let bekannt = varianten.map((v) => barcodeLesen.get(v)).find(Boolean);
+    const gelernt = varianten.map((v) => barcodePlattform.get({ code: v, benutzer: benutzer.id })).find(Boolean);
     if (zugeordnet.length) {
       return { code, produktname: bekannt?.produktname ?? null, quelle: 'lokal', suchbegriff: zugeordnet[0].titel,
-        treffer: zugeordnet, vorhandeneArtikel, fehler: null };
+        treffer: zugeordnet, vorhandeneArtikel, fehler: null, plattform_id: gelernt?.plattform_id ?? null, plattform: gelernt?.name ?? null };
     }
 
     // Mit Verbindung zu zockerdb.de: Barcode dort auflösen (gemeinsam gelernte Barcodes, Barcode-Datenbanken, IGDB)
@@ -222,8 +228,9 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
         const r = await zentrale.barcode(code);
         if (r.produktname && !bekannt) barcodeSchreiben.run({ code, produktname: r.produktname, quelle: r.quelle });
         const treffer = db.transaction(() => r.treffer.map(speichere))().filter(Boolean);
+        const p = r.plattform ? plattformen?.zuordnen(r.plattform) : null;
         return { code, produktname: r.produktname ?? bekannt?.produktname ?? null, quelle: r.quelle, suchbegriff: treffer[0]?.titel ?? null,
-          treffer, vorhandeneArtikel, fehler: null };
+          treffer, vorhandeneArtikel, fehler: null, plattform_id: p?.id ?? null, plattform: p?.name ?? null };
       } catch (e) {
         return { code, produktname: bekannt?.produktname ?? null, quelle: null, suchbegriff: null, treffer: [], vorhandeneArtikel,
           fehler: e.status ? e.message : 'zockerdb.de ist gerade nicht erreichbar – der Barcode kann erst später erkannt werden. Du kannst den Titel auch per Suche finden.' };
@@ -258,13 +265,13 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
     const plattformName = produktname ? plattformImNamen(produktname) : null;
     const p = plattformName ? plattformen?.zuordnen(plattformName) : null;
     if (p) treffer = [...treffer.filter((e) => e.plattformen?.includes(p.name)), ...treffer.filter((e) => !e.plattformen?.includes(p.name))];
-    return { code, produktname, quelle: bekannt?.quelle ?? null, suchbegriff, treffer, vorhandeneArtikel, fehler, plattform_id: p?.id ?? null };
+    return { code, produktname, quelle: bekannt?.quelle ?? null, suchbegriff, treffer, vorhandeneArtikel, fehler, plattform_id: p?.id ?? null, plattform: p?.name ?? null };
   }
 
   /** Merkt sich, zu welchem Katalogeintrag ein Barcode gehört (lernender Cache, je Benutzer). */
-  function verknuepfeBarcode(code, katalogId, benutzerId) {
+  function verknuepfeBarcode(code, katalogId, benutzerId, plattformId = null) {
     if (!code || !katalogId || !perId.get(katalogId)) return;
-    zuordnungSchreiben.run(code, katalogId, benutzerId);
+    zuordnungSchreiben.run(code, katalogId, benutzerId, plattformId ?? null);
   }
 
   /** Jeder Artikel braucht einen Katalogeintrag (für Scans, Kommentare, Varianten) – notfalls privat. */

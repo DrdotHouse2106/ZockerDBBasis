@@ -195,3 +195,20 @@ test('Barcode mit Händlertitel („… - Bonus Edition - Ps3 Boxed + Instructio
     await server.stoppe();
   }
 });
+
+test('Barcode merkt sich die Plattform – beim nächsten Scan steht sie fest (auch für andere Sammler)', async () => {
+  const server = await starteTestServer({ env: { BARCODE_PROVIDERS: '' } });
+  try {
+    const admin = await server.registriere('admin');
+    const ben = await server.registriere('ben');
+    const e = (await admin.api('/api/katalog', { methode: 'POST', daten: { typ: 'spiel', titel: 'Black Flag', plattformen: ['PlayStation 3', 'Xbox 360'], veroeffentlichen: true } })).json;
+    const ps3 = server.db.prepare("SELECT id FROM plattformen WHERE name = 'PlayStation 3'").pluck().get();
+    await admin.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Black Flag', katalog_id: e.id, plattform_id: ps3, barcode: '3307215704943' } });
+    const r = (await ben.api('/api/katalog/barcode/3307215704943')).json;
+    assert.equal(r.treffer[0].id, e.id);
+    assert.equal(r.plattform_id, ps3);
+    assert.equal(r.plattform, 'PlayStation 3');
+  } finally {
+    await server.stoppe();
+  }
+});

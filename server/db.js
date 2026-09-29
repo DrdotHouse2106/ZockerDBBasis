@@ -571,6 +571,13 @@ const MIGRATIONEN = [
   );
   CREATE INDEX IF NOT EXISTS idx_merkmal_vorschlaege ON wartungsmerkmal_vorschlaege (status, katalog_id);
   `,
+  // 30: Barcodes sind je Plattform eindeutig – zur Zuordnung auch die Plattform merken (aus vorhandenen Exemplaren nachgetragen)
+  `
+  ALTER TABLE barcode_zuordnungen ADD COLUMN plattform_id INTEGER REFERENCES plattformen (id) ON DELETE SET NULL;
+  UPDATE barcode_zuordnungen SET plattform_id = (
+    SELECT a.plattform_id FROM artikel a WHERE a.barcode = barcode_zuordnungen.code AND a.katalog_id = barcode_zuordnungen.katalog_id
+      AND a.benutzer_id = barcode_zuordnungen.benutzer_id AND a.plattform_id IS NOT NULL LIMIT 1);
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {
