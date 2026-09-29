@@ -13,6 +13,7 @@ import { gueltigerBarcode } from '../../../shared/barcode.js';
 import TitelVorschlag from '../komponenten/TitelVorschlag.jsx';
 import PlattformVorschlag from '../komponenten/PlattformVorschlag.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
+import { MARKE } from '../../../shared/marke.js';
 
 export default function Hinzufuegen({ route }) {
   const p = route.parameter;
@@ -204,6 +205,17 @@ export default function Hinzufuegen({ route }) {
                 {barcodeErgebnis.treffer.length > 0 && (
                   <Trefferliste titel="Passende Einträge" eintraege={barcodeErgebnis.treffer} onWaehle={waehle} />
                 )}
+                {/* Unbekannter Barcode: die Zuordnung entsteht erst durch die Auswahl – dafür braucht es die Community */}
+                {barcodeErgebnis.quelle !== 'lokal' && (
+                  <p className="flex gap-2 rounded-xl bg-akzent/10 p-3 text-xs text-leise">
+                    <span aria-hidden="true">🤝</span>
+                    <span>
+                      <strong className="text-text">Diesen Barcode kennen wir noch nicht.</strong> Spieldatenbanken wie IGDB führen keine Barcodes –
+                      {' '}{MARKE.name} lernt sie von euch: Wähle den passenden Eintrag (und die Plattform), dann erkennen alle Sammler das Spiel
+                      beim nächsten Scan sofort. Danke, dass du hilfst, die Datenbank aufzubauen!
+                    </span>
+                  </p>
+                )}
               </>
             )}
           </section>
@@ -233,6 +245,7 @@ export default function Hinzufuegen({ route }) {
             <p className="text-sm text-leise">
               Lege einen eigenen Eintrag an – ideal für Hardware, Zubehör, Sondermodelle und seltene deutsche Veröffentlichungen.
               {vorschlagZiel && ' Oder schlage den Titel für den gemeinsamen Katalog vor – auch alte Spiele ohne Barcode.'}
+              {vorschlagZiel && ' Der Katalog lebt von der Mithilfe der Community – jeder Vorschlag hilft allen Sammlern.'}
             </p>
           </div>
           <div className="flex flex-col gap-2">
