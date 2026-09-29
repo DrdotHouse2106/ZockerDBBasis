@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { istModerator } from '../../shared/konstanten.js';
 import { katalogZeileZuObjekt, fuerBenutzer } from '../services/katalog.js';
 import {
-  pruefeKatalogEintrag, pruefeVariante, pruefeKommentar,
+  pruefeKatalogEintrag, pruefeVariante, pruefeKommentar, ValidierungsFehler,
 } from '../services/validierung.js';
 import { normalisiereBarcode } from '../services/titel.js';
 
@@ -117,6 +117,31 @@ export function katalogRouter({ db, katalog, dateien, erweiterungen, zentrale })
     res.status(201).json(v);
   });
 
+  // ── Erfahrungsberichte (freiwillig öffentlich für angemeldete Benutzer, mit Namen) ──
+  router.put('/:id/bericht', (req, res) => {
+    const e = sichtbarOder404(req, res);
+    if (!e) return;
+    if (e.status !== 'freigegeben') return res.status(400).json({ fehler: 'Erfahrungsberichte gibt es nur für freigegebene Einträge.' });
+    if (!db.prepare('SELECT 1 FROM artikel WHERE benutzer_id = ? AND katalog_id = ?').get(req.benutzer.id, e.id)) {
+      return res.status(403).json({ fehler: 'Einen Erfahrungsbericht kannst du zu Spielen aus deiner Sammlung schreiben.' });
+    }
+    const text = String(req.body?.text ?? '').trim();
+    if (text.length < 10) throw new ValidierungsFehler({ text: 'Bitte mindestens ein paar Sätze schreiben.' });
+    if (text.length > 3000) throw new ValidierungsFehler({ text: 'Höchstens 3.000 Zeichen.' });
+    const w = req.body?.wertung == null || req.body.wertung === '' ? null : Number(req.body.wertung);
+    if (w !== null && (!Number.isInteger(w) || w < 1 || w > 5)) throw new ValidierungsFehler({ wertung: 'Bitte 1 bis 5 Sterne wählen.' });
+    // Nach dem Ausblenden durch die Moderation bleibt ein geänderter Bericht ausgeblendet
+    res.json(db.prepare(`INSERT INTO erfahrungsberichte (benutzer_id, katalog_id, text, wertung) VALUES (?, ?, ?, ?)
+      ON CONFLICT (benutzer_id, katalog_id) DO UPDATE SET text = excluded.text, wertung = excluded.wertung, aktualisiert_am = datetime('now')
+      RETURNING *`).get(req.benutzer.id, e.id, text, w));
+  });
+
+  // Freigabe zurückziehen = Bericht löschen
+  router.delete('/:id/bericht', (req, res) => {
+    db.prepare('DELETE FROM erfahrungsberichte WHERE benutzer_id = ? AND katalog_id = ?').run(req.benutzer.id, Number(req.params.id));
+    res.status(204).end();
+  });
+
   // ── Private Kommentare ──────────────────────────────────────
   router.get('/:id/kommentare', (req, res) => {
     const e = sichtbarOder404(req, res);
@@ -163,6 +188,15 @@ export function katalogUnterRouter({ db, erweiterungen }) {
     if (!darf) return nichtGefunden(res, 'Variante');
     db.prepare('DELETE FROM katalog_varianten WHERE id = ?').run(v.id);
     res.status(204).end();
+  });
+
+  // Moderation: Erfahrungsbericht aus- bzw. wieder einblenden
+  router.post('/berichte/:id/sichtbarkeit', (req, res) => {
+    if (!istModerator(req.benutzer)) return res.status(403).json({ fehler: 'Nur für das Moderationsteam.' });
+    const r = db.prepare('UPDATE erfahrungsberichte SET status = ? WHERE id = ? RETURNING id, status')
+      .get(req.body?.ausblenden === false ? 'sichtbar' : 'ausgeblendet', Number(req.params.id));
+    if (!r) return nichtGefunden(res, 'Erfahrungsbericht');
+    res.json(r);
   });
 
   router.put('/kommentare/:id', (req, res) => {

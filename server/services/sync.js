@@ -19,7 +19,7 @@ import { zentralZuEintrag } from './zentrale.js';
 
 const SEITE = 500;
 const FELDER = ['typ', 'titel', 'plattform', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region', 'farbe', 'edition',
-  'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'herkunft', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle'];
+  'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'herkunft', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten'];
 const ZEIT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 const UUID = /^[0-9a-f]{32}$/;
 const jetzt = () => new Date().toISOString().slice(0, 19).replace('T', ' ');

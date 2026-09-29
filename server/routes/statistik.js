@@ -32,7 +32,11 @@ export function statistikRouter({ db }) {
       FROM artikel WHERE benutzer_id = ? AND bestand = 'verkauft' GROUP BY jahr ORDER BY jahr DESC`).all(req.benutzer.id);
     const abgegeben = db.prepare("SELECT COALESCE(SUM(anzahl), 0) AS stueck FROM artikel WHERE benutzer_id = ? AND bestand = 'abgegeben'").get(req.benutzer.id).stueck;
     const digital = db.prepare("SELECT COUNT(*) AS eintraege, COALESCE(SUM(spielzeit_minuten), 0) AS minuten FROM artikel WHERE benutzer_id = ? AND bestand = 'digital'").get(req.benutzer.id);
+    // Spielstatus der Spiele (physisch im Besitz und digital) – „Pile of Shame“ = nicht gespielt
+    const spielstatus = db.prepare(`SELECT COALESCE(spielstatus, 'ohne') AS wert, COUNT(*) AS anzahl FROM artikel
+      WHERE benutzer_id = ? AND typ = 'spiel' AND bestand IN ('besitz', 'digital') GROUP BY wert`).all(req.benutzer.id);
     res.json({
+      spielstatus,
       digital,
       verkauf: { ...verkauf, jahre: verkaufJahre, abgegeben },
       gesamt,

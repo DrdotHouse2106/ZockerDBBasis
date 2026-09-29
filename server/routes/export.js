@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, beschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, beschriftung,
 } from '../../shared/konstanten.js';
 import { pruefeArtikel, ValidierungsFehler } from '../services/validierung.js';
 
@@ -25,6 +25,8 @@ const CSV_SPALTEN = [
   ['konvolut_name', 'Konvolut'],
   ['marktwert', 'Marktwert (EUR)', (w) => (w == null ? '' : w.toFixed(2).replace('.', ','))],
   ['bestand', 'Bestand', (w) => beschriftung(BESTAND, w)],
+  ['spielstatus', 'Spielstatus', (w) => beschriftung(SPIELSTATUS, w)],
+  ['durchgespielt_am', 'Durchgespielt am', (w) => (w ? w.split('-').reverse().join('.') : '')],
   ['abgang_am', 'Verkauft/abgegeben am', (w) => (w ? w.split('-').reverse().join('.') : '')],
   ['verkaufspreis', 'Verkaufspreis (EUR)', (w) => (w == null ? '' : w.toFixed(2).replace('.', ','))],
   ['notizen', 'Eigene Notizen'],
@@ -74,6 +76,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
       eigene_katalogeintraege: alle("SELECT id, typ, titel, plattformen, erscheinungsjahr, hersteller, status, erstellt_am FROM katalog WHERE erstellt_von = ? ORDER BY id"),
       scans_und_dokumente: alle('SELECT id, katalog_id, art, titel, sichtbarkeit, originalname, mime, groesse, erstellt_am FROM medien WHERE benutzer_id = ? ORDER BY id'),
       kommentare: alle('SELECT katalog_id, text, erstellt_am, aktualisiert_am FROM kommentare WHERE benutzer_id = ? ORDER BY id'),
+      erfahrungsberichte: alle('SELECT katalog_id, text, wertung, status, erstellt_am, aktualisiert_am FROM erfahrungsberichte WHERE benutzer_id = ? ORDER BY id'),
       benachrichtigungen: alle('SELECT art, titel, text, gelesen, erstellt_am FROM benachrichtigungen WHERE benutzer_id = ? ORDER BY id'),
       // Daten aus Zusatzmodulen
       ...erweiterungen.sammle('datenauskunft', b),
@@ -108,7 +111,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
     const katalogVorhanden = db.prepare("SELECT id FROM katalog WHERE id = ? AND (status = 'freigegeben' OR erstellt_von = ?)");
     const felder = ['benutzer_id', 'typ', 'titel', 'plattform', 'katalog_id', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region',
       'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'plattform_id',
-      'herkunft', 'konvolut_id', 'kaufpreis_anteilig', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle'];
+      'herkunft', 'konvolut_id', 'kaufpreis_anteilig', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten'];
     const einfuegen = db.prepare(`INSERT INTO artikel (${felder.join(', ')}) VALUES (${felder.map((f) => `@${f}`).join(', ')})`);
 
     const fehlerhaft = [];

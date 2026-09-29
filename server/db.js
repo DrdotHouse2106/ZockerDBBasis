@@ -501,6 +501,23 @@ const MIGRATIONEN = [
   ALTER TABLE benutzer ADD COLUMN steam_id TEXT;
   ALTER TABLE benutzer ADD COLUMN steam_import_am TEXT;
   `,
+  // 27: Spielstatus je Exemplar („Pile of Shame“) und freiwillige Erfahrungsberichte auf der Katalogseite
+  `
+  ALTER TABLE artikel ADD COLUMN spielstatus TEXT;          -- nicht_gespielt, angefangen, durchgespielt, komplett, abgebrochen
+  ALTER TABLE artikel ADD COLUMN durchgespielt_am TEXT;
+  CREATE TABLE IF NOT EXISTS erfahrungsberichte (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    benutzer_id    INTEGER NOT NULL REFERENCES benutzer (id) ON DELETE CASCADE,
+    katalog_id     INTEGER NOT NULL REFERENCES katalog (id) ON DELETE CASCADE,
+    text           TEXT    NOT NULL,
+    wertung        INTEGER,                                 -- 1 bis 5, optional
+    status         TEXT    NOT NULL DEFAULT 'sichtbar',     -- sichtbar, ausgeblendet (Moderation)
+    erstellt_am    TEXT    NOT NULL DEFAULT (datetime('now')),
+    aktualisiert_am TEXT   NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (benutzer_id, katalog_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_berichte_katalog ON erfahrungsberichte (katalog_id, status);
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ARTIKELTYPEN, REGIONEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, HERKUNFT, BESTAND } from '../../../shared/konstanten.js';
+import { ARTIKELTYPEN, REGIONEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, HERKUNFT, BESTAND, SPIELSTATUS } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
 import Layout from '../komponenten/Layout.jsx';
@@ -25,7 +25,7 @@ export default function Sammlung({ route }) {
   const [fehler, setFehler] = useState(null);
   const [plattformen, setPlattformen] = useState([]);
   const [suchtext, setSuchtext] = useState(filter.q ?? '');
-  const [filterOffen, setFilterOffen] = useState(Boolean(filter.region || filter.zustand || filter.vollstaendigkeit || filter.herkunft || filter.ohne_preis));
+  const [filterOffen, setFilterOffen] = useState(Boolean(filter.region || filter.zustand || filter.vollstaendigkeit || filter.herkunft || filter.ohne_preis || filter.spielstatus));
   const gruppiert = filter.einzeln !== '1';
 
   const setzeFilter = (aenderung) => navigiere('/', { ...filter, ...aenderung });
@@ -51,7 +51,7 @@ export default function Sammlung({ route }) {
     api.artikelAnzahl().then(setAnzahlen).catch(() => {});
   }, []);
 
-  const aktiveFilter = ['region', 'zustand', 'vollstaendigkeit', 'herkunft', 'ohne_preis'].filter((f) => filter[f]).length;
+  const aktiveFilter = ['region', 'zustand', 'vollstaendigkeit', 'herkunft', 'ohne_preis', 'spielstatus'].filter((f) => filter[f]).length;
   const weg = ['weg', 'verkauft', 'abgegeben', 'alle'].includes(filter.bestand);
   const digital = filter.bestand === 'digital';
 
@@ -172,6 +172,7 @@ export default function Sammlung({ route }) {
             <Auswahl label="Zustand" wert={filter.zustand} onChange={(v) => setzeFilter({ zustand: v })} optionen={ZUSTAENDE} />
             <Auswahl label="Vollständigkeit" wert={filter.vollstaendigkeit} onChange={(v) => setzeFilter({ vollstaendigkeit: v })} optionen={VOLLSTAENDIGKEITEN} />
             <Auswahl label="Herkunft" wert={filter.herkunft} onChange={(v) => setzeFilter({ herkunft: v })} optionen={HERKUNFT} />
+            <Auswahl label="Spielstatus" wert={filter.spielstatus} onChange={(v) => setzeFilter({ spielstatus: v })} optionen={SPIELSTATUS} />
             <label className="flex items-center gap-2 self-end pb-2.5 text-sm">
               <input type="checkbox" className="size-4 accent-akzent" checked={filter.ohne_preis === '1'} onChange={(e) => setzeFilter({ ohne_preis: e.target.checked ? '1' : undefined })} />
               Nur ohne Kaufpreis

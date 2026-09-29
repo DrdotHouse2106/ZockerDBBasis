@@ -9,6 +9,13 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Spielstatus und Erfahrungsberichte
+- Auf der Seite eines Spiels in deiner Sammlung den Spielstatus antippen: Nicht gespielt, Angefangen, Durchgespielt, 100 %, Abgebrochen (das Datum „durchgespielt“ wird gemerkt)
+- Filter „Spielstatus“ in der Sammlung und in der Statistik der „Pile of Shame“ (noch nicht gespielte Spiele); auch für digitale Spiele
+- Erfahrungsberichte: Zu Spielen aus deiner Sammlung kannst du freiwillig einen Bericht (optional mit 1–5 Sternen) auf der Katalogseite veröffentlichen – sichtbar für angemeldete Benutzer mit deinem Namen, jederzeit bearbeiten oder zurückziehen
+- Berichte lassen sich melden; das Moderationsteam kann sie ausblenden. Private Kommentare und Notizen bleiben privat
+- Export, Import, Sync und Datenauskunft enthalten Spielstatus und Berichte
+
 ## 29.09.2026 – Digitale Spiele von Hand (PlayStation, eShop …)
 - Beim Anlegen eines Spiels über die kleine Zeile „Nur digital gekauft?“ auf digital umschalten und den Store wählen (PlayStation Store, Nintendo eShop, Xbox, Steam, GOG, Epic, anderer) – Kennzeichnung „DIGITAL · PLAYSTATION“ usw. über dem Cover
 - Hinweis: nur gekaufte Spiele eintragen, keine Abo-Spiele (PlayStation Plus, Game Pass, Nintendo Switch Online)

@@ -19,7 +19,7 @@ const TEXTFELDER = {
   notizen: 5000,
 };
 
-const AUSWAHLFELDER = ['zustand', 'vollstaendigkeit', 'region', 'herkunft'];
+const AUSWAHLFELDER = ['zustand', 'vollstaendigkeit', 'region', 'herkunft', 'spielstatus'];
 
 /** Datum TT.MM.JJJJ-frei: JJJJ-MM-TT, plausibel. */
 const gueltigerTag = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d)) && Number(d.slice(0, 4)) >= 1950 && Number(d.slice(0, 4)) <= 2100;
@@ -105,6 +105,17 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     const bestand = leerZuNull(eingabe.bestand) ?? 'besitz';
     if (!ALLE_WERTE.bestand.includes(bestand)) fehler.bestand = 'Ungültige Auswahl.';
     else daten.bestand = bestand;
+  }
+  if (!teilweise || hat('durchgespielt_am')) {
+    const datum = leerZuNull(eingabe.durchgespielt_am);
+    if (datum && !gueltigerTag(datum)) fehler.durchgespielt_am = 'Bitte ein gültiges Datum angeben.';
+    daten.durchgespielt_am = datum;
+  }
+  if (!teilweise || hat('spielzeit_minuten')) {
+    const roh = leerZuNull(eingabe.spielzeit_minuten);
+    const n = roh === null ? null : Number(roh);
+    if (n !== null && (!Number.isInteger(n) || n < 0 || n > 10_000_000)) fehler.spielzeit_minuten = 'Bitte eine Spielzeit in Minuten angeben.';
+    else daten.spielzeit_minuten = n;
   }
   if (!teilweise || hat('abgang_am')) {
     const datum = leerZuNull(eingabe.abgang_am);

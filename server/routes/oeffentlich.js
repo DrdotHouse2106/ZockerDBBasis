@@ -99,6 +99,14 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
       .all({ katalog: eintrag.id, ...sichtbarParameter(b) })
       .map((v) => ({ ...fuerBenutzer(v, b), eigene: v.erstellt_von === b?.id, erstellt_von: undefined, geprueft_von: undefined }));
 
+    // Erfahrungsberichte anderer Sammler (nur angemeldet sichtbar) und der eigene
+    const berichte = b
+      ? db.prepare(`SELECT r.id, r.text, r.wertung, r.erstellt_am, r.aktualisiert_am, COALESCE(u.anzeigename, u.benutzername) AS name,
+          r.benutzer_id = @b AS eigener
+          FROM erfahrungsberichte r JOIN benutzer u ON u.id = r.benutzer_id AND u.gesperrt = 0
+          WHERE r.katalog_id = @k AND (r.status = 'sichtbar' OR r.benutzer_id = @b) ORDER BY r.benutzer_id = @b DESC, r.aktualisiert_am DESC LIMIT 100`)
+        .all({ b: b.id, k: eintrag.id }).map((r) => ({ ...r, eigener: Boolean(r.eigener) }))
+      : [];
     const meineExemplare = b
       ? db.prepare(`SELECT a.id, a.titel, a.plattform, a.region, a.zustand, a.vollstaendigkeit, a.farbe, a.edition, a.modellnummer, a.variante_id, a.anzahl, a.bestand
           FROM artikel a WHERE a.katalog_id = ? AND a.benutzer_id = ? ORDER BY a.bestand <> 'besitz', a.id`).all(eintrag.id, b.id)
@@ -118,6 +126,7 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
       plattformen: plattformListe,
       varianten,
       meineExemplare,
+      berichte,
       medienAnzahl,
       medienUebersicht,
       angemeldet: Boolean(b),

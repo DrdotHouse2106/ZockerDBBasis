@@ -137,7 +137,17 @@ export const DIGITAL_QUELLEN = [
   { value: 'andere', label: 'Anderer Store', kurz: null },
 ];
 
+/** Spielstatus eines Exemplars – „Nicht gespielt“ ergibt den „Pile of Shame“. */
+export const SPIELSTATUS = [
+  { value: 'nicht_gespielt', label: 'Nicht gespielt', icon: '📦' },
+  { value: 'angefangen', label: 'Angefangen', icon: '▶️' },
+  { value: 'durchgespielt', label: 'Durchgespielt', icon: '🏁' },
+  { value: 'komplett', label: '100 %', icon: '🏆' },
+  { value: 'abgebrochen', label: 'Abgebrochen', icon: '⏹️' },
+];
+
 export const ALLE_WERTE = {
+  spielstatus: SPIELSTATUS.map((e) => e.value),
   digital_quelle: DIGITAL_QUELLEN.map((e) => e.value),
   bestand: BESTAND.map((e) => e.value),
   herkunft: HERKUNFT.map((e) => e.value),

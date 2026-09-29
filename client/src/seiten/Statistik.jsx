@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, beschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, SPIELSTATUS, beschriftung,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { euro, anzahl, datumDe, euroMitVorzeichen } from '../format.js';
@@ -49,6 +49,26 @@ export default function Statistik({ route }) {
               <Balkenliste titel="Nach Herkunft" zeilen={daten.nachHerkunft} beschrifte={(w) => (w ? beschriftung(HERKUNFT, w) : 'Keine Angabe')} />
             )}
           </div>
+
+          {daten.spielstatus?.some((z) => z.wert !== 'ohne') && (
+            <section className="karte space-y-2 p-4">
+              <h2 className="font-semibold">Spielstatus</h2>
+              {(() => {
+                const n = (w) => daten.spielstatus.find((z) => z.wert === w)?.anzahl ?? 0;
+                return (
+                  <>
+                    <p className="text-sm"><a href="#/?spielstatus=nicht_gespielt" className="underline"><strong>Pile of Shame: {anzahl(n('nicht_gespielt'))}</strong> Spiele noch nicht gespielt</a></p>
+                    <div className="flex flex-wrap gap-2">
+                      {SPIELSTATUS.map((s) => (
+                        <a key={s.value} href={`#/?spielstatus=${s.value}`} className="chip">{s.icon} {s.label}: {anzahl(n(s.value))}</a>
+                      ))}
+                      {n('ohne') > 0 && <span className="chip opacity-70">ohne Angabe: {anzahl(n('ohne'))}</span>}
+                    </div>
+                  </>
+                );
+              })()}
+            </section>
+          )}
 
           {daten.digital?.eintraege > 0 && (
             <p className="karte flex flex-wrap items-center justify-between gap-2 p-3 text-sm">

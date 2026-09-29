@@ -15,6 +15,7 @@ import Symbol from '../komponenten/Symbole.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import VariantenListe from '../komponenten/VariantenListe.jsx';
 import Kommentare from '../komponenten/Kommentare.jsx';
+import Erfahrungsberichte from '../komponenten/Erfahrungsberichte.jsx';
 import Scans from '../komponenten/Scans.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { Andockpunkt } from '../erweiterungen.jsx';
@@ -146,6 +147,10 @@ export default function KatalogSeite({ route, id }) {
               </span>
               <span className="knopf-primaer shrink-0 px-3 py-1.5">Anmelden</span>
             </a>
+          )}
+          {benutzer && e.status === 'freigegeben' && (
+            <Erfahrungsberichte key={e.id} katalogId={e.id} berichte={daten.berichte ?? []} darfSchreiben={(daten.meineExemplare ?? []).length > 0}
+              moderator={['moderator', 'admin'].includes(benutzer.rolle)} onGeaendert={laden} />
           )}
           {benutzer && <Kommentare katalogId={e.id} />}
           <Andockpunkt name="katalog.ende" {...erweiterung} />

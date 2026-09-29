@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, beschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, beschriftung,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
@@ -128,6 +128,18 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     }
   }
 
+  // Spielstatus mit einem Tipp setzen (erneutes Tippen entfernt ihn); „durchgespielt“ merkt sich das Datum
+  async function setzeSpielstatus(wert) {
+    const neu = artikel.spielstatus === wert ? null : wert;
+    const daten = { spielstatus: neu };
+    if (['durchgespielt', 'komplett'].includes(neu) && !artikel.durchgespielt_am) daten.durchgespielt_am = new Date().toISOString().slice(0, 10);
+    try {
+      setArtikel(await api.artikelAendern(id, daten));
+    } catch (err) {
+      zeigeHinweis(err.message, 'fehler');
+    }
+  }
+
   async function zurueckInSammlung() {
     try {
       setArtikel(await api.artikelZurueck(id));
@@ -177,6 +189,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
       ? `Digital${artikel.digital_quelle === 'steam' ? ' (Steam-Bibliothek)' : ''} – zählt nicht zur Sammlung`
       : artikel.bestand && artikel.bestand !== 'besitz'
         ? `${beschriftung(BESTAND, artikel.bestand)}${artikel.abgang_am ? ` am ${datumDe(artikel.abgang_am)}` : ''}` : null],
+    ['Durchgespielt am', artikel.durchgespielt_am ? datumDe(artikel.durchgespielt_am) : null],
     ['Spielzeit', artikel.spielzeit_minuten ? `${Math.floor(artikel.spielzeit_minuten / 60)} Std. ${artikel.spielzeit_minuten % 60} Min.` : null],
     ['Verkaufspreis', artikel.verkaufspreis != null ? `${euro(artikel.verkaufspreis)}${artikel.anzahl > 1 ? ' je Stück' : ''}` : null],
     ['Gewinn/Verlust', artikel.verkaufspreis != null && artikel.kaufpreis != null
@@ -253,6 +266,17 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
               <Andockpunkt name="artikel.aktionen" artikel={artikel} katalogDaten={katalogDaten} />
               {artikel.bestand === 'besitz' && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setAbgangOffen(true)}>Verkauft / abgegeben …</button>}
               {['verkauft', 'abgegeben'].includes(artikel.bestand) && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={zurueckInSammlung}>Zurück in die Sammlung</button>}
+            </div>
+          )}
+          {eigener && artikel.typ === 'spiel' && ['besitz', 'digital'].includes(artikel.bestand) && (
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Spielstatus">
+              <span className="text-xs text-leise">Spielstatus:</span>
+              {SPIELSTATUS.map((s) => (
+                <button key={s.value} type="button" onClick={() => setzeSpielstatus(s.value)} aria-pressed={artikel.spielstatus === s.value}
+                  className={`${artikel.spielstatus === s.value ? 'chip-aktiv' : 'chip'} px-2.5 py-1 text-xs`}>
+                  <span aria-hidden="true">{s.icon}</span>{s.label}
+                </button>
+              ))}
             </div>
           )}
           {abgangOffen && (

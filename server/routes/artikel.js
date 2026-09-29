@@ -17,7 +17,7 @@ const ERLAUBTE_BILDTYPEN = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/w
 const FELDER = [
   'typ', 'titel', 'plattform', 'katalog_id', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region',
   'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert',
-  'plattform_id', 'variante_id', 'herkunft', 'konvolut_id', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle',
+  'plattform_id', 'variante_id', 'herkunft', 'konvolut_id', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
 ];
 
 export function artikelZuObjekt(zeile) {
@@ -111,7 +111,8 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
       bedingungen.push('a.plattform_id = @plattform_id');
       parameter.plattform_id = plattformId;
     }
-    for (const [feld, wert] of Object.entries({ typ, plattform, region, zustand, vollstaendigkeit, herkunft })) {
+    const { spielstatus } = req.query;
+    for (const [feld, wert] of Object.entries({ typ, plattform, region, zustand, vollstaendigkeit, herkunft, spielstatus })) {
       if (typeof wert === 'string' && wert) {
         bedingungen.push(`a.${feld} = @${feld}`);
         parameter[feld] = wert;
