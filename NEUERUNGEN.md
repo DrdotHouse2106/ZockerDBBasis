@@ -9,6 +9,15 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Zusätzliche Felder: Lagerort, Zustand & Wartung, Beilagen
+- Unter *Konto → Zusätzliche Felder* einschaltbar, standardmäßig aus – das Eintragen bleibt so einfach wie bisher
+- Lagerort in drei Stufen (Ort → Regal/Schrank → Fach/Kiste) mit Vorschlägen aus bereits verwendeten Orten; Übersicht mit Anzahl je Ort unter *Mehr → Lagerorte*, dort auch mehrere Exemplare auf einmal zuordnen; Suche und Filter nach Lagerort
+- Zustand & Wartung: Verlauf je Exemplar (Batterie, Recap, Laufwerk/Laser, Entgilbung, Reinigung, Mods, Reparatur); angeboten wird nur, was zum Gerät passt (z. B. kein Laufwerk beim Modul)
+- Hinweis zum Batteriealter bei Modulen und Konsolen mit Speicherbatterie („Originalbatterie vermutlich rund 30 Jahre alt – Spielstände sichern“)
+- Welche Merkmale ein Titel hat (Speicherbatterie, Laufwerk, Elkos, vergilbender Kunststoff), gibt es als Standard je Plattform; Korrekturen können alle vorschlagen, das Moderationsteam übernimmt sie
+- Beilagen-Checkliste (Anleitung, Poster, Netzteil, Controller …) und Seriennummer der OVP mit Anzeige „passt“/„passt nicht“
+- Lagerort, Beilagen und Wartungsverlauf sind in Export, Import und Datenauskunft enthalten; Lagerort und Beilagen auch im Sync
+
 ## 30.09.2026 – Offlinemodus
 - Die App startet auch ohne Verbindung und zeigt die zuletzt geladene Sammlung, Exemplare, Katalogseiten und Cover
 - Neue Einträge, Änderungen (auch Spielstatus) und Löschungen ohne Verbindung werden gespeichert und automatisch übertragen, sobald du wieder online bist – mit Zähler „3 Änderungen warten“

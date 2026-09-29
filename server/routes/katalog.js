@@ -8,7 +8,7 @@ import { normalisiereBarcode } from '../services/titel.js';
 
 const nichtGefunden = (res, was = 'Katalogeintrag') => res.status(404).json({ fehler: `${was} nicht gefunden.` });
 
-export function katalogRouter({ db, katalog, dateien, erweiterungen, zentrale }) {
+export function katalogRouter({ db, katalog, dateien, erweiterungen, zentrale, wartung }) {
   const router = Router();
 
   // Eigene, noch nicht freigegebene Einträge darf der Ersteller ändern; Moderatoren alle Einträge.
@@ -156,6 +156,29 @@ export function katalogRouter({ db, katalog, dateien, erweiterungen, zentrale })
     const text = pruefeKommentar(req.body);
     res.status(201).json(db.prepare('INSERT INTO kommentare (benutzer_id, katalog_id, text) VALUES (?, ?, ?) RETURNING *')
       .get(req.benutzer.id, e.id, text));
+  });
+
+  // Wartungsmerkmale (Speicherbatterie, Laufwerk, Elkos, Vergilbung): lesen, ändern (Moderation) bzw. vorschlagen
+  router.get('/:id/wartungsmerkmale', (req, res) => {
+    const e = sichtbarOder404(req, res);
+    if (!e) return;
+    res.json({ ...wartung.merkmaleKatalog(e.id), vorschlaege: istModerator(req.benutzer) ? wartung.offeneVorschlaege(e.id) : [] });
+  });
+  router.put('/:id/wartungsmerkmale', (req, res) => {
+    const e = sichtbarOder404(req, res);
+    if (!e) return;
+    const ergebnis = wartung.aendereMerkmale(req.benutzer, e.id, req.body ?? {});
+    res.json({ ...ergebnis, ...wartung.merkmaleKatalog(e.id) });
+  });
+  router.get('/wartungsmerkmale/vorschlaege', (req, res) => {
+    if (!istModerator(req.benutzer)) return res.status(403).json({ fehler: 'Nur für das Moderationsteam.' });
+    res.json(wartung.offeneVorschlaege());
+  });
+  router.post('/wartungsmerkmale/vorschlaege/:vid', (req, res) => {
+    if (!istModerator(req.benutzer)) return res.status(403).json({ fehler: 'Nur für das Moderationsteam.' });
+    const v = wartung.entscheide(req.params.vid, req.body?.uebernehmen === true);
+    if (!v) return nichtGefunden(res, 'Vorschlag');
+    res.json({ ok: true, katalog_id: v.katalog_id });
   });
 
   return router;

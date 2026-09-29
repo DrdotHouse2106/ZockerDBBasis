@@ -6,6 +6,7 @@ import {
   erzeugeTotpGeheimnis, pruefeTotp, erzeugeWiederherstellungscodes, normalisiereWiederherstellungscode,
 } from './sicherheit.js';
 import { ValidierungsFehler } from './validierung.js';
+import { FUNKTIONEN } from '../../shared/konstanten.js';
 
 export const COOKIE_NAME = 'vss_sitzung';
 const ZWEI_FAKTOR_FRIST_MS = 5 * 60 * 1000;
@@ -18,6 +19,13 @@ export class KontoFehler extends Error {
   }
 }
 
+/** Zuschaltbare Zusatzfelder (Lagerort, Wartung, Beilagen) – standardmäßig alle aus. */
+export function leseFunktionen(json) {
+  let roh = {};
+  try { roh = json ? JSON.parse(json) : {}; } catch { /* ungültig – alles aus */ }
+  return Object.fromEntries(FUNKTIONEN.map((f) => [f.value, roh?.[f.value] === true]));
+}
+
 export function oeffentlichesProfil(b) {
   if (!b) return null;
   return {
@@ -27,6 +35,7 @@ export function oeffentlichesProfil(b) {
     rolle: b.rolle,
     totp_aktiv: Boolean(b.totp_aktiv),
     sammlung_oeffentlich: Boolean(b.sammlung_oeffentlich),
+    funktionen: leseFunktionen(b.funktionen),
     erstellt_am: b.erstellt_am,
     letzte_anmeldung: b.letzte_anmeldung,
   };

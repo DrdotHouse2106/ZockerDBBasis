@@ -33,6 +33,7 @@ import { kalenderRouter } from './routes/kalender.js';
 import { steamRouter } from './routes/steam.js';
 import { verleihRouter } from './routes/verleih.js';
 import { erstelleVerleihDienst } from './services/verleih.js';
+import { erstelleWartungDienst } from './services/wartung.js';
 import { erstelleSteamDienst } from './services/steam.js';
 import { erstelleMailDienst } from './services/mail.js';
 import { erstelleCaptchaDienst } from './services/captcha.js';
@@ -96,9 +97,10 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const sync = erstelleSyncDienst(db, { zentrale, katalog, schluessel, dateien, speicher, plattformen, erweiterungen });
   const steam = erstelleSteamDienst(db, { konfiguration, fetchFn, katalog, plattformen });
   const verleih = erstelleVerleihDienst(db, { benachrichtigungen });
+  const wartung = erstelleWartungDienst(db);
   const kontext = {
     db, cache, igdb, barcode, zentrale, katalog, konten, dateien, speicher, plattformen, einstellungen, sicherung, aktualisierung, mail, kontoMail,
-    benachrichtigungen, sync, konvolute, vorschlaege, ideen, steam, verleih, captcha, konfiguration, version, build, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
+    benachrichtigungen, sync, konvolute, vorschlaege, ideen, steam, verleih, wartung, captcha, konfiguration, version, build, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
   };
   // Zusatzmodule legen ihre Dienste im Kontext ab und registrieren sich an den Andockpunkten
   for (const modul of MODULE) modul.erstelle?.(kontext, { fetchFn });

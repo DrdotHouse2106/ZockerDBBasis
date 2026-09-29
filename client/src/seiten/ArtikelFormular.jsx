@@ -15,6 +15,7 @@ import Symbol from '../komponenten/Symbole.jsx';
 import BarcodeScanner from '../komponenten/BarcodeScanner.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { MODUL } from '../erweiterungen.jsx';
+import { LagerortFelder, BeilagenCheckliste, SeriennummerAbgleich } from '../komponenten/ZusatzFelder.jsx';
 
 const FARBVORSCHLAEGE = [
   'Schwarz', 'Weiß', 'Grau', 'Silber', 'Clear', 'Clear Red', 'Clear Blue', 'Clear Green', 'Atomic Purple',
@@ -25,6 +26,7 @@ const LEER = {
   typ: 'spiel', titel: '', plattform: '', plattform_id: null, variante_id: null, katalog_id: null, barcode: '', cover_url: '', zustand: '', vollstaendigkeit: '',
   region: 'pal_de', farbe: '', edition: '', modellnummer: '', seriennummer: '', notizen: '', kaufpreis: '', kaufdatum: '', anzahl: 1,
   marktwert: '', herkunft: '', konvolut_id: null, bestand: 'besitz', digital_quelle: null,
+  lagerort_ort: '', lagerort_regal: '', lagerort_fach: '', beilagen: null, seriennummer_ovp: '',
 };
 
 export default function ArtikelFormular({ route, artikelId }) {
@@ -37,6 +39,7 @@ export default function ArtikelFormular({ route, artikelId }) {
   const [varianten, setVarianten] = useState([]);
   const plattformen = usePlattformen();
   const { benutzer, status } = useSitzung();
+  const funktionen = benutzer?.funktionen ?? {};
   const [fehler, setFehler] = useState({});
   const [allgemeinerFehler, setAllgemeinerFehler] = useState(null);
   const [speichert, setSpeichert] = useState(false);
@@ -314,7 +317,27 @@ export default function ArtikelFormular({ route, artikelId }) {
           <Feld label="Seriennummer" fehler={fehler.seriennummer}>
             {(id) => <input id={id} className="eingabe" value={werte.seriennummer} onChange={setze('seriennummer')} autoComplete="off" />}
           </Feld>
+          {funktionen.beilagen && werte.bestand !== 'digital' && (
+            <>
+              <Feld label="Seriennummer der OVP" fehler={fehler.seriennummer_ovp}>
+                {(id) => (
+                  <>
+                    <input id={id} className="eingabe" value={werte.seriennummer_ovp} onChange={setze('seriennummer_ovp')} autoComplete="off" placeholder="Aufkleber auf dem Karton" />
+                    <SeriennummerAbgleich geraet={werte.seriennummer} ovp={werte.seriennummer_ovp} />
+                  </>
+                )}
+              </Feld>
+              <div className="hidden sm:block" />
+              <BeilagenCheckliste typ={werte.typ} wert={werte.beilagen} onChange={(b) => setWerte((w) => ({ ...w, beilagen: b }))} />
+            </>
+          )}
         </Abschnitt>
+
+        {funktionen.lagerort && werte.bestand !== 'digital' && (
+          <Abschnitt titel="Lagerort" hinweis="Wo steht das Exemplar? Bereits verwendete Orte werden vorgeschlagen.">
+            <LagerortFelder werte={werte} setze={setze} fehler={fehler} />
+          </Abschnitt>
+        )}
 
         <Abschnitt titel="Kauf & Details">
           <Feld label="Herkunft" fehler={fehler.herkunft}>

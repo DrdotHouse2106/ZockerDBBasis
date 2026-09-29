@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import {
-  oeffentlichesProfil, KontoFehler, pruefeNeuesPasswort,
+  oeffentlichesProfil, KontoFehler, pruefeNeuesPasswort, leseFunktionen,
 } from '../services/konten.js';
 import { erstelleDrossel } from '../services/drossel.js';
 import { setzeSitzungsCookie, loescheSitzungsCookie, erfordereAnmeldung } from '../middleware/auth.js';
 import { ValidierungsFehler } from '../services/validierung.js';
 import { normalisiereEmail } from '../services/kontomail.js';
 import { zufallsToken } from '../services/sicherheit.js';
+import { FUNKTIONEN } from '../../shared/konstanten.js';
 
 const ZU_VIELE = 'Zu viele Fehlversuche. Bitte warte 15 Minuten und versuche es dann erneut.';
 
@@ -230,6 +231,12 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     }
     if (perEmail !== undefined) {
       db.prepare('UPDATE benutzer SET benachrichtigung_email = ? WHERE id = ?').run(perEmail ? 1 : 0, req.benutzer.id);
+    }
+    // Zusatzfelder ein-/ausschalten: { lagerort: true, … } – nur bekannte Schlüssel, übrige bleiben
+    if (req.body?.funktionen && typeof req.body.funktionen === 'object') {
+      const neu = { ...leseFunktionen(konten.holeBenutzer(req.benutzer.id).funktionen) };
+      for (const f of FUNKTIONEN) if (typeof req.body.funktionen[f.value] === 'boolean') neu[f.value] = req.body.funktionen[f.value];
+      db.prepare('UPDATE benutzer SET funktionen = ? WHERE id = ?').run(JSON.stringify(neu), req.benutzer.id);
     }
     // „Meine Systeme“: Liste von Plattform-IDs oder null (= Standardsysteme)
     if (req.body?.meine_systeme !== undefined) {

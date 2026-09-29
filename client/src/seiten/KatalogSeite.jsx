@@ -9,6 +9,7 @@ import Markdown from '../komponenten/Markdown.jsx';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
 import { useSitzung } from '../sitzung.js';
+import { KatalogMerkmale } from '../komponenten/Wartung.jsx';
 import Layout from '../komponenten/Layout.jsx';
 import Cover from '../komponenten/Cover.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
@@ -152,6 +153,7 @@ export default function KatalogSeite({ route, id }) {
             <Erfahrungsberichte key={e.id} katalogId={e.id} berichte={daten.berichte ?? []} darfSchreiben={(daten.meineExemplare ?? []).length > 0}
               moderator={['moderator', 'admin'].includes(benutzer.rolle)} onGeaendert={laden} />
           )}
+          {benutzer && (benutzer.funktionen?.wartung || istModerator(benutzer)) && <KatalogMerkmale katalogId={e.id} />}
           {benutzer && <Kommentare katalogId={e.id} />}
           <Andockpunkt name="katalog.ende" {...erweiterung} />
         </div>

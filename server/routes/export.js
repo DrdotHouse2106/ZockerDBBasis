@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, beschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, WARTUNGSARTEN, beschriftung,
 } from '../../shared/konstanten.js';
 import { pruefeArtikel, ValidierungsFehler } from '../services/validierung.js';
 
@@ -17,6 +17,8 @@ const CSV_SPALTEN = [
   ['edition', 'Edition/Variante'],
   ['modellnummer', 'Modellnummer'],
   ['seriennummer', 'Seriennummer'],
+  ['seriennummer_ovp', 'Seriennummer OVP'],
+  ['lagerort', 'Lagerort'],
   ['barcode', 'Barcode'],
   ['anzahl', 'Anzahl'],
   ['kaufpreis', 'Kaufpreis (EUR)', (w) => (w == null ? '' : w.toFixed(2).replace('.', ','))],
@@ -52,7 +54,9 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
       ORDER BY id`).all({ b: req.benutzer.id }).map(({ erstellt_von: _e, ...rest }) => rest);
     res.attachment(`zockerdb-${datumHeute()}.json`);
     const konvolute = db.prepare('SELECT * FROM konvolute WHERE benutzer_id = ? ORDER BY id').all(req.benutzer.id).map(({ benutzer_id: _b, ...rest }) => rest);
-    res.json({ format: 'zockerdb', version: 1, exportiert_am: new Date().toISOString(), artikel, eigeneKatalogeintraege, konvolute });
+    // Wartungsverlauf gehört zum Exemplar (über die alte Artikel-ID zugeordnet)
+    const wartungen = db.prepare('SELECT artikel_id, art, datum, notiz FROM wartungen WHERE benutzer_id = ? ORDER BY id').all(req.benutzer.id);
+    res.json({ format: 'zockerdb', version: 1, exportiert_am: new Date().toISOString(), artikel, eigeneKatalogeintraege, konvolute, wartungen });
   });
 
   /**
@@ -76,6 +80,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
       eigene_katalogeintraege: alle("SELECT id, typ, titel, plattformen, erscheinungsjahr, hersteller, status, erstellt_am FROM katalog WHERE erstellt_von = ? ORDER BY id"),
       scans_und_dokumente: alle('SELECT id, katalog_id, art, titel, sichtbarkeit, originalname, mime, groesse, erstellt_am FROM medien WHERE benutzer_id = ? ORDER BY id'),
       kommentare: alle('SELECT katalog_id, text, erstellt_am, aktualisiert_am FROM kommentare WHERE benutzer_id = ? ORDER BY id'),
+      wartungen: alle('SELECT artikel_id, art, datum, notiz, erstellt_am FROM wartungen WHERE benutzer_id = ? ORDER BY id'),
       verleihungen: alle('SELECT v.artikel_id, v.an_name, v.seit, v.rueckgabe_geplant, v.zurueck_am, v.notiz, v.bestaetigung FROM verleihungen v WHERE v.verleiher_id = ? ORDER BY v.id'),
       erfahrungsberichte: alle('SELECT katalog_id, text, wertung, status, erstellt_am, aktualisiert_am FROM erfahrungsberichte WHERE benutzer_id = ? ORDER BY id'),
       benachrichtigungen: alle('SELECT art, titel, text, gelesen, erstellt_am FROM benachrichtigungen WHERE benutzer_id = ? ORDER BY id'),
@@ -86,7 +91,8 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
 
   // CSV im deutschen Excel-Format: Semikolon als Trenner, Dezimalkomma, UTF-8 mit BOM.
   router.get('/export.csv', (req, res) => {
-    const artikel = db.prepare(`SELECT a.*, k.name AS konvolut_name FROM artikel a LEFT JOIN konvolute k ON k.id = a.konvolut_id
+    const artikel = db.prepare(`SELECT a.*, k.name AS konvolut_name,
+        NULLIF(concat_ws(' › ', a.lagerort_ort, a.lagerort_regal, a.lagerort_fach), '') AS lagerort FROM artikel a LEFT JOIN konvolute k ON k.id = a.konvolut_id
       WHERE a.benutzer_id = ? ORDER BY a.titel COLLATE NOCASE`).all(req.benutzer.id);
     const zeilen = [
       CSV_SPALTEN.map(([, kopf]) => csvFeld(kopf)).join(';'),
@@ -112,8 +118,16 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
     const katalogVorhanden = db.prepare("SELECT id FROM katalog WHERE id = ? AND (status = 'freigegeben' OR erstellt_von = ?)");
     const felder = ['benutzer_id', 'typ', 'titel', 'plattform', 'katalog_id', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region',
       'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'plattform_id',
-      'herkunft', 'konvolut_id', 'kaufpreis_anteilig', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten'];
-    const einfuegen = db.prepare(`INSERT INTO artikel (${felder.join(', ')}) VALUES (${felder.map((f) => `@${f}`).join(', ')})`);
+      'herkunft', 'konvolut_id', 'kaufpreis_anteilig', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
+      'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp'];
+    const einfuegen = db.prepare(`INSERT INTO artikel (${felder.join(', ')}) VALUES (${felder.map((f) => `@${f}`).join(', ')}) RETURNING id`);
+    const wartungEinfuegen = db.prepare('INSERT INTO wartungen (artikel_id, benutzer_id, art, datum, notiz) VALUES (?, ?, ?, ?, ?)');
+    const wartungenJe = new Map();
+    for (const w of Array.isArray(daten?.wartungen) ? daten.wartungen.slice(0, 50_000) : []) {
+      if (!WARTUNGSARTEN.some((a) => a.value === w?.art) || !/^\d{4}(-\d{2}(-\d{2})?)?$/.test(w?.datum ?? '')) continue;
+      if (!wartungenJe.has(w.artikel_id)) wartungenJe.set(w.artikel_id, []);
+      wartungenJe.get(w.artikel_id).push(w);
+    }
 
     const fehlerhaft = [];
     let importiert = 0;
@@ -152,7 +166,10 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
           artikel.katalog_id = katalogIds.get(alteKatalogId) ?? (katalogVorhanden.get(alteKatalogId ?? -1, req.benutzer.id)?.id ?? null);
           if (artikel.cover_url?.startsWith('/')) artikel.cover_url = null; // Fotos werden nicht mit exportiert
           const plattform = plattformen.zuordnen(artikel.plattform);
-          einfuegen.run({ ...artikel, benutzer_id: req.benutzer.id, plattform_id: plattform?.id ?? null, plattform: plattform?.name ?? artikel.plattform });
+          const { id } = einfuegen.get({ ...artikel, benutzer_id: req.benutzer.id, plattform_id: plattform?.id ?? null, plattform: plattform?.name ?? artikel.plattform });
+          for (const w of (roh?.id != null && wartungenJe.get(roh.id)) || []) {
+            wartungEinfuegen.run(id, req.benutzer.id, w.art, w.datum, w.notiz ? String(w.notiz).slice(0, 1000) : null);
+          }
           importiert++;
         } catch (fehler) {
           if (!(fehler instanceof ValidierungsFehler)) throw fehler;

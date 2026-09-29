@@ -8,6 +8,8 @@ import { SpendeFrage } from '../komponenten/Zockerdb.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
 import { spaeter } from '../spaeter.js';
 import { Andockpunkt } from '../erweiterungen.jsx';
+import { useSitzung } from '../sitzung.js';
+import { lagerortText } from '../komponenten/ZusatzFelder.jsx';
 
 const DemnaechstVorschau = spaeter(() => import('./Kalender.jsx'), 'DemnaechstVorschau');
 
@@ -27,6 +29,8 @@ export default function Sammlung({ route }) {
   const [suchtext, setSuchtext] = useState(filter.q ?? '');
   const [filterOffen, setFilterOffen] = useState(Boolean(filter.region || filter.zustand || filter.vollstaendigkeit || filter.herkunft || filter.ohne_preis || filter.spielstatus));
   const gruppiert = filter.einzeln !== '1';
+  const { benutzer } = useSitzung();
+  const lagerortFilter = lagerortText(filter);
 
   const setzeFilter = (aenderung) => navigiere('/', { ...filter, ...aenderung });
 
@@ -68,7 +72,7 @@ export default function Sammlung({ route }) {
       gruppen.get(schluessel).exemplare += 1;
     }
   }
-  const hatFilter = Boolean(filter.typ || filter.q || filter.plattform_id || aktiveFilter || weg || digital || filter.verliehen);
+  const hatFilter = Boolean(filter.typ || filter.q || filter.plattform_id || aktiveFilter || weg || digital || filter.verliehen || lagerortFilter || filter.ohne_lagerort);
 
   return (
     <Layout route={route} titel="Meine Sammlung">
@@ -132,7 +136,14 @@ export default function Sammlung({ route }) {
             onClick={() => setzeFilter({ bestand: filter.bestand === 'digital' ? undefined : 'digital' })} title="Digitale Spiele, z. B. aus Steam">
             Digital
           </button>
+          {benutzer?.funktionen?.lagerort && <a href="#/lagerorte" className="chip">📍 Lagerorte</a>}
         </div>
+        {(lagerortFilter || filter.ohne_lagerort) && (
+          <p className="flex items-center justify-between gap-2 rounded-xl bg-karte-hover p-3 text-sm">
+            <span>📍 {lagerortFilter || 'Ohne Lagerort'}</span>
+            <button type="button" className="underline" onClick={() => setzeFilter({ lagerort_ort: undefined, lagerort_regal: undefined, lagerort_fach: undefined, ohne_lagerort: undefined })}>Filter entfernen</button>
+          </p>
+        )}
         {digital && (
           <p className="rounded-xl bg-karte-hover p-3 text-sm text-leise">
             Digitale Spiele (z. B. aus deiner Steam-Bibliothek) – deutlich gekennzeichnet, sie zählen nicht zur Sammlung und zum Sammlungswert.

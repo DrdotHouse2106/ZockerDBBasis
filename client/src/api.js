@@ -104,6 +104,15 @@ export const api = {
   verleihZurueck: (id) => anfrage(`/api/verleihungen/${id}/zurueck`, { methode: 'POST' }),
   verleihAntwort: (id, bestaetigen) => anfrage(`/api/verleihungen/${id}/antwort`, { methode: 'POST', daten: { bestaetigen } }),
   artikelZurueck: (id) => anfrage(`/api/artikel/${id}/zurueck`, { methode: 'POST' }),
+  lagerorte: () => anfrage('/api/artikel/lagerorte'),
+  lagerortSetzen: (ids, { ort, regal, fach }) => anfrage('/api/artikel/lagerort', { methode: 'POST', daten: { ids, ort, regal, fach } }),
+  wartung: (id) => anfrage(`/api/artikel/${id}/wartung`),
+  wartungNeu: (id, daten) => anfrage(`/api/artikel/${id}/wartung`, { methode: 'POST', daten }),
+  wartungLoeschen: (wid) => anfrage(`/api/artikel/wartung/${wid}`, { methode: 'DELETE' }),
+  wartungsmerkmale: (katalogId) => anfrage(`/api/katalog/${katalogId}/wartungsmerkmale`),
+  wartungsmerkmaleSetzen: (katalogId, daten) => anfrage(`/api/katalog/${katalogId}/wartungsmerkmale`, { methode: 'PUT', daten }),
+  merkmalVorschlaege: () => anfrage('/api/katalog/wartungsmerkmale/vorschlaege'),
+  merkmalEntscheiden: (id, uebernehmen) => anfrage(`/api/katalog/wartungsmerkmale/vorschlaege/${id}`, { methode: 'POST', daten: { uebernehmen } }),
   bildHochladen: (id, datei) => {
     const formular = new FormData();
     formular.append('bild', datei);

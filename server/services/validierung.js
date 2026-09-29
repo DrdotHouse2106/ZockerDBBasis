@@ -1,4 +1,6 @@
-import { ALLE_WERTE } from '../../shared/konstanten.js';
+import { ALLE_WERTE, BEILAGEN } from '../../shared/konstanten.js';
+
+const BEILAGEN_SCHLUESSEL = new Set(Object.values(BEILAGEN).flat().map((b) => b.value));
 
 export class ValidierungsFehler extends Error {
   constructor(fehler) {
@@ -16,6 +18,10 @@ const TEXTFELDER = {
   edition: 200,
   modellnummer: 100,
   seriennummer: 100,
+  seriennummer_ovp: 100,
+  lagerort_ort: 80,
+  lagerort_regal: 80,
+  lagerort_fach: 80,
   notizen: 5000,
 };
 
@@ -130,6 +136,17 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     else if (hat('digital_quelle') || daten.bestand !== undefined) daten.digital_quelle = quelle;
   }
   if (daten.bestand === 'abgegeben' && hat('verkaufspreis')) daten.verkaufspreis = null;
+
+  // Beilagen-Checkliste: { anleitung: true, poster: false, … } – nur bekannte Schlüssel, leer = null
+  if (!teilweise || hat('beilagen')) {
+    let roh = eingabe.beilagen ?? null;
+    if (typeof roh === 'string') { try { roh = roh ? JSON.parse(roh) : null; } catch { roh = undefined; } }
+    if (roh !== null && (typeof roh !== 'object' || Array.isArray(roh))) fehler.beilagen = 'Ungültige Beilagen-Liste.';
+    else {
+      const liste = Object.fromEntries(Object.entries(roh ?? {}).filter(([k, v]) => BEILAGEN_SCHLUESSEL.has(k) && typeof v === 'boolean'));
+      daten.beilagen = Object.keys(liste).length ? JSON.stringify(liste) : null;
+    }
+  }
 
   if (!teilweise || hat('anzahl')) {
     const anzahl = eingabe.anzahl === undefined || eingabe.anzahl === '' || eingabe.anzahl === null ? 1 : Number(eingabe.anzahl);

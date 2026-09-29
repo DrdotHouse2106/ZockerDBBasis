@@ -18,17 +18,21 @@ const FELDER = [
   'typ', 'titel', 'plattform', 'katalog_id', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region',
   'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert',
   'plattform_id', 'variante_id', 'herkunft', 'konvolut_id', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
+  'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp',
 ];
 
 export function artikelZuObjekt(zeile) {
   if (!zeile) return null;
+  let beilagen = null;
+  try { beilagen = zeile.beilagen ? JSON.parse(zeile.beilagen) : null; } catch { /* ungültig – leer lassen */ }
   return {
     ...zeile,
+    beilagen,
     bild_url: zeile.bild_datei ? `/api/dateien/${zeile.bild_datei}` : zeile.cover_url || zeile.katalog_cover_url || null,
   };
 }
 
-export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen, speicher, erweiterungen, zentrale, konvolute, verleih }) {
+export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen, speicher, erweiterungen, zentrale, konvolute, verleih, wartung }) {
   const router = Router();
 
   const upload = () => multer({
@@ -121,9 +125,18 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
         parameter[feld] = wert;
       }
     }
+    // Lagerort: jede Stufe einzeln filterbar; „ohne_lagerort=1“ zeigt, was noch keinen Platz hat
+    for (const feld of ['lagerort_ort', 'lagerort_regal', 'lagerort_fach']) {
+      const wert = req.query[feld];
+      if (typeof wert === 'string' && wert) {
+        bedingungen.push(`a.${feld} = @${feld} COLLATE NOCASE`);
+        parameter[feld] = wert;
+      }
+    }
+    if (req.query.ohne_lagerort === '1') bedingungen.push('a.lagerort_ort IS NULL');
     if (typeof q === 'string' && q.trim()) {
       parameter.q = `%${q.trim().replace(/[\\%_]/g, (z) => `\\${z}`)}%`;
-      bedingungen.push(`(${['titel', 'plattform', 'edition', 'farbe', 'modellnummer', 'seriennummer', 'notizen', 'barcode']
+      bedingungen.push(`(${['titel', 'plattform', 'edition', 'farbe', 'modellnummer', 'seriennummer', 'seriennummer_ovp', 'notizen', 'barcode', 'lagerort_ort', 'lagerort_regal', 'lagerort_fach']
         .map((f) => `a.${f} LIKE @q ESCAPE '\\'`).join(' OR ')})`);
     }
     const sortierung = SORTIERUNGEN[req.query.sortierung] ?? SORTIERUNGEN.neueste;
@@ -136,6 +149,28 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
   router.get('/anzahl', (req, res) => {
     const zeilen = db.prepare('SELECT bestand, COUNT(*) AS n FROM artikel WHERE benutzer_id = ? GROUP BY bestand').all(req.benutzer.id);
     res.json(Object.fromEntries(zeilen.map((z) => [z.bestand, z.n])));
+  });
+
+  // Lagerorte der eigenen Sammlung mit Anzahl (Übersicht und Vorschläge beim Eintragen)
+  router.get('/lagerorte', (req, res) => {
+    res.json(db.prepare(`SELECT lagerort_ort AS ort, lagerort_regal AS regal, lagerort_fach AS fach, COUNT(*) AS anzahl, SUM(anzahl) AS stueck
+      FROM artikel WHERE benutzer_id = ? AND bestand = 'besitz' AND lagerort_ort IS NOT NULL
+      GROUP BY lagerort_ort COLLATE NOCASE, lagerort_regal COLLATE NOCASE, lagerort_fach COLLATE NOCASE
+      ORDER BY lagerort_ort COLLATE NOCASE, lagerort_regal IS NOT NULL, lagerort_regal COLLATE NOCASE, lagerort_fach IS NOT NULL, lagerort_fach COLLATE NOCASE`)
+      .all(req.benutzer.id));
+  });
+
+  // Mehreren Exemplaren auf einmal einen Lagerort geben (oder ihn entfernen: ort leer)
+  router.post('/lagerort', (req, res) => {
+    const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 2000) : [];
+    if (!ids.length) throw new ValidierungsFehler({ ids: 'Bitte mindestens ein Exemplar auswählen.' });
+    const daten = pruefeArtikel({ lagerort_ort: req.body?.ort, lagerort_regal: req.body?.regal, lagerort_fach: req.body?.fach }, true);
+    if (!daten.lagerort_ort) Object.assign(daten, { lagerort_regal: null, lagerort_fach: null });
+    const aendern = db.prepare(`UPDATE artikel SET lagerort_ort = @lagerort_ort, lagerort_regal = @lagerort_regal, lagerort_fach = @lagerort_fach,
+      aktualisiert_am = datetime('now') WHERE id = @id AND benutzer_id = @benutzer_id`);
+    const geaendert = db.transaction(() => ids.reduce((n, id) => n + aendern.run({ ...daten, id, benutzer_id: req.benutzer.id }).changes, 0))();
+    erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
+    res.json({ geaendert });
   });
 
   // Plattformen in der eigenen Sammlung (für Filter-Chips)
@@ -281,6 +316,23 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
   router.get('/:id/verleihungen', (req, res) => {
     const vorhanden = holeOder404(req, res);
     if (vorhanden) res.json(verleih.verlauf(vorhanden.id));
+  });
+
+  // Zustand & Wartung: Verlauf, passende Wartungsarten, Batterie-Hinweis
+  router.get('/:id/wartung', (req, res) => {
+    const vorhanden = holeOder404(req, res);
+    if (vorhanden) res.json(wartung.info(vorhanden));
+  });
+  router.post('/:id/wartung', (req, res) => {
+    const vorhanden = holeOder404(req, res);
+    if (!vorhanden) return;
+    wartung.fuegeHinzu(req.benutzer.id, vorhanden, req.body ?? {});
+    erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
+    res.status(201).json(wartung.info(vorhanden));
+  });
+  router.delete('/wartung/:wid', (req, res) => {
+    if (!wartung.loesche(req.benutzer.id, req.params.wid)) return res.status(404).json({ fehler: 'Eintrag nicht gefunden.' });
+    res.status(204).end();
   });
 
   // Wieder in die Sammlung zurückholen (versehentlich markiert, zurückgekauft)

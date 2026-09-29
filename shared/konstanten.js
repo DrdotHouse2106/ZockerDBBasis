@@ -146,6 +146,95 @@ export const SPIELSTATUS = [
   { value: 'abgebrochen', label: 'Abgebrochen', icon: '⏹️' },
 ];
 
+/** Zuschaltbare Zusatzfelder (Profil → „Zusätzliche Felder“), standardmäßig aus. */
+export const FUNKTIONEN = [
+  { value: 'lagerort', label: 'Lagerort', beschreibung: 'Ort → Regal/Schrank → Fach/Kiste je Exemplar, mit Übersicht und Filter.' },
+  { value: 'wartung', label: 'Zustand & Wartung', beschreibung: 'Wartungsverlauf (Batterie, Recap, Laufwerk, Mods …) und Hinweise zum Batteriealter.' },
+  { value: 'beilagen', label: 'Beilagen & Seriennummern', beschreibung: 'Checkliste der Beilagen und Abgleich der Seriennummer von Gerät und OVP.' },
+];
+
+/** Wartungsmerkmale eines Katalogeintrags – bestimmen, welche Wartungsarten am Exemplar angeboten werden. */
+export const WARTUNGSMERKMALE = [
+  { value: 'speicherbatterie', label: 'Speicherbatterie', hinweis: 'Spielstände bzw. Uhr hängen an einer Knopfzelle – sie hält meist 15–25 Jahre.' },
+  { value: 'optisches_laufwerk', label: 'Optisches Laufwerk', hinweis: 'Laser und Mechanik altern; Laser justieren oder tauschen.' },
+  { value: 'elkos', label: 'Elektrolytkondensatoren', hinweis: 'Alte Elkos trocknen aus oder laufen aus – ein Recap beugt Schäden vor.' },
+  { value: 'vergilbung', label: 'Vergilbender Kunststoff', hinweis: 'Das Gehäuse vergilbt mit der Zeit (ABS mit Flammschutzmittel).' },
+];
+
+/** Wartungsarten; mit `merkmal` nur angeboten, wenn der Katalogeintrag das Merkmal hat (oder es unbekannt ist). */
+export const WARTUNGSARTEN = [
+  { value: 'batterie', label: 'Batterie getauscht', icon: '🔋', merkmal: 'speicherbatterie' },
+  { value: 'recap', label: 'Recap (Elkos getauscht)', icon: '⚡', merkmal: 'elkos' },
+  { value: 'laufwerk', label: 'Laufwerk/Laser gewartet', icon: '💿', merkmal: 'optisches_laufwerk' },
+  { value: 'retrobright', label: 'Entgilbt (Retrobright)', icon: '☀️', merkmal: 'vergilbung' },
+  { value: 'reinigung', label: 'Reinigung', icon: '🧽' },
+  { value: 'mod', label: 'Mod/Umbau', icon: '🔧' },
+  { value: 'reparatur', label: 'Reparatur', icon: '🛠️' },
+  { value: 'sonstiges', label: 'Sonstiges', icon: '📝' },
+];
+
+// Standardwerte je Plattform (Kurzname) und Artikeltyp: true = hat das Merkmal, null = je nach Titel (wird angeboten),
+// nicht aufgeführt = hat es nicht. Das Moderationsteam kann sie je Katalogeintrag überschreiben.
+const MERKMAL_STANDARD = {
+  spiel: {
+    speicherbatterie: { werte: null, plattformen: ['NES', 'SNES', 'N64', 'GB', 'GBC', 'GBA', 'MD', 'PCE', 'NeoGeo'] },
+  },
+  konsole: {
+    speicherbatterie: { werte: true, plattformen: ['Saturn', 'DC', 'GC', 'NeoGeo'] },
+    optisches_laufwerk: { werte: true, plattformen: ['PS1', 'PS2', 'PS3', 'PS4', 'PS5', 'PSP', 'Saturn', 'DC', 'GC', 'Wii', 'Wii U', 'Xbox', 'X360', 'XOne', 'XSX', 'MCD'] },
+    elkos: { werte: true, plattformen: ['SMS', 'MD', 'MCD', '32X', 'Saturn', 'DC', 'GG', 'Lynx', 'NeoGeo', 'PCE', 'VB', '2600', '7800', 'Jaguar', 'C64', 'Amiga', 'NES', 'SNES', 'N64', 'GB', 'GBC', 'PS1', 'PS2', 'Xbox'] },
+    vergilbung: { werte: true, plattformen: ['SNES', 'NES', 'GB', 'GBC', 'N64', 'SMS', 'MD', 'C64', 'Amiga', 'PS1', '2600', '7800', 'PCE'] },
+  },
+};
+MERKMAL_STANDARD.zubehoer = { vergilbung: MERKMAL_STANDARD.konsole.vergilbung };
+
+/** Standard-Wartungsmerkmale für Plattform (Kurzname) und Artikeltyp: { merkmal: true | null }. */
+export function standardWartungsmerkmale(plattformKurz, typ) {
+  const ergebnis = {};
+  for (const [merkmal, { werte, plattformen }] of Object.entries(MERKMAL_STANDARD[typ] ?? {})) {
+    if (plattformKurz && plattformen.includes(plattformKurz)) ergebnis[merkmal] = werte;
+  }
+  return ergebnis;
+}
+
+/** Welche Wartungsarten zu den Merkmalen passen (Merkmal true oder null = je nach Titel). */
+export function passendeWartungsarten(merkmale = {}) {
+  return WARTUNGSARTEN.filter((a) => !a.merkmal || (a.merkmal in merkmale && merkmale[a.merkmal] !== false));
+}
+
+/** Beilagen-Checkliste je Artikeltyp. */
+export const BEILAGEN = {
+  spiel: [
+    { value: 'ovp', label: 'OVP / Hülle' },
+    { value: 'anleitung', label: 'Anleitung' },
+    { value: 'inlay', label: 'Inlay / Schutzhülle' },
+    { value: 'poster', label: 'Poster / Karte' },
+    { value: 'registrierkarte', label: 'Registrierkarte' },
+    { value: 'beilagen', label: 'Werbebeilagen / Kataloge' },
+  ],
+  konsole: [
+    { value: 'ovp', label: 'OVP' },
+    { value: 'einleger', label: 'Einleger / Styropor' },
+    { value: 'anleitung', label: 'Anleitung' },
+    { value: 'netzteil', label: 'Netzteil' },
+    { value: 'kabel', label: 'AV-/HDMI-Kabel' },
+    { value: 'controller', label: 'Controller' },
+    { value: 'garantiekarte', label: 'Garantiekarte / Kaufbeleg' },
+  ],
+  zubehoer: [
+    { value: 'ovp', label: 'OVP' },
+    { value: 'anleitung', label: 'Anleitung' },
+    { value: 'kabel', label: 'Kabel' },
+  ],
+};
+
+/** Seriennummern vergleichen (ohne Leerzeichen, Bindestriche, Groß-/Kleinschreibung): true, false oder null (nicht beide angegeben). */
+export function seriennummerPasst(geraet, ovp) {
+  const norm = (s) => String(s ?? '').replace(/[\s\-_.]/g, '').toUpperCase();
+  if (!norm(geraet) || !norm(ovp)) return null;
+  return norm(geraet) === norm(ovp);
+}
+
 export const ALLE_WERTE = {
   spielstatus: SPIELSTATUS.map((e) => e.value),
   digital_quelle: DIGITAL_QUELLEN.map((e) => e.value),

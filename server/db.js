@@ -538,6 +538,39 @@ const MIGRATIONEN = [
   CREATE INDEX IF NOT EXISTS idx_verleihungen_an ON verleihungen (an_benutzer_id, zurueck_am);
   CREATE INDEX IF NOT EXISTS idx_verleihungen_verleiher ON verleihungen (verleiher_id, zurueck_am);
   `,
+  // 29: Zuschaltbare Zusatzfelder je Benutzer (Lagerort, Zustand & Wartung, Beilagen) – standardmäßig aus.
+  //     Lagerort in drei Stufen, Beilagen-Checkliste und Seriennummer der OVP, Wartungsverlauf je Exemplar,
+  //     Wartungsmerkmale je Katalogeintrag (vom Moderationsteam gepflegt, von allen vorschlagbar).
+  `
+  ALTER TABLE benutzer ADD COLUMN funktionen TEXT;             -- JSON: { lagerort, wartung, beilagen }
+  ALTER TABLE artikel ADD COLUMN lagerort_ort TEXT;            -- z. B. Wohnzimmer
+  ALTER TABLE artikel ADD COLUMN lagerort_regal TEXT;          -- Regal/Schrank
+  ALTER TABLE artikel ADD COLUMN lagerort_fach TEXT;           -- Fach/Kiste
+  CREATE INDEX IF NOT EXISTS idx_artikel_lagerort ON artikel (benutzer_id, lagerort_ort, lagerort_regal, lagerort_fach);
+  ALTER TABLE artikel ADD COLUMN beilagen TEXT;                -- JSON: { anleitung: true, poster: false, … }
+  ALTER TABLE artikel ADD COLUMN seriennummer_ovp TEXT;
+  ALTER TABLE katalog ADD COLUMN wartungsmerkmale TEXT;        -- JSON: { speicherbatterie, optisches_laufwerk, elkos, vergilbung } (NULL = Standard je Plattform)
+  CREATE TABLE IF NOT EXISTS wartungen (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    artikel_id   INTEGER NOT NULL REFERENCES artikel (id) ON DELETE CASCADE,
+    benutzer_id  INTEGER NOT NULL REFERENCES benutzer (id) ON DELETE CASCADE,
+    art          TEXT    NOT NULL,                             -- batterie, recap, laufwerk, retrobright, reinigung, mod, reparatur, sonstiges
+    datum        TEXT    NOT NULL,
+    notiz        TEXT,
+    erstellt_am  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_wartungen_artikel ON wartungen (artikel_id, datum);
+  CREATE TABLE IF NOT EXISTS wartungsmerkmal_vorschlaege (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    katalog_id   INTEGER NOT NULL REFERENCES katalog (id) ON DELETE CASCADE,
+    benutzer_id  INTEGER REFERENCES benutzer (id) ON DELETE SET NULL,
+    merkmale     TEXT    NOT NULL,                             -- JSON wie katalog.wartungsmerkmale
+    begruendung  TEXT,
+    status       TEXT    NOT NULL DEFAULT 'offen',             -- offen, uebernommen, abgelehnt
+    erstellt_am  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_merkmal_vorschlaege ON wartungsmerkmal_vorschlaege (status, katalog_id);
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

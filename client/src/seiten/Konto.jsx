@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MARKE } from '../../../shared/marke.js';
+import { FUNKTIONEN } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { useSitzung } from '../sitzung.js';
 import { datumDe } from '../format.js';
@@ -46,6 +47,7 @@ export default function Konto({ route }) {
             {!pflicht && (
               <>
                 <Sichtbarkeit konto={konto} onSpeichern={speichereProfil} />
+                <ZusatzFelder konto={konto} onSpeichern={speichereProfil} />
                 <KontoZockerdb konto={konto} onSpeichern={speichereProfil} />
                 <Andockpunkt name="konto.einstellungen" konto={konto} onSpeichern={speichereProfil} />
                 <section className="karte space-y-3 p-4">
@@ -91,6 +93,26 @@ function Profil({ konto, onSpeichern }) {
         </label>
         <button type="submit" className="knopf-sekundaer">Speichern</button>
       </form>
+    </section>
+  );
+}
+
+/** Zuschaltbare Zusatzfelder – standardmäßig aus, damit das Eintragen einfach bleibt. */
+function ZusatzFelder({ konto, onSpeichern }) {
+  // Sofort umschalten, nicht erst nach der Antwort des Servers
+  const [an, setAn] = useState(konto.funktionen ?? {});
+  useEffect(() => { setAn(konto.funktionen ?? {}); }, [konto.funktionen]);
+  return (
+    <section className="karte space-y-3 p-4">
+      <h2 className="flex items-center gap-2 font-semibold"><Symbol name="einstellungen" className="size-5" />Zusätzliche Felder</h2>
+      <p className="text-sm text-leise">Für Sammler, die mehr festhalten möchten. Ausgeschaltete Felder tauchen beim Eintragen nicht auf – gespeicherte Angaben bleiben erhalten.</p>
+      {FUNKTIONEN.map((f) => (
+        <label key={f.value} className="flex items-start gap-3">
+          <input type="checkbox" className="mt-1" checked={Boolean(an[f.value])}
+            onChange={(e) => { setAn({ ...an, [f.value]: e.target.checked }); onSpeichern({ funktionen: { [f.value]: e.target.checked } }); }} />
+          <span><span className="font-medium">{f.label}</span><span className="block text-sm text-leise">{f.beschreibung}</span></span>
+        </label>
+      ))}
     </section>
   );
 }

@@ -11,6 +11,7 @@ import SpeicherAnzeige from '../komponenten/SpeicherAnzeige.jsx';
 import AdminEinstellungen from './AdminEinstellungen.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { MODUL, Andockpunkt } from '../erweiterungen.jsx';
+import { MerkmalVorschlaege } from '../komponenten/Wartung.jsx';
 import { AdminZockerdb } from '../komponenten/Zockerdb.jsx';
 import AdminUpdate from '../komponenten/AdminUpdate.jsx';
 
@@ -75,6 +76,7 @@ function Uebersicht({ d }) {
         {d.speicher && <Kachel titel="Upload-Speicher gesamt" wert={dateigroesse(d.speicher.gesamt) || '0 KB'} />}
         <Andockpunkt name="admin.uebersicht.kacheln" d={d} Kachel={Kachel} />
       </div>
+      <MerkmalVorschlaege />
       <Andockpunkt name="admin.uebersicht" d={d} />
       <AdminZockerdb />
       <AdminUpdate />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, beschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
@@ -16,6 +16,9 @@ import Kommentare from '../komponenten/Kommentare.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import { Andockpunkt } from '../erweiterungen.jsx';
 import { ArtikelFotoSync } from '../komponenten/Zockerdb.jsx';
+import { SeriennummerAbgleich, lagerortText } from '../komponenten/ZusatzFelder.jsx';
+import Wartung from '../komponenten/Wartung.jsx';
+import { useSitzung } from '../sitzung.js';
 
 /** Exemplar als verkauft bzw. verschenkt/getauscht markieren – bei mehreren Stück wahlweise nur einen Teil. */
 function AbgangDialog({ artikel, onFertig }) {
@@ -131,6 +134,7 @@ function VerleihDialog({ artikel, onFertig }) {
 export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zurueck = '/' }) {
   const zeigeHinweis = useHinweis();
   const eigener = !sammlerName;
+  const { benutzer } = useSitzung();
   const [artikel, setArtikel] = useState(null);
   const [sammler, setSammler] = useState(null);
   const [fehler, setFehler] = useState(null);
@@ -235,6 +239,10 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     ['Edition/Variante', artikel.edition],
     ['Modellnummer', artikel.modellnummer],
     ['Seriennummer', artikel.seriennummer],
+    ['Seriennummer OVP', artikel.seriennummer_ovp ? <>{artikel.seriennummer_ovp} <SeriennummerAbgleich geraet={artikel.seriennummer} ovp={artikel.seriennummer_ovp} /></> : null],
+    ['Beilagen', beilagenText(artikel)],
+    ['Lagerort', eigener && lagerortText(artikel)
+      ? <a className="underline" href={`#/?lagerort_ort=${encodeURIComponent(artikel.lagerort_ort)}${artikel.lagerort_regal ? `&lagerort_regal=${encodeURIComponent(artikel.lagerort_regal)}` : ''}`}>{lagerortText(artikel)}</a> : null],
     ['Barcode', artikel.barcode],
     ['Anzahl', artikel.anzahl > 1 ? `${artikel.anzahl} Stück` : null],
     ['Herkunft', beschriftung(HERKUNFT, artikel.herkunft)],
@@ -377,6 +385,8 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
             </section>
           )}
 
+          {eigener && benutzer?.funktionen?.wartung && artikel.bestand !== 'digital' && <Wartung artikel={artikel} />}
+
           <Andockpunkt name="artikel.wert" artikel={artikel} eigenerArtikel={eigener} />
 
           <Kommentare katalogId={artikel.katalog_id} />
@@ -404,4 +414,12 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
       </div>
     </Layout>
   );
+}
+
+/** Beilagen als Text: „✓ Anleitung, ✓ OVP, ✗ Poster“. */
+function beilagenText(a) {
+  if (!a.beilagen || typeof a.beilagen !== 'object') return null;
+  const liste = BEILAGEN[a.typ] ?? BEILAGEN.spiel;
+  const teile = liste.filter((b) => b.value in a.beilagen).map((b) => `${a.beilagen[b.value] ? '✓' : '✗'} ${b.label}`);
+  return teile.length ? teile.join(', ') : null;
 }
