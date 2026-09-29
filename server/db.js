@@ -518,6 +518,26 @@ const MIGRATIONEN = [
   );
   CREATE INDEX IF NOT EXISTS idx_berichte_katalog ON erfahrungsberichte (katalog_id, status);
   `,
+  // 28: Leihliste – Exemplare verliehen an einen Namen oder einen Benutzer (mit Bestätigung), Verlauf bleibt erhalten
+  `
+  CREATE TABLE IF NOT EXISTS verleihungen (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    artikel_id        INTEGER NOT NULL REFERENCES artikel (id) ON DELETE CASCADE,
+    verleiher_id      INTEGER NOT NULL REFERENCES benutzer (id) ON DELETE CASCADE,
+    an_name           TEXT    NOT NULL,                          -- Freitext oder Anzeigename des Benutzers
+    an_benutzer_id    INTEGER REFERENCES benutzer (id) ON DELETE SET NULL,
+    bestaetigung      TEXT,                                      -- nur bei Benutzern: offen, bestaetigt, abgelehnt
+    seit              TEXT    NOT NULL,
+    rueckgabe_geplant TEXT,
+    zurueck_am        TEXT,
+    erinnert_am       TEXT,
+    notiz             TEXT,
+    erstellt_am       TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_verleihungen_aktiv ON verleihungen (artikel_id) WHERE zurueck_am IS NULL;
+  CREATE INDEX IF NOT EXISTS idx_verleihungen_an ON verleihungen (an_benutzer_id, zurueck_am);
+  CREATE INDEX IF NOT EXISTS idx_verleihungen_verleiher ON verleihungen (verleiher_id, zurueck_am);
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

@@ -25,6 +25,7 @@ export default function ArtikelKarte({ artikel, href, exemplare }) {
             <span className="truncate">{artikel.plattform}</span>
           </p>
         )}
+        {artikel.verliehen_an && <p className="truncate text-xs font-semibold text-sky-500">Verliehen an {artikel.verliehen_an}</p>}
         {artikel.bestand && !['besitz', 'digital'].includes(artikel.bestand) && (
           <p className="text-xs font-semibold text-warnung">
             {artikel.bestand === 'verkauft' ? 'Verkauft' : 'Abgegeben'}{artikel.abgang_am ? ` am ${artikel.abgang_am.split('-').reverse().join('.')}` : ''}

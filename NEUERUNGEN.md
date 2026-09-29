@@ -9,6 +9,12 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Leihliste
+- Am Exemplar „Verleihen …“: an einen Namen oder an einen ZockerDB-Benutzer, mit Datum und geplanter Rückgabe (optional mit privater Notiz)
+- Benutzer werden benachrichtigt, sehen die Leihe unter „Ausgeliehen von anderen“ (nur Titel, Plattform, Verleiher – keine Preise) und bestätigen oder lehnen ab
+- Überfällige Rückgaben: Erinnerung per Benachrichtigung (und ggf. E-Mail), höchstens einmal pro Woche
+- „Zurückbekommen“ mit Verlauf; Leihliste unter „Mehr → Leihliste“, Filter „Verliehen“ in der Sammlung; verliehene Stücke bleiben im Sammlungswert
+
 ## 30.09.2026 – Spielstatus und Erfahrungsberichte
 - Auf der Seite eines Spiels in deiner Sammlung den Spielstatus antippen: Nicht gespielt, Angefangen, Durchgespielt, 100 %, Abgebrochen (das Datum „durchgespielt“ wird gemerkt)
 - Filter „Spielstatus“ in der Sammlung und in der Statistik der „Pile of Shame“ (noch nicht gespielte Spiele); auch für digitale Spiele

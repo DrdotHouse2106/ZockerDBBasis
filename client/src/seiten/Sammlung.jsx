@@ -68,7 +68,7 @@ export default function Sammlung({ route }) {
       gruppen.get(schluessel).exemplare += 1;
     }
   }
-  const hatFilter = Boolean(filter.typ || filter.q || filter.plattform_id || aktiveFilter || weg || digital);
+  const hatFilter = Boolean(filter.typ || filter.q || filter.plattform_id || aktiveFilter || weg || digital || filter.verliehen);
 
   return (
     <Layout route={route} titel="Meine Sammlung">
@@ -123,6 +123,10 @@ export default function Sammlung({ route }) {
           <button type="button" className={weg ? 'chip-aktiv' : 'chip'} onClick={() => setzeFilter({ bestand: weg ? undefined : 'weg' })}
             title="Verkaufte, verschenkte und getauschte Exemplare">
             Verkauft & abgegeben
+          </button>
+          <button type="button" className={filter.verliehen === '1' ? 'chip-aktiv' : 'chip'}
+            onClick={() => setzeFilter({ verliehen: filter.verliehen === '1' ? undefined : '1' })}>
+            Verliehen
           </button>
           <button type="button" className={filter.bestand === 'digital' ? 'chip-aktiv' : 'chip'}
             onClick={() => setzeFilter({ bestand: filter.bestand === 'digital' ? undefined : 'digital' })} title="Digitale Spiele, z. B. aus Steam">

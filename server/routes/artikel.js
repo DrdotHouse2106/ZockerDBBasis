@@ -28,7 +28,7 @@ export function artikelZuObjekt(zeile) {
   };
 }
 
-export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen, speicher, erweiterungen, zentrale, konvolute }) {
+export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen, speicher, erweiterungen, zentrale, konvolute, verleih }) {
   const router = Router();
 
   const upload = () => multer({
@@ -43,9 +43,11 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
 
   const basisAbfrage = `
     SELECT a.*, k.cover_url AS katalog_cover_url, k.erscheinungsjahr, k.quelle AS katalog_quelle, k.status AS katalog_status,
-           p.kurz AS plattform_kurz, p.hersteller AS plattform_hersteller, v.bezeichnung AS variante_bezeichnung, kv.name AS konvolut_name
+           p.kurz AS plattform_kurz, p.hersteller AS plattform_hersteller, v.bezeichnung AS variante_bezeichnung, kv.name AS konvolut_name,
+           vl.id AS verleih_id, vl.an_name AS verliehen_an, vl.seit AS verliehen_seit, vl.rueckgabe_geplant, vl.bestaetigung AS verleih_bestaetigung
     FROM artikel a LEFT JOIN katalog k ON k.id = a.katalog_id LEFT JOIN plattformen p ON p.id = a.plattform_id
-    LEFT JOIN katalog_varianten v ON v.id = a.variante_id LEFT JOIN konvolute kv ON kv.id = a.konvolut_id`;
+    LEFT JOIN katalog_varianten v ON v.id = a.variante_id LEFT JOIN konvolute kv ON kv.id = a.konvolut_id
+    LEFT JOIN verleihungen vl ON vl.artikel_id = a.id AND vl.zurueck_am IS NULL`;
   const perId = db.prepare(`${basisAbfrage} WHERE a.id = ? AND a.benutzer_id = ?`);
   const einfuegen = db.prepare(
     `INSERT INTO artikel (benutzer_id, ${FELDER.join(', ')}) VALUES (@benutzer_id, ${FELDER.map((f) => `@${f}`).join(', ')}) RETURNING id`,
@@ -101,6 +103,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     }
     const { typ, q, plattform, region, zustand, vollstaendigkeit, herkunft } = req.query;
     if (req.query.ohne_preis === '1') bedingungen.push('a.kaufpreis IS NULL');
+    if (req.query.verliehen === '1') bedingungen.push('vl.id IS NOT NULL');
     const konvolutId = Number(req.query.konvolut_id);
     if (Number.isInteger(konvolutId) && konvolutId > 0) {
       bedingungen.push('a.konvolut_id = @konvolut_id');
@@ -235,6 +238,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     const bestand = ['verkauft', 'abgegeben'].includes(eingabe.bestand) ? eingabe.bestand : null;
     if (!bestand) throw new ValidierungsFehler({ bestand: 'Bitte „verkauft“ oder „verschenkt/getauscht“ wählen.' });
     if (vorhanden.bestand !== 'besitz') throw new ValidierungsFehler({ bestand: 'Dieses Exemplar ist nicht mehr im Besitz.' });
+    if (vorhanden.verleih_id) throw new ValidierungsFehler({ bestand: 'Dieses Exemplar ist gerade verliehen – bitte zuerst als zurückbekommen markieren.' });
     const anzahl = eingabe.anzahl == null || eingabe.anzahl === '' ? vorhanden.anzahl : Number(eingabe.anzahl);
     if (!Number.isInteger(anzahl) || anzahl < 1 || anzahl > vorhanden.anzahl) throw new ValidierungsFehler({ anzahl: `Bitte 1 bis ${vorhanden.anzahl} angeben.` });
     const d = pruefeArtikel({ bestand, abgang_am: eingabe.datum || new Date().toISOString().slice(0, 10), verkaufspreis: eingabe.preis }, true);
@@ -255,6 +259,18 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
       return id;
     })();
   }
+
+  // Leihliste: Exemplar verleihen und Verlauf
+  router.post('/:id/verleihen', (req, res) => {
+    const vorhanden = holeOder404(req, res);
+    if (!vorhanden) return;
+    verleih.verleihe(req.benutzer, vorhanden, req.body ?? {});
+    res.status(201).json(artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)));
+  });
+  router.get('/:id/verleihungen', (req, res) => {
+    const vorhanden = holeOder404(req, res);
+    if (vorhanden) res.json(verleih.verlauf(vorhanden.id));
+  });
 
   // Wieder in die Sammlung zurückholen (versehentlich markiert, zurückgekauft)
   router.post('/:id/zurueck', (req, res) => {

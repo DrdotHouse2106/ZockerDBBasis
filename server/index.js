@@ -25,6 +25,11 @@ const aufraeumen = setInterval(() => {
 }, 6 * 60 * 60 * 1000);
 aufraeumen.unref();
 
+// Leihliste: an überfällige Rückgaben erinnern (stündlich prüfen, je Leihe höchstens wöchentlich)
+setInterval(() => {
+  try { kontext.verleih.erinnere(); } catch (e) { console.warn('[leihliste]', e.message); }
+}, 60 * 60 * 1000).unref();
+
 // Datenbank-Sicherung: kurz nach dem Start und danach stündlich prüfen, ob die Tagessicherung fehlt.
 // Danach sind Zusatzmodule dran (z. B. externe, verschlüsselte Kopie).
 const sichern = async () => {

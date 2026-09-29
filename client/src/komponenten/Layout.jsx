@@ -22,7 +22,7 @@ const NUR_DESKTOP = [
   ...(MODUL.desktop ?? []),
 ];
 
-const MEHR_PFADE = ['/einstellungen', '/konto', '/statistik', '/admin', '/druck', '/katalog', '/seite', '/konvolute', '/ideen', '/kalender', ...(MODUL.mehrPfade ?? [])];
+const MEHR_PFADE = ['/einstellungen', '/konto', '/statistik', '/admin', '/druck', '/katalog', '/seite', '/konvolute', '/ideen', '/kalender', '/verliehen', ...(MODUL.mehrPfade ?? [])];
 
 function istAktiv(eintrag, route) {
   if (eintrag.pfad === '/') return route.pfad === '/' || route.pfad.startsWith('/artikel');

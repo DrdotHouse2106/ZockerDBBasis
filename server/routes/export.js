@@ -76,6 +76,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
       eigene_katalogeintraege: alle("SELECT id, typ, titel, plattformen, erscheinungsjahr, hersteller, status, erstellt_am FROM katalog WHERE erstellt_von = ? ORDER BY id"),
       scans_und_dokumente: alle('SELECT id, katalog_id, art, titel, sichtbarkeit, originalname, mime, groesse, erstellt_am FROM medien WHERE benutzer_id = ? ORDER BY id'),
       kommentare: alle('SELECT katalog_id, text, erstellt_am, aktualisiert_am FROM kommentare WHERE benutzer_id = ? ORDER BY id'),
+      verleihungen: alle('SELECT v.artikel_id, v.an_name, v.seit, v.rueckgabe_geplant, v.zurueck_am, v.notiz, v.bestaetigung FROM verleihungen v WHERE v.verleiher_id = ? ORDER BY v.id'),
       erfahrungsberichte: alle('SELECT katalog_id, text, wertung, status, erstellt_am, aktualisiert_am FROM erfahrungsberichte WHERE benutzer_id = ? ORDER BY id'),
       benachrichtigungen: alle('SELECT art, titel, text, gelesen, erstellt_am FROM benachrichtigungen WHERE benutzer_id = ? ORDER BY id'),
       // Daten aus Zusatzmodulen

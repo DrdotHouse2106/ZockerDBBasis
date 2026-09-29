@@ -77,6 +77,53 @@ function AbgangDialog({ artikel, onFertig }) {
   );
 }
 
+/** Exemplar verleihen: an einen Namen oder an einen ZockerDB-Benutzer (der bekommt eine Benachrichtigung und bestätigt). */
+function VerleihDialog({ artikel, onFertig }) {
+  const zeigeHinweis = useHinweis();
+  const [art, setArt] = useState('name');
+  const [an, setAn] = useState('');
+  const [seit, setSeit] = useState(new Date().toISOString().slice(0, 10));
+  const [rueckgabe, setRueckgabe] = useState('');
+  const [notiz, setNotiz] = useState('');
+  async function speichern(e) {
+    e.preventDefault();
+    try {
+      const r = await api.artikelVerleihen(artikel.id, { [art === 'name' ? 'an_name' : 'an_benutzername']: an, seit, rueckgabe, notiz });
+      zeigeHinweis(art === 'name' ? 'Als verliehen eingetragen.' : 'Verliehen – der Benutzer wird um eine kurze Bestätigung gebeten.');
+      onFertig(r);
+    } catch (err) {
+      zeigeHinweis(Object.values(err.felder ?? {})[0] ?? err.message, 'fehler');
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="verleih-titel">
+      <form onSubmit={speichern} className="karte w-full max-w-md space-y-3 p-4">
+        <h2 id="verleih-titel" className="text-lg font-semibold">„{artikel.titel}“ verleihen</h2>
+        <div className="flex gap-2">
+          <button type="button" className={art === 'name' ? 'chip-aktiv' : 'chip'} onClick={() => setArt('name')}>An einen Namen</button>
+          <button type="button" className={art === 'benutzer' ? 'chip-aktiv' : 'chip'} onClick={() => setArt('benutzer')}>An einen ZockerDB-Benutzer</button>
+        </div>
+        <label className="block">
+          <span className="beschriftung">{art === 'name' ? 'An wen?' : 'Benutzername'}</span>
+          <input className="eingabe" value={an} onChange={(e) => setAn(e.target.value)} required autoFocus maxLength={100}
+            placeholder={art === 'name' ? 'z. B. Max (Kollege)' : 'z. B. retrofan84'} />
+          {art === 'benutzer' && <span className="text-xs text-leise">Er sieht das Spiel unter „Ausgeliehen von anderen“ – nur Titel und Plattform, keine Preise.</span>}
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block"><span className="beschriftung">Seit</span><input type="date" className="eingabe" value={seit} onChange={(e) => setSeit(e.target.value)} required /></label>
+          <label className="block"><span className="beschriftung">Rückgabe geplant</span><input type="date" className="eingabe" value={rueckgabe} onChange={(e) => setRueckgabe(e.target.value)} /></label>
+        </div>
+        <label className="block"><span className="beschriftung">Notiz (privat, optional)</span><input className="eingabe" value={notiz} onChange={(e) => setNotiz(e.target.value)} maxLength={500} /></label>
+        <p className="text-xs text-leise">Ist ein Rückgabetag eingetragen, erinnert dich die App, wenn er überschritten ist. Das Exemplar bleibt in deiner Sammlung und im Sammlungswert.</p>
+        <div className="flex justify-end gap-2">
+          <button type="button" className="knopf-sekundaer" onClick={() => onFertig(null)}>Abbrechen</button>
+          <button type="submit" className="knopf-primaer">Verleihen</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 /**
  * Detailansicht eines Artikels. Mit „sammlerName“ und „fremdLaden“ (von einem Zusatzmodul, z. B. Community)
  * wird ein Artikel aus einer fremden Sammlung schreibgeschützt angezeigt.
@@ -89,6 +136,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
   const [fehler, setFehler] = useState(null);
   const [laedtBild, setLaedtBild] = useState(false);
   const [abgangOffen, setAbgangOffen] = useState(false);
+  const [verleihOffen, setVerleihOffen] = useState(false);
 
   const [exemplare, setExemplare] = useState([]);
   const [katalogDaten, setKatalogDaten] = useState(null);
@@ -129,6 +177,16 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
   }
 
   // Spielstatus mit einem Tipp setzen (erneutes Tippen entfernt ihn); „durchgespielt“ merkt sich das Datum
+  async function zurueckbekommen() {
+    try {
+      await api.verleihZurueck(artikel.verleih_id);
+      zeigeHinweis('Als zurückbekommen markiert.');
+      setArtikel(await api.artikel(id));
+    } catch (err) {
+      zeigeHinweis(err.message, 'fehler');
+    }
+  }
+
   async function setzeSpielstatus(wert) {
     const neu = artikel.spielstatus === wert ? null : wert;
     const daten = { spielstatus: neu };
@@ -264,10 +322,24 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
               )}
               {artikel.katalog_status && artikel.katalog_status !== 'freigegeben' && <StatusAbzeichen status={artikel.katalog_status} />}
               <Andockpunkt name="artikel.aktionen" artikel={artikel} katalogDaten={katalogDaten} />
-              {artikel.bestand === 'besitz' && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setAbgangOffen(true)}>Verkauft / abgegeben …</button>}
+              {artikel.bestand === 'besitz' && !artikel.verleih_id && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setVerleihOffen(true)}>Verleihen …</button>}
+              {artikel.bestand === 'besitz' && !artikel.verleih_id && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setAbgangOffen(true)}>Verkauft / abgegeben …</button>}
               {['verkauft', 'abgegeben'].includes(artikel.bestand) && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={zurueckInSammlung}>Zurück in die Sammlung</button>}
             </div>
           )}
+          {eigener && artikel.verleih_id && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-500/50 bg-sky-500/10 p-3 text-sm">
+              <span>
+                <strong>Verliehen an {artikel.verliehen_an}</strong> seit {datumDe(artikel.verliehen_seit)}
+                {artikel.rueckgabe_geplant && <> · Rückgabe {datumDe(artikel.rueckgabe_geplant)}</>}
+                {artikel.rueckgabe_geplant && artikel.rueckgabe_geplant < new Date().toISOString().slice(0, 10) && <strong className="text-warnung"> · überfällig</strong>}
+                {artikel.verleih_bestaetigung === 'offen' && <span className="text-leise"> · noch nicht bestätigt</span>}
+                {artikel.verleih_bestaetigung === 'abgelehnt' && <span className="text-warnung"> · vom Empfänger abgelehnt</span>}
+              </span>
+              <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={zurueckbekommen}>Zurückbekommen</button>
+            </div>
+          )}
+          {verleihOffen && <VerleihDialog artikel={artikel} onFertig={(neu) => { setVerleihOffen(false); if (neu) setArtikel(neu); }} />}
           {eigener && artikel.typ === 'spiel' && ['besitz', 'digital'].includes(artikel.bestand) && (
             <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Spielstatus">
               <span className="text-xs text-leise">Spielstatus:</span>
