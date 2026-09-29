@@ -386,6 +386,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
           )}
 
           {eigener && benutzer?.funktionen?.wartung && artikel.bestand !== 'digital' && <Wartung artikel={artikel} />}
+          <Andockpunkt name="artikel.details" artikel={artikel} eigenerArtikel={eigener} />
 
           <Andockpunkt name="artikel.wert" artikel={artikel} eigenerArtikel={eigener} />
 
@@ -421,5 +422,9 @@ function beilagenText(a) {
   if (!a.beilagen || typeof a.beilagen !== 'object') return null;
   const liste = BEILAGEN[a.typ] ?? BEILAGEN.spiel;
   const teile = liste.filter((b) => b.value in a.beilagen).map((b) => `${a.beilagen[b.value] ? '✓' : '✗'} ${b.label}`);
-  return teile.length ? teile.join(', ') : null;
+  if (!teile.length) return null;
+  // Automatisch: vollständig (CIB), wenn OVP und Anleitung da sind und nichts als fehlend markiert ist
+  const werte = Object.values(a.beilagen);
+  const cib = a.beilagen.ovp === true && a.beilagen.anleitung === true && !werte.includes(false);
+  return `${cib ? 'Vollständig (CIB) – ' : werte.includes(false) ? 'Unvollständig – ' : ''}${teile.join(', ')}`;
 }
