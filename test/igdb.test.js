@@ -175,3 +175,23 @@ test('Quellenangabe: Link zur Seite des Spiels auf IGDB.com', async () => {
     await server.stoppe();
   }
 });
+
+test('Barcode mit Händlertitel („… - Bonus Edition - Ps3 Boxed + Instructions B1393“) findet den Katalogeintrag', async () => {
+  const { fetchFn } = falscheIgdb();
+  const mitUpc = async (url, optionen) => (String(url).includes('upcitemdb')
+    ? Response.json({ items: [{ title: "Assassin's Creed 4: Black Flag - Bonus Edition - Ps3 Boxed + Instructions B1393" }] })
+    : fetchFn(url, optionen));
+  const server = await starteTestServer({ env: { BARCODE_PROVIDERS: 'upcitemdb' }, fetchFn: mitUpc });
+  try {
+    const admin = await server.registriere('admin');
+    for (const [titel, plattform] of [["Assassin's Creed IV Black Flag", 'Xbox 360'], ["Assassin's Creed IV Black Flag", 'PlayStation 3']]) {
+      await admin.api('/api/katalog', { methode: 'POST', daten: { typ: 'spiel', titel, plattformen: [plattform], veroeffentlichen: true } });
+    }
+    const { json } = await admin.api('/api/katalog/barcode/3307215704943');
+    assert.equal(json.suchbegriff, "Assassin's Creed IV Black Flag");
+    assert.equal(json.treffer.length, 2);
+    assert.deepEqual(json.treffer[0].plattformen, ['PlayStation 3'], 'Plattform aus dem Produktnamen zuerst');
+  } finally {
+    await server.stoppe();
+  }
+});

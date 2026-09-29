@@ -7,7 +7,7 @@
 
 import crypto from 'node:crypto';
 import { istModerator } from '../../shared/konstanten.js';
-import { bereinigeProduktname, barcodeVarianten } from './titel.js';
+import { bereinigeProduktname, barcodeVarianten, suchbegriffe, plattformImNamen } from './titel.js';
 import { nurZiffern } from '../../shared/barcode.js';
 
 export function katalogZeileZuObjekt(zeile) {
@@ -244,15 +244,21 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
     }
 
     const produktname = bekannt?.produktname ?? null;
-    const suchbegriff = produktname ? bereinigeProduktname(produktname) : null;
+    let suchbegriff = produktname ? bereinigeProduktname(produktname) : null;
     let treffer = [];
-    if (suchbegriff) {
-      // Passt schon ein Eintrag im Katalog, wird IGDB nicht gefragt
-      const ergebnis = await suche(suchbegriff, 'spiel', benutzer, { mindestTreffer: 1 });
+    // Händlertitel („… - Bonus Edition - Ps3 Boxed + Instructions“) schrittweise vereinfachen, bis etwas passt.
+    // Passt schon ein Eintrag im Katalog, wird IGDB nicht gefragt.
+    for (const begriff of produktname ? suchbegriffe(produktname) : []) {
+      const ergebnis = await suche(begriff, 'spiel', benutzer, { mindestTreffer: 1 });
       treffer = [...ergebnis.lokal, ...ergebnis.online];
       fehler ??= ergebnis.fehler;
+      if (treffer.length) { suchbegriff = begriff; fehler = null; break; }
     }
-    return { code, produktname, quelle: bekannt?.quelle ?? null, suchbegriff, treffer, vorhandeneArtikel, fehler };
+    // Plattform aus dem Produktnamen (z. B. „Ps3“): passende Einträge zuerst
+    const plattformName = produktname ? plattformImNamen(produktname) : null;
+    const p = plattformName ? plattformen?.zuordnen(plattformName) : null;
+    if (p) treffer = [...treffer.filter((e) => e.plattformen?.includes(p.name)), ...treffer.filter((e) => !e.plattformen?.includes(p.name))];
+    return { code, produktname, quelle: bekannt?.quelle ?? null, suchbegriff, treffer, vorhandeneArtikel, fehler, plattform_id: p?.id ?? null };
   }
 
   /** Merkt sich, zu welchem Katalogeintrag ein Barcode gehört (lernender Cache, je Benutzer). */

@@ -9,6 +9,10 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Barcode-Scan erkennt Händlertitel besser
+- Liefert die Barcode-Datenbank einen Händlertitel wie „Assassin's Creed 4: Black Flag - Bonus Edition - Ps3 Boxed + Instructions B1393“, werden Zusätze (Verpackung, Anleitung, Artikelnummern, Editionen) schrittweise entfernt und auch „4“ ↔ „IV“ probiert, bis das Spiel gefunden ist
+- Steht im Produktnamen eine Plattform (z. B. PS3), erscheinen passende Einträge zuerst
+
 ## 30.09.2026 – Zusätzliche Felder: Lagerort, Zustand & Wartung, Beilagen
 - Unter *Konto → Zusätzliche Felder* einschaltbar, standardmäßig aus – das Eintragen bleibt so einfach wie bisher
 - Lagerort in drei Stufen (Ort → Regal/Schrank → Fach/Kiste) mit Vorschlägen aus bereits verwendeten Orten; Übersicht mit Anzahl je Ort unter *Mehr → Lagerorte*, dort auch mehrere Exemplare auf einmal zuordnen; Suche und Filter nach Lagerort
