@@ -61,7 +61,7 @@ const { version } = JSON.parse(fs.readFileSync(path.join(PROJEKT_WURZEL, 'packag
 const build = leseBuild();
 
 export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.datenbankPfad), fetchFn } = {}) {
-  const datenVerzeichnis = konfiguration.datenbankPfad === ':memory:'
+  const datenVerzeichnis = path.basename(konfiguration.datenbankPfad) === ':memory:'
     ? konfiguration.uploadVerzeichnis
     : path.dirname(konfiguration.datenbankPfad);
   const schluessel = ladeSchluessel(konfiguration.konten.appGeheimnis, datenVerzeichnis);
