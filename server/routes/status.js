@@ -3,7 +3,7 @@ import {
   ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, MEDIENARTEN, PRUEFSTATUS, ROLLEN,
 } from '../../shared/konstanten.js';
 
-export function statusRouter({ igdb, barcode, plattformen, konfiguration, version, erweiterungen }) {
+export function statusRouter({ igdb, barcode, plattformen, konfiguration, version, erweiterungen, ideen }) {
   const router = Router();
 
   router.get('/status', (_req, res) => {
@@ -21,6 +21,8 @@ export function statusRouter({ igdb, barcode, plattformen, konfiguration, versio
       speicherKontingentMb: konfiguration.speicherKontingentMb,
       zentrale: konfiguration.zentrale?.url || null,
       zentraleSpende: konfiguration.zentrale?.url ? Boolean(konfiguration.zentrale.spende) : null,
+      // Ideen & Wünsche: 'brett' (hier abstimmen), 'zentrale' (an zockerdb.de) oder null
+      ideen: ideen?.modus() ?? null,
       ...erweiterungen.sammle('status'),
     });
   });

@@ -28,6 +28,7 @@ const SEITEN = {
   rechtlicheSeite: () => import('./seiten/RechtlicheSeite.jsx'),
   kontoLinks: () => import('./seiten/KontoLinks.jsx'),
   konvolute: () => import('./seiten/Konvolute.jsx'),
+  ideen: () => import('./seiten/Ideen.jsx'),
 };
 
 function vorladen() {
@@ -51,6 +52,7 @@ const Katalog = spaeter(SEITEN.katalog);
 const KatalogSeite = spaeter(SEITEN.katalogSeite);
 const RechtlicheSeite = spaeter(SEITEN.rechtlicheSeite);
 const KonvoluteListe = spaeter(SEITEN.konvolute, 'KonvoluteListe');
+const Ideen = spaeter(SEITEN.ideen);
 const KonvolutSeite = spaeter(SEITEN.konvolute, 'KonvolutSeite');
 const PasswortVergessen = spaeter(SEITEN.kontoLinks, 'PasswortVergessen');
 const PasswortNeu = spaeter(SEITEN.kontoLinks, 'PasswortNeu');
@@ -71,6 +73,7 @@ function Seite({ route }) {
   if (pfad === '/admin') return <Admin route={route} />;
   if (pfad === '/katalog') return <Katalog route={route} />;
   if (pfad === '/konvolute') return <KonvoluteListe route={route} />;
+  if (pfad === '/ideen') return <Ideen route={route} />;
   let t = passt('/artikel/:id/bearbeiten', pfad);
   if (t) return <ArtikelFormular key={`b${t.id}`} route={route} artikelId={t.id} />;
   t = passt('/artikel/:id', pfad);

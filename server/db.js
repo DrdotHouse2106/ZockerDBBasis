@@ -408,7 +408,8 @@ const MIGRATIONEN = [
   // 20: Link zur Seite des Spiels auf IGDB.com (Quellenangabe „Auf IGDB.com ansehen“)
   `
   ALTER TABLE katalog ADD COLUMN igdb_url TEXT;
-  `,  // 21: Fotos zu Vorschlägen (nur für die Moderation), Plattform-Vorschläge, Einladungslinks
+  `,
+  // 21: Fotos zu Vorschlägen (nur für die Moderation), Plattform-Vorschläge, Einladungslinks
   `
   CREATE TABLE vorschlag_fotos (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -447,6 +448,29 @@ const MIGRATIONEN = [
     benutzt_am   TEXT,
     benutzer_id  INTEGER REFERENCES benutzer (id) ON DELETE SET NULL,
     erstellt_am  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  `,
+  // 22: Ideen & Wünsche – Funktionen vorschlagen und abstimmen
+  `
+  CREATE TABLE ideen (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    benutzer_id  INTEGER REFERENCES benutzer (id) ON DELETE SET NULL,
+    instanz_id   INTEGER,                        -- zockerdb.de: Idee von einer selbst gehosteten Installation
+    titel        TEXT    NOT NULL,
+    beschreibung TEXT,
+    bereich      TEXT    NOT NULL DEFAULT 'sonstiges',
+    status       TEXT    NOT NULL DEFAULT 'neu', -- neu, geplant, in_arbeit, umgesetzt, abgelehnt
+    antwort      TEXT,
+    zentral_id   INTEGER,                        -- selbst gehostet: Kennung der Idee bei zockerdb.de
+    erstellt_am  TEXT    NOT NULL DEFAULT (datetime('now')),
+    geaendert_am TEXT
+  );
+  CREATE INDEX idx_ideen_status ON ideen (status);
+  CREATE TABLE ideen_stimmen (
+    idee_id     INTEGER NOT NULL REFERENCES ideen (id) ON DELETE CASCADE,
+    benutzer_id INTEGER NOT NULL REFERENCES benutzer (id) ON DELETE CASCADE,
+    erstellt_am TEXT    NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (idee_id, benutzer_id)
   );
   `,
 ];

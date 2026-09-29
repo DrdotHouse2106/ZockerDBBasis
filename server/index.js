@@ -37,7 +37,10 @@ setInterval(sichern, 60 * 60 * 1000).unref();
 // Verbindung zu zockerdb.de: Katalog-Abgleich, Einreichungen, Datenspende (wöchentlich) und Sync der Sammlungen
 const zentraleLauf = async () => {
   await kontext.zentrale.lauf().catch((e) => console.warn('[zockerdb.de]', e.message));
-  if (kontext.zentrale.aktiv) await kontext.vorschlaege.pruefePlattformVorschlaege().catch((e) => console.warn('[zockerdb.de]', e.message));
+  if (kontext.zentrale.aktiv) {
+    await kontext.vorschlaege.pruefePlattformVorschlaege().catch((e) => console.warn('[zockerdb.de]', e.message));
+    await kontext.ideen.pruefeZentrale().catch((e) => console.warn('[zockerdb.de]', e.message));
+  }
   await kontext.sync.alle().catch((e) => console.warn('[sync]', e.message));
 };
 setTimeout(zentraleLauf, 2 * 60_000).unref();

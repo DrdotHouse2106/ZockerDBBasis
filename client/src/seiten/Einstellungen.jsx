@@ -54,6 +54,7 @@ export default function Einstellungen({ route }) {
             ...(MODUL.menue ?? []).filter((m) => !m.sichtbar || m.sichtbar({ auth, benutzer })).map((m) => [m.href, m.symbol, m.titel, m.text]),
             ['#/statistik', 'statistik', 'Statistik', 'Verteilung nach Plattform, Region, Zustand'],
             ['#/konvolute', 'dokument', 'Konvolute', 'Pakete zu einem Gesamtpreis – automatisch verteilt'],
+            ...(status?.ideen ? [['#/ideen', 'info', 'Ideen & Wünsche', status.ideen === 'brett' ? 'Was fehlt dir? Vorschlagen und abstimmen' : 'Was fehlt dir? Idee an zockerdb.de schicken']] : []),
             ...(benutzer?.rolle === 'admin' ? [['#/admin', 'benutzer', 'Administration', 'Übersicht, Benutzer, Einstellungen, Sicherungen']] : []),
           ].map(([href, symbol, titel, text]) => (
             <a key={href} href={href} className="flex items-center gap-3 p-4 hover:bg-karte-hover">

@@ -184,6 +184,12 @@ export const api = {
   plattformVorschlagen: (daten) => anfrage('/api/plattformen/vorschlaege', { methode: 'POST', daten }),
   eigenePlattformVorschlaege: () => anfrage('/api/plattformen/vorschlaege'),
   plattformVorschlagEntscheiden: (id, daten) => anfrage(`/api/moderation/plattform-vorschlaege/${id}`, { methode: 'POST', daten }),
+  ideen: () => anfrage('/api/ideen'),
+  ideenAehnliche: (q) => anfrage(`/api/ideen/aehnliche?q=${encodeURIComponent(q)}`),
+  ideeEinreichen: (daten) => anfrage('/api/ideen', { methode: 'POST', daten }),
+  ideeStimme: (id) => anfrage(`/api/ideen/${id}/stimme`, { methode: 'POST' }),
+  ideeEntscheiden: (id, daten) => anfrage(`/api/ideen/${id}`, { methode: 'PUT', daten }),
+  ideeLoeschen: (id) => anfrage(`/api/ideen/${id}`, { methode: 'DELETE' }),
   plattformAnlegen: (daten) => anfrage('/api/moderation/plattformen', { methode: 'POST', daten }),
   plattformAendern: (id, daten) => anfrage(`/api/moderation/plattformen/${id}`, { methode: 'PUT', daten }),
 

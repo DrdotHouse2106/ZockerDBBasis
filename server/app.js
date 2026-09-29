@@ -27,6 +27,8 @@ import { erstelleSicherungsDienst } from './services/sicherung.js';
 import { erstelleAktualisierung, leseBuild } from './services/aktualisierung.js';
 import { erstelleVorschlagDienst } from './services/vorschlaege.js';
 import { vorschlaegeRouter } from './routes/vorschlaege.js';
+import { erstelleIdeenDienst } from './services/ideen.js';
+import { ideenRouter } from './routes/ideen.js';
 import { erstelleMailDienst } from './services/mail.js';
 import { erstelleCaptchaDienst } from './services/captcha.js';
 import { erstelleKontoMailDienst } from './services/kontomail.js';
@@ -85,10 +87,11 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const vorschlaege = erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattformen, benachrichtigungen });
   // Fotos zu Vorschlägen: nur für Einsender und Moderationsteam
   erweiterungen.an('dateien.zugriff', (b, datei) => vorschlaege.darfSehen(b, datei));
+  const ideen = erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen });
   const sync = erstelleSyncDienst(db, { zentrale, katalog, schluessel, dateien, speicher, plattformen, erweiterungen });
   const kontext = {
     db, cache, igdb, barcode, zentrale, katalog, konten, dateien, speicher, plattformen, einstellungen, sicherung, aktualisierung, mail, kontoMail,
-    benachrichtigungen, sync, konvolute, vorschlaege, captcha, konfiguration, version, build, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
+    benachrichtigungen, sync, konvolute, vorschlaege, ideen, captcha, konfiguration, version, build, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
   };
   // Zusatzmodule legen ihre Dienste im Kontext ab und registrieren sich an den Andockpunkten
   for (const modul of MODULE) modul.erstelle?.(kontext, { fetchFn });
@@ -168,7 +171,7 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   app.use('/api/statistik', angemeldet, statistikRouter(kontext));
   app.use('/api/admin', angemeldet, erfordereAdmin, adminRouter(kontext), seitenAdminRouter(kontext), zentraleAdminRouter(kontext));
   app.use('/api/moderation/plattformen', angemeldet, plattformenRouter(kontext));
-  app.use('/api', angemeldet, vorschlaegeRouter(kontext));
+  app.use('/api', angemeldet, vorschlaegeRouter(kontext), ideenRouter(kontext));
   app.use('/api', angemeldet, katalogUnterRouter(kontext), benachrichtigungenRouter(kontext), importCsvRouter(kontext));
   app.use('/api', angemeldet, medienRouter(kontext), exportRouter(kontext), zentraleRouter(kontext));
   for (const modul of MODULE) modul.api?.(app, kontext, { angemeldet, erfordereAdmin });
