@@ -212,3 +212,22 @@ test('Barcode merkt sich die Plattform – beim nächsten Scan steht sie fest (a
     await server.stoppe();
   }
 });
+
+test('Barcode-Treffer: Hauptspiel vor Editionen und Zusatzinhalten, auch wenn diese zuerst angelegt wurden', async () => {
+  const { fetchFn } = falscheIgdb();
+  const mitUpc = async (url, optionen) => (String(url).includes('upcitemdb')
+    ? Response.json({ items: [{ title: "Assassin's Creed 4: Black Flag - Bonus Edition - Ps3 Boxed + Instructions B1393" }] })
+    : fetchFn(url, optionen));
+  const server = await starteTestServer({ env: { BARCODE_PROVIDERS: 'upcitemdb' }, fetchFn: mitUpc });
+  try {
+    const admin = await server.registriere('admin');
+    for (const titel of ["Assassin's Creed IV Black Flag: Freedom Cry", "Assassin's Creed IV: Black Flag - Jackdaw Edition", "Assassin's Creed IV: Black Flag"]) {
+      await admin.api('/api/katalog', { methode: 'POST', daten: { typ: 'spiel', titel, plattformen: ['PlayStation 3'], veroeffentlichen: true } });
+    }
+    const { json } = await admin.api('/api/katalog/barcode/3307215704944');
+    assert.equal(json.treffer[0].titel, "Assassin's Creed IV: Black Flag");
+    assert.ok(json.treffer.length >= 2);
+  } finally {
+    await server.stoppe();
+  }
+});

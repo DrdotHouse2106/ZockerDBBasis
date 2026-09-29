@@ -90,3 +90,35 @@ export function plattformImNamen(produktname) {
   const m = String(produktname ?? '').match(plattformRegex);
   return m ? m[0].trim() : null;
 }
+
+/** Titel vergleichbar machen: klein, römische Zahlen als Ziffern, ohne Satzzeichen und „The“. */
+export function vergleichsTitel(titel) {
+  return String(titel ?? '')
+    .replace(/\b(XIII|XII|XI|IX|VIII|VII|VI|IV|V|III|II|X)\b/g, (z) => ARABISCH[z])
+    .toLowerCase()
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’'`´]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/^the /, '')
+    .trim();
+}
+
+/**
+ * Treffer einer Barcode-Suche nach Übereinstimmung mit dem Produktnamen sortieren:
+ * gleicher Titel zuerst, dann Titel, die damit beginnen (kürzere – meist das Hauptspiel – vor Editionen und Zusatzinhalten),
+ * dann der Rest; bei Gleichstand passende Plattform zuerst.
+ */
+export function rangiereTreffer(treffer, begriffe, plattformName = null) {
+  const ziele = [...new Set(begriffe.map(vergleichsTitel).filter(Boolean))];
+  const rang = (e) => {
+    const titel = [e.titel, e.titel_original].filter(Boolean).map(vergleichsTitel);
+    if (titel.some((t) => ziele.includes(t))) return 0;
+    if (titel.some((t) => ziele.some((z) => t.startsWith(`${z} `)))) return 1;
+    if (titel.some((t) => ziele.some((z) => z.startsWith(`${t} `)))) return 2;
+    return 3;
+  };
+  return treffer
+    .map((e, i) => ({ e, i, r: rang(e), p: plattformName && e.plattformen?.includes(plattformName) ? 0 : 1, l: String(e.titel ?? '').length }))
+    .sort((a, b) => a.r - b.r || a.p - b.p || (a.r === 1 ? a.l - b.l : 0) || a.i - b.i)
+    .map((x) => x.e);
+}

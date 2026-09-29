@@ -7,7 +7,7 @@
 
 import crypto from 'node:crypto';
 import { istModerator } from '../../shared/konstanten.js';
-import { bereinigeProduktname, barcodeVarianten, suchbegriffe, plattformImNamen } from './titel.js';
+import { bereinigeProduktname, barcodeVarianten, suchbegriffe, plattformImNamen, rangiereTreffer, vergleichsTitel } from './titel.js';
 import { nurZiffern } from '../../shared/barcode.js';
 
 export function katalogZeileZuObjekt(zeile) {
@@ -255,16 +255,25 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
     let treffer = [];
     // Händlertitel („… - Bonus Edition - Ps3 Boxed + Instructions“) schrittweise vereinfachen, bis etwas passt.
     // Passt schon ein Eintrag im Katalog, wird IGDB nicht gefragt.
-    for (const begriff of produktname ? suchbegriffe(produktname) : []) {
+    // Treffer aller Begriffe sammeln, bis ein Titel genau passt (sonst stünde z. B. nur eine Edition zur Wahl).
+    const begriffe = produktname ? suchbegriffe(produktname) : [];
+    const ziele = new Set(begriffe.map(vergleichsTitel));
+    const gesehen = new Set();
+    for (const begriff of begriffe) {
       const ergebnis = await suche(begriff, 'spiel', benutzer, { mindestTreffer: 1 });
-      treffer = [...ergebnis.lokal, ...ergebnis.online];
+      const neu = [...ergebnis.lokal, ...ergebnis.online].filter((e) => !gesehen.has(e.id));
+      neu.forEach((e) => gesehen.add(e.id));
+      if (neu.length && !treffer.length) suchbegriff = begriff;
+      treffer.push(...neu);
       fehler ??= ergebnis.fehler;
-      if (treffer.length) { suchbegriff = begriff; fehler = null; break; }
+      if (treffer.some((e) => [e.titel, e.titel_original].some((t) => t && ziele.has(vergleichsTitel(t))))) break;
     }
+    if (treffer.length) fehler = null;
     // Plattform aus dem Produktnamen (z. B. „Ps3“): passende Einträge zuerst
     const plattformName = produktname ? plattformImNamen(produktname) : null;
     const p = plattformName ? plattformen?.zuordnen(plattformName) : null;
-    if (p) treffer = [...treffer.filter((e) => e.plattformen?.includes(p.name)), ...treffer.filter((e) => !e.plattformen?.includes(p.name))];
+    // Beste Übereinstimmung mit dem Produktnamen zuerst (Hauptspiel vor Editionen/Zusatzinhalten), dann passende Plattform
+    if (produktname) treffer = rangiereTreffer(treffer, suchbegriffe(produktname, 20), p?.name ?? null);
     return { code, produktname, quelle: bekannt?.quelle ?? null, suchbegriff, treffer, vorhandeneArtikel, fehler, plattform_id: p?.id ?? null, plattform: p?.name ?? null };
   }
 

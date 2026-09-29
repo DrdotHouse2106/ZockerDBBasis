@@ -9,6 +9,10 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Bessere Reihenfolge der Barcode-Treffer
+- Beim ersten Scan eines unbekannten Barcodes steht jetzt der Titel oben, der am besten zum Produktnamen passt – das Hauptspiel vor Editionen und Zusatzinhalten, die passende Plattform zuerst
+- Ab dem zweiten Scan eines Barcodes wird direkt über den gemerkten Barcode gefunden
+
 ## 30.09.2026 – Barcode legt die Plattform fest
 - Ein Barcode gehört zu genau einer Version eines Spiels – die App merkt sich jetzt beim Eintragen auch die Plattform (bereits erfasste Exemplare mit Barcode wurden nachgetragen)
 - Beim nächsten Scan desselben Barcodes (auch durch andere Sammler) steht die Plattform fest: „Plattform: PlayStation 3 (aus dem Barcode)“; im Formular ist nur sie vorausgewählt, Ausnahmen über „Andere Plattform …“
