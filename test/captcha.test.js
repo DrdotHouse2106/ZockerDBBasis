@@ -64,6 +64,8 @@ test('reCAPTCHA v3: Score und Aktion werden serverseitig geprüft, CSP erlaubt G
   const ohne = await starteTestServer();
   try {
     assert.doesNotMatch((await fetch(`${ohne.basis}/api/health`)).headers.get('content-security-policy'), /google/);
+    // Der Service-Worker darf Coverbilder von IGDB laden (zählt als Verbindung)
+    assert.match((await fetch(`${ohne.basis}/api/health`)).headers.get('content-security-policy'), /connect-src 'self' https:\/\/images\.igdb\.com/);
   } finally {
     await ohne.stoppe();
   }

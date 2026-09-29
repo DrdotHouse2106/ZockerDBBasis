@@ -3,7 +3,7 @@
 // - Gebaute Assets & Coverbilder: Cache zuerst (Dateinamen enthalten Hashes)
 // - API-GET-Anfragen: Netzwerk zuerst, offline die zuletzt gesehene Antwort
 
-const VERSION = 'v11';
+const VERSION = 'v12';
 // Vom Server erzeugte Seiten (geteilte Sammlung) nicht durch die App-Hülle ersetzen
 let SERVERSEITEN = /^\/sammlung(\/|$)/;
 const HUELLE = `huelle-${VERSION}`;
@@ -62,7 +62,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   if (url.hostname === 'images.igdb.com' || (url.origin === self.location.origin && url.pathname.startsWith('/api/dateien/'))) {
-    event.respondWith(cacheZuerst(request, BILDER, MAX_BILDER));
+    // Schlägt das Laden fehl, nicht die ganze Seite stören: leere Antwort statt Fehler
+    event.respondWith(cacheZuerst(request, BILDER, MAX_BILDER).catch(() => new Response(null, { status: 504 })));
     return;
   }
   if (url.origin !== self.location.origin) return;

@@ -134,7 +134,8 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
         "img-src 'self' data: blob: https:",
         "style-src 'self' 'unsafe-inline'",
         `script-src 'self'${google}`,
-        `connect-src 'self'${google}`,
+        // Der Service-Worker lädt Coverbilder von IGDB selbst (Offline-Zwischenspeicher) – das zählt als Verbindung, nicht als Bild
+        `connect-src 'self' https://images.igdb.com${google}`,
         "object-src 'self'",
         `frame-src 'self'${google}`,
         "frame-ancestors 'self'",

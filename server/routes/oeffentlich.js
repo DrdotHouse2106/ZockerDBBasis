@@ -65,11 +65,18 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
   });
 
   // Alles für die Seite eines Spiels/Geräts
-  router.get('/katalog-seite/:id', (req, res) => {
+  router.get('/katalog-seite/:id', async (req, res) => {
     const b = req.benutzer;
-    const eintrag = katalogZeileZuObjekt(db.prepare(`SELECT k.* FROM katalog k WHERE k.id = @id AND ${SICHTBAR_SQL}`)
+    const lies = () => katalogZeileZuObjekt(db.prepare(`SELECT k.* FROM katalog k WHERE k.id = @id AND ${SICHTBAR_SQL}`)
       .get({ id: Number(req.params.id), ...sichtbarParameter(b) }));
+    let eintrag = lies();
     if (!eintrag) return res.status(404).json({ fehler: 'Katalogeintrag nicht gefunden.' });
+    // Andockpunkt „katalog.seite.vorbereiten“ (eintrag, benutzer): Zusatzmodule können den Eintrag vorher noch ergänzen
+    // (z. B. eine fehlende Übersetzung erstellen) – danach wird er neu gelesen
+    if (erweiterungen.alle('katalog.seite.vorbereiten').length) {
+      await erweiterungen.fuehreAus('katalog.seite.vorbereiten', eintrag, b);
+      eintrag = lies() ?? eintrag;
+    }
 
     const plattformListe = db.prepare(`SELECT p.id, p.name, p.kurz, p.hersteller FROM katalog_plattformen kp
       JOIN plattformen p ON p.id = kp.plattform_id WHERE kp.katalog_id = ? ORDER BY p.erscheinungsjahr`).all(eintrag.id);

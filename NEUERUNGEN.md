@@ -9,6 +9,9 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 29.09.2026 – Coverbilder wieder sichtbar
+- Behoben: Coverbilder von IGDB wurden nicht angezeigt, sobald die App im Offline-Zwischenspeicher lief
+
 ## 29.09.2026 – Neuerungen beim Update sehen
 - Ist ein Update verfügbar, zeigt Administration → Übersicht, was der neue Stand mitbringt – im Vergleich zu deiner installierten Version
 - Die Versionshinweise deines installierten Stands lassen sich jederzeit aufklappen
