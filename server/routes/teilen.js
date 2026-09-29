@@ -38,7 +38,7 @@ ${inhalt}
 </html>`;
 }
 
-export function teilenRouter({ db, erweiterungen }) {
+export function teilenRouter({ db, erweiterungen, konfiguration }) {
   const router = Router();
   const perFreigabe = db.prepare('SELECT id, benutzername, COALESCE(anzeigename, benutzername) AS name, freigabe_wert FROM benutzer WHERE freigabe_token = ? AND gesperrt = 0');
   const geteilteArtikel = db.prepare(`SELECT a.id, a.typ, a.titel, a.plattform, a.region, a.zustand, a.vollstaendigkeit, a.farbe, a.edition,
@@ -107,7 +107,7 @@ export function teilenRouter({ db, erweiterungen }) {
 </div>
 ${artikel.length ? [...gruppen].map(([name, liste]) => `<section class="karte"><h2>${esc(name)} <span class="leise">(${liste.length})</span></h2><ul class="raster">${liste.map(eintrag).join('')}</ul></section>`).join('')
     : '<p class="leise">Diese Sammlung ist noch leer.</p>'}
-<section class="karte"><h2>Deine eigene Sammlung</h2><p>Erfasse deine Spiele, Konsolen und dein Zubehör – kostenlos, mit Barcode-Scanner.</p><p><a class="knopf" href="${appLink('/?registrieren=1')}">Kostenlos registrieren</a></p></section>`;
+${konfiguration?.konten?.registrierungOffen ? `<section class="karte"><h2>Deine eigene Sammlung</h2><p>Erfasse deine Spiele, Konsolen und dein Zubehör – kostenlos, mit Barcode-Scanner.</p><p><a class="knopf" href="${appLink('/?registrieren=1')}">Kostenlos registrieren</a></p></section>` : ''}`;
     res.type('html').send(seite({
       titel: `Die Sammlung von ${b.name} | ${MARKE.name}`,
       beschreibung: `${zahl(stueck)} Spiele, Konsolen und Zubehör in der Sammlung von ${b.name}.`,

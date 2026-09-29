@@ -35,5 +35,18 @@ ul.liste{list-style:none;padding:0;margin:0}ul.liste li{padding:8px 0;border-top
 ol.rang{list-style:none;padding:0;margin:0;counter-reset:r}ol.rang li{counter-increment:r;display:grid;grid-template-columns:2rem 1fr auto;gap:4px 10px;align-items:baseline;padding:9px 0;border-top:1px solid var(--rand)}ol.rang li:first-child{border-top:0}ol.rang li::before{content:counter(r);color:var(--leise);font-weight:700;text-align:right}ol.rang .preis{font-weight:700;white-space:nowrap}ol.rang .unter{grid-column:2/4;color:var(--leise);font-size:14px}
 .balken{display:flex;align-items:flex-end;gap:3px;height:140px;border-bottom:1px solid var(--rand);margin-top:8px}.balken span{flex:1;min-width:0;background:var(--akzent);border-radius:4px 4px 0 0}.balken span.leer{background:var(--rand)}
 .achse{display:flex;justify-content:space-between;color:var(--leise);font-size:13px;margin-top:4px}.plus{color:#4ade80;font-weight:700}
+main.breit{max-width:1120px}
+.buehne{display:grid;gap:20px;align-items:center;padding:20px 0 8px}@media(min-width:820px){.buehne{grid-template-columns:1.05fr 1fr;padding:36px 0 16px}}
+.buehne h1{font-size:clamp(30px,5vw,46px);line-height:1.08;margin:0 0 10px;letter-spacing:-.02em}.buehne h1 em{font-style:normal;color:var(--akzent-hell)}
+.buehne .einleitung{font-size:17px;color:var(--leise);margin:0 0 6px}
+.collage{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;transform:rotate(-3deg);max-width:520px;margin:0 auto}.collage a{display:block}
+.collage img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;border:1px solid var(--rand);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.collage a:nth-child(even){transform:translateY(14px)}@media(max-width:819px){.collage{grid-template-columns:repeat(6,1fr);transform:none}.collage a:nth-child(n+7){display:none}.collage a:nth-child(even){transform:none}}
+.reihe-kopf{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:26px 0 8px}.reihe-kopf h2{margin:0}.reihe-kopf a{font-size:14px;white-space:nowrap}
+.reihe{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(128px,150px);gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;list-style:none;padding:0 0 8px;margin:0}
+.reihe li{scroll-snap-align:start}.reihe a{display:block;color:var(--text);text-decoration:none}.reihe img,.reihe .platzhalter{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;background:var(--karte);border:1px solid var(--rand)}
+.reihe .platzhalter{display:grid;place-items:center;font-size:36px}.reihe b{display:block;font-size:14px;line-height:1.3;margin-top:6px}.reihe .preis{color:var(--akzent-hell);font-weight:700}
+.kacheln{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.kacheln a{display:block;background:var(--karte);border:1px solid var(--rand);border-radius:14px;padding:12px;color:var(--text);text-decoration:none}.kacheln a b{display:block}
+.schluss{text-align:center}.schluss .knoepfe{margin-bottom:0}
 footer{max-width:860px;margin:24px auto;padding:16px;color:var(--leise);font-size:14px;display:flex;flex-wrap:wrap;gap:12px}footer a{color:var(--leise)}
 `;
