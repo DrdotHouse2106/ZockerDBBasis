@@ -274,5 +274,6 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
 
   return {
     speichere, aktualisiere, legeEigenenAn, moderiert, holeEintrag, holeSichtbar, sucheLokal, suche, sucheBarcode, verknuepfeBarcode, stelleSicherFuerArtikel,
+    deutscherKonsolenname,
   };
 }

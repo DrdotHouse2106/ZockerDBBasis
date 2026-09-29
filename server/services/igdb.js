@@ -88,25 +88,30 @@ export function erstelleIgdbDienst({ clientId, clientSecret }, db, { fetchFn = g
     return daten.access_token;
   }
 
-  async function abfrage(endpunkt, koerper, erneutVersucht = false) {
+  async function anfrage(pfad, { methode = 'POST', koerper } = {}, erneutVersucht = false) {
     if (!konfiguriert) throw new IgdbFehler('IGDB ist nicht konfiguriert.');
     const token = await holeToken(erneutVersucht);
-    const antwort = await fetchFn(`${API_URL}/${endpunkt}`, {
-      method: 'POST',
+    const antwort = await fetchFn(`${API_URL}/${pfad}`, {
+      method: methode,
       headers: {
         'Client-ID': clientId,
         Authorization: `Bearer ${token}`,
         Accept: 'application/json',
-        'Content-Type': 'text/plain',
+        ...(koerper !== undefined ? { 'Content-Type': 'text/plain' } : {}),
       },
       body: koerper,
       signal: AbortSignal.timeout(10_000),
     });
-    if (antwort.status === 401 && !erneutVersucht) return abfrage(endpunkt, koerper, true);
+    if (antwort.status === 401 && !erneutVersucht) return anfrage(pfad, { methode, koerper }, true);
+    if (antwort.status === 403) throw new IgdbFehler('IGDB verweigert den Zugriff (HTTP 403) – ist diese Client-ID dafür freigeschaltet?');
     if (antwort.status === 429) throw new IgdbFehler('IGDB-Anfragelimit erreicht. Bitte kurz warten.');
     if (!antwort.ok) throw new IgdbFehler(`IGDB-Anfrage fehlgeschlagen (HTTP ${antwort.status}).`);
     return antwort.json();
   }
+
+  const abfrage = (endpunkt, koerper) => anfrage(endpunkt, { koerper });
+  /** Einfacher GET-Aufruf (z. B. Listen-Endpunkte ohne Abfragesprache). */
+  const hole = (pfad) => anfrage(pfad, { methode: 'GET' });
 
   /** Spiele per Titel suchen. Liefert vereinheitlichte Katalog-Datensätze. */
   async function sucheSpiele(begriff, limit = 20, offset = 0) {
@@ -142,6 +147,6 @@ export function erstelleIgdbDienst({ clientId, clientSecret }, db, { fetchFn = g
     }));
   }
 
-  // `abfrage` für Zusatzmodule, die weitere IGDB-Daten nutzen
-  return { konfiguriert, sucheSpiele, sucheKonsolen, abfrage };
+  // `abfrage` und `hole` für Zusatzmodule, die weitere IGDB-Daten nutzen
+  return { konfiguriert, sucheSpiele, sucheKonsolen, abfrage, hole };
 }

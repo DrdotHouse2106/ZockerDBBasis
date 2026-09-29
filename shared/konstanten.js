@@ -141,6 +141,7 @@ export const PRUEFSTATUS = [
   { value: 'eingereicht', label: 'Zur Prüfung eingereicht', beschreibung: 'Wartet auf Freigabe durch das Moderationsteam.' },
   { value: 'freigegeben', label: 'Freigegeben', beschreibung: 'Für alle Benutzer sichtbar.' },
   { value: 'abgelehnt', label: 'Abgelehnt', beschreibung: 'Nicht freigegeben – bleibt privat.' },
+  { value: 'ausgeblendet', label: 'Ausgeblendet', beschreibung: 'Von der Datenquelle entfernt – nur für das Moderationsteam sichtbar.' },
 ];
 
 export const ROLLEN = [

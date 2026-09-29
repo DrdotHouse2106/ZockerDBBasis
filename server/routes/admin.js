@@ -105,6 +105,27 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
     res.json({ ok: true, an });
   });
 
+  // IGDB-Zugang testen: Anmeldung bei Twitch, eine Beispielsuche und ob Datenabzüge (für Datenpartner) freigeschaltet sind
+  router.post('/igdb/test', async (_req, res) => {
+    if (!igdb.konfiguriert) throw new KontoFehler('IGDB ist nicht eingerichtet – bitte Client-ID und Client-Secret eintragen und speichern.');
+    const beginn = Date.now();
+    let treffer;
+    try {
+      treffer = await igdb.sucheSpiele('Super Mario Bros', 3);
+    } catch (e) {
+      throw new KontoFehler(`Verbindung fehlgeschlagen: ${e.message}`, 502);
+    }
+    const dauer = Date.now() - beginn;
+    let abzuege;
+    try {
+      const liste = await igdb.hole('dumps');
+      abzuege = { freigeschaltet: Array.isArray(liste), anzahl: Array.isArray(liste) ? liste.length : 0 };
+    } catch (e) {
+      abzuege = { freigeschaltet: false, hinweis: e.message };
+    }
+    res.json({ ok: true, dauer, beispiele: treffer.map((t) => t.titel_original ?? t.titel), abzuege });
+  });
+
   // ── Datenbank-Sicherungen ─────────
   router.get('/sicherungen', (_req, res) => res.json({ ...sicherung.status(), ...erweiterungen.sammle('admin.sicherungen') }));
   router.post('/sicherungen', async (_req, res) => {

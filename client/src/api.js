@@ -119,6 +119,7 @@ export const api = {
   freigabeSetzen: (daten) => anfrage('/api/konto/freigabe', { methode: 'POST', daten }),
   freigabeBeenden: () => anfrage('/api/konto/freigabe', { methode: 'DELETE' }),
   adminTestMail: (an) => anfrage('/api/admin/test-mail', { methode: 'POST', daten: { an } }),
+  adminIgdbTest: () => anfrage('/api/admin/igdb/test', { methode: 'POST', daten: {} }),
   abmelden: () => anfrage('/api/auth/abmelden', { methode: 'POST', daten: {} }),
   konto: () => anfrage('/api/konto'),
   // Verbindung zu zockerdb.de (selbst gehostet)

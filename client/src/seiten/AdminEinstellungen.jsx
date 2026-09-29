@@ -23,6 +23,15 @@ export default function AdminEinstellungen() {
   const [fehler, setFehler] = useState({});
   const [bestaetigung, setBestaetigung] = useState(null); // { passwort, code }
   const [speichert, setSpeichert] = useState(false);
+  // Aufgeklappte Gruppen (standardmäßig alle zu, damit die Seite übersichtlich bleibt) – im Browser gemerkt
+  const [aufgeklappt, setAufgeklapptRoh] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('admin-einstellungen-offen') ?? '[]')); } catch { return new Set(); }
+  });
+  const setAufgeklappt = (wert) => setAufgeklapptRoh((alt) => {
+    const neu = typeof wert === 'function' ? wert(alt) : wert;
+    try { localStorage.setItem('admin-einstellungen-offen', JSON.stringify([...neu])); } catch { /* ohne Speicher geht es auch */ }
+    return neu;
+  });
 
   const laden = () => api.adminEinstellungen().then((d) => { setDaten(d); setWerte({}); setZuruecksetzen(new Set()); setEntfernen(new Set()); setFehler({}); })
     .catch((e) => zeigeHinweis(e.message, 'fehler'));
@@ -90,20 +99,46 @@ export default function AdminEinstellungen() {
         Änderungen mit <Symbol name="schloss" className="inline size-3.5" /> erfordern dein Passwort{benutzer?.totp_aktiv ? ' und einen 2FA-Code' : ''}.
       </p>
 
-      {gruppen.map(([gruppe, liste]) => (
-        <section key={gruppe} className="karte space-y-4 p-4">
-          <h2 className="font-semibold">{gruppe}</h2>
-          <Andockpunkt name="admin.einstellungen.gruppe" gruppe={gruppe} daten={daten} />
-          {gruppe.startsWith('E-Mail') && <TestMail />}
-          {liste.map((e) => (
-            <Feld key={e.schluessel} e={e} wert={werte[e.schluessel]} fehler={fehler[e.schluessel]}
-              zuruecksetzenVorgemerkt={zuruecksetzen.has(e.schluessel)} entfernenVorgemerkt={entfernen.has(e.schluessel)}
-              onWert={(w) => setze(e.schluessel, w)}
-              onZuruecksetzen={() => umschalten(setZuruecksetzen, e.schluessel)}
-              onEntfernen={() => umschalten(setEntfernen, e.schluessel)} />
-          ))}
-        </section>
-      ))}
+      <div className="flex flex-wrap gap-2 text-sm">
+        <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setAufgeklappt(new Set(gruppen.map(([g]) => g)))}>Alle aufklappen</button>
+        <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setAufgeklappt(new Set())}>Alle zuklappen</button>
+      </div>
+
+      {gruppen.map(([gruppe, liste]) => {
+        const offenGeaendert = liste.filter((e) => geaendert.includes(e.schluessel) || fehler[e.schluessel]).length;
+        const auf = aufgeklappt.has(gruppe) || offenGeaendert > 0;
+        const angepasst = liste.filter((e) => e.herkunft === 'web').length;
+        return (
+          <section key={gruppe} className="karte p-4">
+            <h2>
+              <button type="button" className="flex w-full items-center justify-between gap-2 text-left font-semibold" aria-expanded={auf}
+                onClick={() => setAufgeklappt((s) => { const n = new Set(s); if (n.has(gruppe)) n.delete(gruppe); else n.add(gruppe); return n; })}>
+                <span>
+                  {gruppe}
+                  <span className="ml-2 text-xs font-normal text-leise">
+                    {liste.length} {liste.length === 1 ? 'Wert' : 'Werte'}{angepasst ? ` · ${angepasst} angepasst` : ''}{offenGeaendert ? ` · ${offenGeaendert} ungespeichert` : ''}
+                  </span>
+                </span>
+                <span className={`text-leise transition-transform ${auf ? 'rotate-90' : ''}`} aria-hidden="true">›</span>
+              </button>
+            </h2>
+            {auf && (
+              <div className="mt-4 space-y-4">
+                <Andockpunkt name="admin.einstellungen.gruppe" gruppe={gruppe} daten={daten} />
+                {gruppe.startsWith('E-Mail') && <TestMail />}
+                {gruppe.includes('IGDB') && gruppe.startsWith('Spieledaten') && <TestIgdb />}
+                {liste.map((e) => (
+                  <Feld key={e.schluessel} e={e} wert={werte[e.schluessel]} fehler={fehler[e.schluessel]}
+                    zuruecksetzenVorgemerkt={zuruecksetzen.has(e.schluessel)} entfernenVorgemerkt={entfernen.has(e.schluessel)}
+                    onWert={(w) => setze(e.schluessel, w)}
+                    onZuruecksetzen={() => umschalten(setZuruecksetzen, e.schluessel)}
+                    onEntfernen={() => umschalten(setEntfernen, e.schluessel)} />
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
 
       <section className="karte space-y-2 p-4">
         <h2 className="font-semibold">Nur über die .env änderbar</h2>
@@ -191,7 +226,7 @@ function Feld({ e, wert, fehler, zuruecksetzenVorgemerkt, entfernenVorgemerkt, o
       </select>
     );
   } else if (e.typ === 'liste') {
-    eingabe = <ListenEingabe id={id} wert={aktuell} platzhalter={e.platzhalter} onWert={onWert} />;
+    eingabe = <ListenEingabe id={id} wert={aktuell} platzhalter={e.platzhalter} standard={e.standard} onWert={onWert} />;
   } else if (e.typ === 'geheim') {
     eingabe = (
       <input id={id} className="eingabe font-mono" type="password" autoComplete="new-password" value={wert ?? ''} onChange={(ev) => onWert(ev.target.value)}
@@ -251,8 +286,37 @@ function TestMail() {
   );
 }
 
+/** IGDB-Zugang prüfen: Anmeldung, Beispielsuche, Freischaltung der Datenabzüge. */
+function TestIgdb() {
+  const zeigeHinweis = useHinweis();
+  const [laeuft, setLaeuft] = useState(false);
+  const [ergebnis, setErgebnis] = useState(null);
+  const testen = async () => {
+    setLaeuft(true);
+    setErgebnis(null);
+    try { setErgebnis(await api.adminIgdbTest()); } catch (err) { zeigeHinweis(err.message, 'fehler'); setErgebnis({ fehler: err.message }); } finally { setLaeuft(false); }
+  };
+  return (
+    <div className="space-y-2 rounded-xl border border-rand p-3 text-sm">
+      <button type="button" className="knopf-sekundaer" disabled={laeuft} onClick={testen}>{laeuft ? 'Prüft …' : 'IGDB-Verbindung testen'}</button>
+      <p className="text-xs text-leise">Erst speichern, dann testen. Meldet sich bei Twitch an und sucht beispielhaft nach „Super Mario Bros“.</p>
+      {ergebnis?.fehler && <p className="text-gefahr" role="alert">{ergebnis.fehler}</p>}
+      {ergebnis?.ok && (
+        <div role="status">
+          <p className="text-erfolg">✓ Verbindung funktioniert ({ergebnis.dauer} ms) – gefunden: {ergebnis.beispiele.join(', ') || 'keine Treffer'}</p>
+          <p className={ergebnis.abzuege.freigeschaltet ? 'text-erfolg' : 'text-leise'}>
+            {ergebnis.abzuege.freigeschaltet
+              ? `✓ Datenabzüge freigeschaltet (${ergebnis.abzuege.anzahl} Dateien verfügbar)`
+              : `Datenabzüge nicht freigeschaltet (nur für IGDB-Datenpartner)${ergebnis.abzuege.hinweis ? ` – ${ergebnis.abzuege.hinweis}` : ''}`}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Kommagetrennte Liste (z. B. Domains) als einzelne Einträge – übersichtlich auch bei vielen Werten. */
-function ListenEingabe({ id, wert, platzhalter, onWert }) {
+function ListenEingabe({ id, wert, platzhalter, standard, onWert }) {
   const [neu, setNeu] = useState('');
   const eintraege = String(wert ?? '').split(/[\s,;]+/).filter(Boolean);
   const hinzu = () => {
@@ -272,7 +336,7 @@ function ListenEingabe({ id, wert, platzhalter, onWert }) {
             </li>
           ))}
         </ul>
-      ) : <p className="text-xs text-leise">Keine Einträge – alle HTTPS-Seiten sind erlaubt.</p>}
+      ) : <p className="text-xs text-leise">{standard ? `Keine Einträge – es gilt der Standard: ${standard}` : 'Keine Einträge – alle HTTPS-Seiten sind erlaubt.'}</p>}
       <div className="flex gap-2">
         <input id={id} className="eingabe flex-1" value={neu} placeholder={platzhalter ?? ''}
           onChange={(ev) => setNeu(ev.target.value)} onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); hinzu(); } }} />
