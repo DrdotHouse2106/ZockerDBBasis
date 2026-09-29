@@ -102,6 +102,7 @@ export const api = {
   authStatus: () => anfrage('/api/auth/status'),
   anmelden: (daten) => anfrage('/api/auth/anmelden', { methode: 'POST', daten }),
   zweiterFaktor: (daten) => anfrage('/api/auth/2fa', { methode: 'POST', daten }),
+  einladungPruefen: (token) => anfrage(`/api/auth/einladung/${encodeURIComponent(token)}`),
   registrieren: (daten) => anfrage('/api/auth/registrieren', { methode: 'POST', daten }),
   captchaAufgabe: () => anfrage('/api/auth/captcha'),
   passwortVergessen: (kennung, captcha) => anfrage('/api/auth/passwort-vergessen', { methode: 'POST', daten: { kennung, captcha } }),
@@ -128,6 +129,9 @@ export const api = {
   syncBild: (id, an) => anfrage(`/api/artikel/${id}/sync-bild`, { methode: 'PUT', daten: { an } }),
   katalogZentral: (id) => anfrage(`/api/katalog/${id}/zentral`),
   zentralEinreichen: (id) => anfrage(`/api/katalog/${id}/zentral-einreichen`, { methode: 'POST', daten: {} }),
+  adminEinladungen: () => anfrage('/api/admin/einladungen'),
+  adminEinladungErstellen: (daten) => anfrage('/api/admin/einladungen', { methode: 'POST', daten }),
+  adminEinladungLoeschen: (id) => anfrage(`/api/admin/einladungen/${id}`, { methode: 'DELETE' }),
   adminAktualisierung: () => anfrage('/api/admin/aktualisierung'),
   adminAktualisieren: () => anfrage('/api/admin/aktualisierung', { methode: 'POST' }),
   adminZentrale: () => anfrage('/api/admin/zentrale'),
@@ -169,6 +173,17 @@ export const api = {
   kommentarAnlegen: (katalogId, text) => anfrage(`/api/katalog/${katalogId}/kommentare`, { methode: 'POST', daten: { text } }),
   kommentarAendern: (id, text) => anfrage(`/api/kommentare/${id}`, { methode: 'PUT', daten: { text } }),
   kommentarLoeschen: (id) => anfrage(`/api/kommentare/${id}`, { methode: 'DELETE' }),
+  // Vorschläge: Fotos zum Titelvorschlag, fehlende Plattformen
+  belegfotos: (katalogId) => anfrage(`/api/katalog/${katalogId}/belegfotos`),
+  belegfotoHochladen: (katalogId, datei) => {
+    const formular = new FormData();
+    formular.append('foto', datei);
+    return anfrage(`/api/katalog/${katalogId}/belegfotos`, { methode: 'POST', formular });
+  },
+  belegfotoLoeschen: (id) => anfrage(`/api/belegfotos/${id}`, { methode: 'DELETE' }),
+  plattformVorschlagen: (daten) => anfrage('/api/plattformen/vorschlaege', { methode: 'POST', daten }),
+  eigenePlattformVorschlaege: () => anfrage('/api/plattformen/vorschlaege'),
+  plattformVorschlagEntscheiden: (id, daten) => anfrage(`/api/moderation/plattform-vorschlaege/${id}`, { methode: 'POST', daten }),
   plattformAnlegen: (daten) => anfrage('/api/moderation/plattformen', { methode: 'POST', daten }),
   plattformAendern: (id, daten) => anfrage(`/api/moderation/plattformen/${id}`, { methode: 'PUT', daten }),
 

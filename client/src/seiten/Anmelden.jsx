@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MARKE } from '../../../shared/marke.js';
 import { api, ApiFehler } from '../api.js';
 import { useSitzung } from '../sitzung.js';
@@ -22,6 +22,17 @@ export default function Anmelden() {
 
   const setze = (feld) => (e) => setWerte((w) => ({ ...w, [feld]: e.target.value }));
 
+  // Einladungslink (#/?einladung=…): Registrieren auch bei geschlossener Registrierung
+  const [einladung] = useState(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('einladung'));
+  const [einladungGueltig, setEinladungGueltig] = useState(null);
+  useEffect(() => {
+    if (!einladung) return;
+    api.einladungPruefen(einladung).then((r) => {
+      setEinladungGueltig(r.gueltig);
+      if (r.gueltig) setModus('registrieren');
+    }).catch(() => setEinladungGueltig(false));
+  }, [einladung]);
+
   async function absenden(e) {
     e.preventDefault();
     setFehler(null);
@@ -38,9 +49,10 @@ export default function Anmelden() {
           : { token: zweiFaktor.token, code });
         await aktualisiere();
       } else if (modus === 'registrieren') {
-        const captcha = auth?.ersteinrichtung ? undefined : await captchaNachweis(auth?.captcha, 'registrieren', { zustimmung: captchaZustimmung });
+        const mitEinladung = einladung && einladungGueltig;
+        const captcha = auth?.ersteinrichtung || mitEinladung ? undefined : await captchaNachweis(auth?.captcha, 'registrieren', { zustimmung: captchaZustimmung });
         await api.registrieren({
-          captcha,
+          captcha, einladung: mitEinladung ? einladung : undefined,
           benutzername: werte.benutzername, passwort: werte.passwort, anzeigename: werte.anzeigename, email: werte.email, bedingungen_akzeptiert: akzeptiert,
         });
         await aktualisiere();
@@ -63,7 +75,7 @@ export default function Anmelden() {
     }
   }
 
-  const registrierungMoeglich = auth?.registrierungOffen;
+  const registrierungMoeglich = auth?.registrierungOffen || einladungGueltig;
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
@@ -77,6 +89,16 @@ export default function Anmelden() {
           {MODUL.oeffentlicheSeiten && <p className="text-sm text-leise">Spiele, Konsolen und Zubehör verwalten – mit Barcode-Scanner und Wertübersicht.</p>}
         </div>
 
+        {einladung && einladungGueltig && (
+          <p className="rounded-xl border border-akzent/40 bg-akzent/10 p-3 text-sm">
+            <strong>Du wurdest eingeladen!</strong> Wähle einen Benutzernamen und ein Passwort für dein Konto.
+          </p>
+        )}
+        {einladung && einladungGueltig === false && (
+          <p className="rounded-xl border border-gefahr/40 p-3 text-sm text-gefahr" role="alert">
+            Dieser Einladungslink ist ungültig, abgelaufen oder wurde schon benutzt. Bitte um einen neuen Link.
+          </p>
+        )}
         {auth?.ersteinrichtung && (
           <p className="rounded-xl border border-akzent/40 bg-akzent/10 p-3 text-sm">
             <strong>Willkommen!</strong> Es gibt noch kein Konto. Das erste Konto wird automatisch Administrator.
@@ -156,7 +178,7 @@ export default function Anmelden() {
                     </span>
                   </label>
                   {felder.bedingungen && <p className="text-sm text-gefahr">{felder.bedingungen}</p>}
-                  {!auth?.ersteinrichtung && <CaptchaHinweis info={auth?.captcha} zustimmung={captchaZustimmung} setZustimmung={setCaptchaZustimmung} />}
+                  {!auth?.ersteinrichtung && !einladungGueltig && <CaptchaHinweis info={auth?.captcha} zustimmung={captchaZustimmung} setZustimmung={setCaptchaZustimmung} />}
                 </>
               )}
             </>

@@ -102,7 +102,8 @@ body {
 }
 
 .unten-sicher {
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Nicht den vollen Abstand zum Home-Balken (iPhone) – sonst wirkt die Leiste zu hoch */
+  padding-bottom: calc(env(safe-area-inset-bottom) * 0.6);
 }
 
 /* html5-qrcode bringt eigene Bedienelemente mit – wir nutzen nur die Kameraansicht. */

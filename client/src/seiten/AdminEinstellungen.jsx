@@ -177,7 +177,9 @@ function Feld({ e, wert, fehler, zuruecksetzenVorgemerkt, entfernenVorgemerkt, o
     const an = ['true', '1', 'ja', 'yes', 'on'].includes(String(aktuell).toLowerCase());
     eingabe = (
       <select id={id} className="eingabe" value={e.wert === '' && wert === undefined ? '' : an ? 'true' : 'false'} onChange={(ev) => onWert(ev.target.value)}>
-        {e.wert === '' && wert === undefined && <option value="" disabled>Standard</option>}
+        {e.wert === '' && wert === undefined && (
+          <option value="" disabled>{e.standard === undefined ? 'Standard' : `Standard (${e.standard === 'true' ? 'Ja' : 'Nein'})`}</option>
+        )}
         <option value="true">Ja</option>
         <option value="false">Nein</option>
       </select>
@@ -188,6 +190,8 @@ function Feld({ e, wert, fehler, zuruecksetzenVorgemerkt, entfernenVorgemerkt, o
         {e.optionen.map(([w, l]) => <option key={w} value={w}>{l}</option>)}
       </select>
     );
+  } else if (e.typ === 'liste') {
+    eingabe = <ListenEingabe id={id} wert={aktuell} platzhalter={e.platzhalter} onWert={onWert} />;
   } else if (e.typ === 'geheim') {
     eingabe = (
       <input id={id} className="eingabe font-mono" type="password" autoComplete="new-password" value={wert ?? ''} onChange={(ev) => onWert(ev.target.value)}
@@ -195,7 +199,7 @@ function Feld({ e, wert, fehler, zuruecksetzenVorgemerkt, entfernenVorgemerkt, o
     );
   } else {
     eingabe = (
-      <input id={id} className="eingabe" value={aktuell} onChange={(ev) => onWert(ev.target.value)} placeholder={e.platzhalter ?? ''}
+      <input id={id} className="eingabe" value={aktuell} onChange={(ev) => onWert(ev.target.value)} placeholder={e.platzhalter ?? (e.standard !== undefined ? `Standard: ${Number.isNaN(Number(e.standard)) ? e.standard : Number(e.standard).toLocaleString('de-DE')}` : '')}
         inputMode={e.typ === 'zahl' ? 'numeric' : e.typ === 'dezimal' ? 'decimal' : e.typ === 'url' ? 'url' : undefined} />
     );
   }
@@ -244,5 +248,36 @@ function TestMail() {
       <button type="submit" className="knopf-sekundaer">Test-E-Mail senden</button>
       <p className="w-full text-xs text-leise">Erst speichern, dann testen.</p>
     </form>
+  );
+}
+
+/** Kommagetrennte Liste (z. B. Domains) als einzelne Einträge – übersichtlich auch bei vielen Werten. */
+function ListenEingabe({ id, wert, platzhalter, onWert }) {
+  const [neu, setNeu] = useState('');
+  const eintraege = String(wert ?? '').split(/[\s,;]+/).filter(Boolean);
+  const hinzu = () => {
+    const zusatz = neu.split(/[\s,;]+/).map((d) => d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[/?#].*$/, '')).filter(Boolean);
+    if (zusatz.length) onWert([...new Set([...eintraege, ...zusatz])].join(', '));
+    setNeu('');
+  };
+  return (
+    <div className="space-y-2">
+      {eintraege.length > 0 ? (
+        <ul className="flex flex-wrap gap-2">
+          {eintraege.map((d) => (
+            <li key={d} className="chip gap-1">
+              {d}
+              <button type="button" className="text-leise hover:text-gefahr" aria-label={`${d} entfernen`}
+                onClick={() => onWert(eintraege.filter((x) => x !== d).join(', '))}>×</button>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="text-xs text-leise">Keine Einträge – alle HTTPS-Seiten sind erlaubt.</p>}
+      <div className="flex gap-2">
+        <input id={id} className="eingabe flex-1" value={neu} placeholder={platzhalter ?? ''}
+          onChange={(ev) => setNeu(ev.target.value)} onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); hinzu(); } }} />
+        <button type="button" className="knopf-sekundaer" onClick={hinzu} disabled={!neu.trim()}>Hinzufügen</button>
+      </div>
+    </div>
   );
 }

@@ -44,7 +44,7 @@ export default function KatalogSeite({ route, id }) {
   const darfBearbeiten = istModerator(benutzer) || (e.eigener && e.status !== 'freigegeben');
 
   return (
-    <Layout route={route} titel={e.titel} zurueck="/katalog"
+    <Layout route={route} titel={e.titel} titelImInhalt={false} zurueck="/katalog"
       aktionen={darfBearbeiten && !bearbeiten && (
         <button type="button" className="rounded-lg p-2 text-leise hover:bg-karte hover:text-text" aria-label="Katalogeintrag bearbeiten" onClick={() => setBearbeiten(true)}>
           <Symbol name="stift" />

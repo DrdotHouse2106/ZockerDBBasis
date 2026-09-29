@@ -11,6 +11,8 @@ import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import { MODUL } from '../erweiterungen.jsx';
 import { gueltigerBarcode } from '../../../shared/barcode.js';
 import TitelVorschlag from '../komponenten/TitelVorschlag.jsx';
+import PlattformVorschlag from '../komponenten/PlattformVorschlag.jsx';
+import { useHinweis } from '../komponenten/Hinweise.jsx';
 
 export default function Hinzufuegen({ route }) {
   const p = route.parameter;
@@ -21,8 +23,10 @@ export default function Hinzufuegen({ route }) {
   const [sucht, setSucht] = useState(false);
   const [laedtMehr, setLaedtMehr] = useState(false);
   const [vorschlagOffen, setVorschlagOffen] = useState(false);
+  const [plattformOffen, setPlattformOffen] = useState(false);
+  const zeigeHinweis = useHinweis();
   // Wer nimmt Vorschläge auf? Das eigene Moderationsteam (zockerdb.de) oder – selbst gehostet – zockerdb.de
-  const vorschlagZiel = MODUL.moderation ? 'das Moderationsteam' : status?.zentrale ? 'zockerdb.de' : null;
+  const vorschlagZiel = MODUL.moderation ? 'Das Moderationsteam' : status?.zentrale ? 'zockerdb.de' : null;
   const [barcodeErgebnis, setBarcodeErgebnis] = useState(null);
   const [barcodeFehler, setBarcodeFehler] = useState(null);
 
@@ -230,8 +234,20 @@ export default function Hinzufuegen({ route }) {
                 Titel vorschlagen
               </button>
             )}
+            {vorschlagZiel && !plattformOffen && (
+              <button type="button" className="knopf-sekundaer" onClick={() => setPlattformOffen(true)}>
+                <Symbol name="konsole" className="size-4" />
+                Plattform fehlt?
+              </button>
+            )}
           </div>
         </section>
+        {plattformOffen && (
+          <section className="karte p-4">
+            <PlattformVorschlag zielName={vorschlagZiel} onAbbrechen={() => setPlattformOffen(false)}
+              onFertig={(v) => { setPlattformOffen(false); zeigeHinweis(`Danke! „${v.name}“ wird ${v.ziel === 'zockerdb.de' ? 'von zockerdb.de' : 'vom Moderationsteam'} geprüft.`); }} />
+          </section>
+        )}
         {vorschlagOffen && (
           <TitelVorschlag titel={suchtext.trim()} typ={typ} zielName={vorschlagZiel} onSchliessen={() => setVorschlagOffen(false)} />
         )}

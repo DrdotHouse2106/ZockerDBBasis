@@ -114,6 +114,7 @@ function Benutzer() {
         <strong className="text-text">Rollen:</strong> <em>Moderatoren</em> prüfen Einreichungen und Meldungen, bearbeiten Katalogeinträge,
         Varianten, Plattformen und Kauflinks. <em>Administratoren</em> dürfen zusätzlich Benutzer verwalten und die rechtlichen Seiten ändern.
       </p>
+      <Einladungen />
       <div className="flex gap-2">
         <input className="eingabe flex-1" type="search" placeholder="Benutzer suchen …" value={suche} onChange={(e) => setSuche(e.target.value)} />
         <select className="eingabe w-40" value={rolle} onChange={(e) => setRolle(e.target.value)} aria-label="Nach Rolle filtern">
@@ -259,5 +260,66 @@ function Sicherungen() {
       <Liste titel="Tägliche Sicherungen" eintraege={s.taeglich} />
       <Liste titel="Monatliche Sicherungen" eintraege={s.monatlich} />
     </div>
+  );
+}
+
+/** Einladungslink für Bekannte – funktioniert auch bei geschlossener Registrierung, einmal nutzbar. */
+function Einladungen() {
+  const zeigeHinweis = useHinweis();
+  const [liste, setListe] = useState([]);
+  const [notiz, setNotiz] = useState('');
+  const [neu, setNeu] = useState(null);
+  const laden = () => api.adminEinladungen().then(setListe).catch(() => {});
+  useEffect(() => { laden(); }, []);
+
+  async function erstellen(e) {
+    e.preventDefault();
+    try {
+      setNeu(await api.adminEinladungErstellen({ notiz, tage: 7 }));
+      setNotiz('');
+      laden();
+    } catch (f) { zeigeHinweis(f.message, 'fehler'); }
+  }
+  const kopieren = async () => {
+    try { await navigator.clipboard.writeText(neu.link); zeigeHinweis('Link kopiert.'); } catch { zeigeHinweis('Bitte den Link markieren und kopieren.', 'fehler'); }
+  };
+  const offen = liste.filter((e) => !e.benutzt_am && new Date(`${e.laeuft_ab.replace(' ', 'T')}Z`) > new Date());
+
+  return (
+    <section className="karte space-y-3 p-4">
+      <h2 className="font-semibold">Jemanden einladen</h2>
+      <p className="text-sm text-leise">
+        Erstellt einen Link, mit dem sich eine Person ein Konto anlegen kann – auch wenn die Registrierung geschlossen ist.
+        Benutzername und Passwort wählt sie selbst. Der Link gilt 7 Tage und nur für ein Konto.
+      </p>
+      <form onSubmit={erstellen} className="flex flex-wrap gap-2">
+        <input className="eingabe min-w-0 flex-1" value={notiz} onChange={(e) => setNotiz(e.target.value)} maxLength={100} placeholder="Für wen? (nur als Notiz, z. B. „Kumpel Max“)" />
+        <button type="submit" className="knopf-primaer">Einladungslink erstellen</button>
+      </form>
+      {neu && (
+        <div className="space-y-2 rounded-lg border border-erfolg/50 p-3 text-sm" role="status">
+          <p>Link für {neu.notiz ?? 'die Einladung'} – wird nur jetzt angezeigt:</p>
+          <input className="eingabe font-mono text-xs" readOnly value={neu.link} onFocus={(e) => e.target.select()} />
+          <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={kopieren}>Link kopieren</button>
+        </div>
+      )}
+      {liste.length > 0 && (
+        <ul className="space-y-1 text-sm">
+          {liste.slice(0, 10).map((e) => (
+            <li key={e.id} className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0 flex-1 truncate">{e.notiz ?? 'Einladung'}</span>
+              <span className="text-xs text-leise">
+                {e.benutzt_am ? `angenommen von @${e.benutzt_von ?? '–'}` : offen.includes(e) ? `gültig bis ${datumDe(e.laeuft_ab.slice(0, 10))}` : 'abgelaufen'}
+              </span>
+              {!e.benutzt_am && (
+                <button type="button" className="text-xs text-gefahr underline" onClick={async () => { await api.adminEinladungLoeschen(e.id).catch(() => {}); laden(); }}>
+                  {offen.includes(e) ? 'zurückziehen' : 'entfernen'}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

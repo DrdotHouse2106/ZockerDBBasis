@@ -63,8 +63,16 @@ export const EINSTELLUNGEN = [
   { schluessel: 'OPENGTINDB_QUERYID', gruppe: 'Spieledaten (IGDB) & Barcodes', titel: 'OpenGTINDB-Query-ID', typ: 'geheim', sicher: true },
 ];
 
-/** Kern und Zusatzmodule zusammen. */
-const ALLE = [...EINSTELLUNGEN, ...MODULE.flatMap((m) => m.einstellungen ?? [])];
+/** Was gilt, wenn weder .env noch Oberfläche einen Wert setzen – wird als Platzhalter bzw. „Standard (Ja)“ angezeigt. */
+const STANDARDWERTE = {
+  REGISTRATION_OPEN: 'true', REQUIRE_2FA: 'false', REQUIRE_EMAIL: 'false', RECAPTCHA_MIN_SCORE: '0.5', ZOCKERDB_DONATE: 'false',
+  STORAGE_QUOTA_MB: '1024', MAX_UPLOAD_MB: '8', MEDIA_MAX_MB: '200', BACKUP_ENABLED: 'true', BACKUP_DAYS: '7', BACKUP_MONTHS: '12', SMTP_PORT: '587',
+};
+
+/** Kern und Zusatzmodule zusammen. Standardwerte der Module (`standard`) haben Vorrang. */
+const AUSGEBLENDET = new Set(MODULE.flatMap((m) => m.ausgeblendeteEinstellungen ?? []));
+const ALLE = [...EINSTELLUNGEN, ...MODULE.flatMap((m) => m.einstellungen ?? [])]
+  .map((d) => (d.standard === undefined && STANDARDWERTE[d.schluessel] !== undefined ? { ...d, standard: STANDARDWERTE[d.schluessel] } : d));
 
 const PER_SCHLUESSEL = new Map(ALLE.map((d) => [d.schluessel, d]));
 const JA = ['1', 'true', 'ja', 'yes', 'on'];
@@ -99,6 +107,13 @@ function normalisiere(definition, wert) {
     case 'auswahl':
       if (!definition.optionen.some(([w]) => w === text)) throw new Error('Ungültige Auswahl.');
       return text;
+    case 'liste': {
+      // Domains: https://, www. und Pfade entfernen, doppelte streichen
+      const eintraege = text.split(/[\s,;]+/).map((d) => d.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[/?#].*$/, '')).filter(Boolean);
+      const falsch = eintraege.find((d) => !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d));
+      if (falsch) throw new Error(`„${falsch}“ ist keine gültige Domain (z. B. nintendo.de).`);
+      return [...new Set(eintraege)].join(', ');
+    }
     case 'url':
       if (text && !/^https?:\/\/[^\s/]+[^\s]*$/i.test(text)) throw new Error('Bitte eine vollständige Adresse mit https:// angeben.');
       return text.replace(/\/+$/, '');
@@ -149,7 +164,8 @@ export function erstelleEinstellungsDienst(db, { konfiguration, schluessel, nach
     const env = quellEnv();
     const zeilen = new Map(alleZeilen.all().map((z) => [z.schluessel, z]));
     const werte = gespeicherteWerte();
-    return ALLE.map((d) => {
+    // Werte, die ein Modul ausblendet (z. B. auf zockerdb.de, das selbst die Zentrale ist) – außer sie werden genutzt
+    return ALLE.filter((d) => !AUSGEBLENDET.has(d.schluessel) || konfiguration.zentrale?.url).map((d) => {
       const zeile = zeilen.get(d.schluessel);
       const envWert = env[d.schluessel] ?? '';
       const imWeb = zeile && Object.hasOwn(werte, d.schluessel);

@@ -31,7 +31,8 @@ function istAktiv(eintrag, route) {
   return route.pfad.startsWith(eintrag.pfad);
 }
 
-export default function Layout({ route, titel, zurueck, aktionen, children }) {
+/** `titelImInhalt={false}`: Die Seite zeigt ihren Titel selbst groß an (z. B. Spieleseite) – am Desktop keine zweite Überschrift. */
+export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt = true, children }) {
   const { benutzer, auth } = useSitzung();
   const desktop = NUR_DESKTOP.filter((e) => !e.sichtbar || e.sichtbar(auth));
   // Öffentliche Katalogseiten ohne Anmeldung: schlanker Rahmen ohne Navigation
@@ -72,7 +73,9 @@ export default function Layout({ route, titel, zurueck, aktionen, children }) {
               <span className="hidden sm:inline">{MARKE.name}</span>
             </a>
           )}
-          <h1 className="min-w-0 flex-1 truncate text-lg font-bold sm:text-center md:text-left">{titel}</h1>
+          {/* Am Desktop steht der Titel unter der Kopfleiste – neben der Navigation wäre er abgeschnitten */}
+          <h1 className="min-w-0 flex-1 truncate text-lg font-bold sm:text-center md:hidden">{titel}</h1>
+          <div className="hidden flex-1 md:block" />
           {aktionen}
           <Andockpunkt name="kopfleiste" />
           <Glocke />
@@ -81,26 +84,31 @@ export default function Layout({ route, titel, zurueck, aktionen, children }) {
               <a
                 key={eintrag.pfad}
                 href={`#${eintrag.pfad}`}
+                title={eintrag.label}
+                aria-label={eintrag.label}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ${
                   istAktiv(eintrag, route) ? 'bg-karte text-text' : 'text-leise hover:text-text'
                 }`}
               >
                 <Symbol name={eintrag.symbol} className="size-4" />
-                {eintrag.label}
+                <span className="hidden lg:inline">{eintrag.label}</span>
               </a>
             ))}
           </nav>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pt-4">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 pt-4">
+        {titel && titelImInhalt && <h1 className="mb-4 hidden text-2xl font-bold md:block">{titel}</h1>}
+        {children}
+      </main>
       <Fusszeile />
 
       <nav
         className="unten-sicher fixed inset-x-0 bottom-0 z-40 border-t border-rand/60 bg-flaeche/95 backdrop-blur-md md:hidden"
         aria-label="Hauptnavigation"
       >
-        <div className="mx-auto grid h-16 max-w-md grid-cols-5">
+        <div className="mx-auto grid h-14 max-w-md grid-cols-5">
           {NAVIGATION.map((eintrag) => {
             const aktiv = istAktiv(eintrag, route);
             return (

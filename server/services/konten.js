@@ -126,6 +126,24 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
   const beendeAndereSitzungen = (benutzerId, tokenHash) => q.andereSitzungenLoeschen.run(benutzerId, tokenHash);
   const raeumeAuf = () => q.abgelaufeneLoeschen.run(Date.now()).changes;
 
+  // ── Einladungen: Konto für Bekannte, auch wenn die Registrierung geschlossen ist ──
+  // Der Link ist einmal nutzbar und läuft ab. Passwort und Zustimmung zu den Bedingungen gibt die eingeladene Person selbst an.
+  function erstelleEinladung(vonId, { notiz, tage = 7 } = {}) {
+    const dauer = Math.min(30, Math.max(1, Number.parseInt(tage, 10) || 7));
+    const token = zufallsToken(24);
+    const zeile = db.prepare(`INSERT INTO einladungen (token_hash, notiz, erstellt_von, laeuft_ab)
+      VALUES (?, ?, ?, datetime('now', ?)) RETURNING id, notiz, laeuft_ab, erstellt_am`)
+      .get(sha256(token), String(notiz ?? '').trim().slice(0, 100) || null, vonId, `+${dauer} days`);
+    return { ...zeile, token };
+  }
+  const einladungen = () => db.prepare(`SELECT e.id, e.notiz, e.laeuft_ab, e.benutzt_am, e.erstellt_am, b.benutzername AS benutzt_von
+    FROM einladungen e LEFT JOIN benutzer b ON b.id = e.benutzer_id ORDER BY e.id DESC LIMIT 100`).all();
+  const gueltigeEinladung = (token) => (token ? db.prepare(`SELECT * FROM einladungen WHERE token_hash = ?
+    AND benutzt_am IS NULL AND laeuft_ab > datetime('now')`).get(sha256(String(token))) ?? null : null);
+  const loeseEinladungEin = (id, benutzerId) => db.prepare("UPDATE einladungen SET benutzt_am = datetime('now'), benutzer_id = ? WHERE id = ? AND benutzt_am IS NULL")
+    .run(benutzerId, id).changes > 0;
+  const loescheEinladung = (id) => db.prepare('DELETE FROM einladungen WHERE id = ?').run(Number(id)).changes > 0;
+
   // ── Zwei-Faktor-Authentifizierung ─────────────────────────
   function totpGeheimnis(benutzer) {
     return benutzer.totp_geheimnis ? entschluessele(benutzer.totp_geheimnis, schluessel) : null;
@@ -191,7 +209,7 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
 
   return {
     istErsteinrichtung, registriere, pruefeZugangsdaten, erstelleSitzung, leseSitzung, beendeSitzung,
-    beendeAlleSitzungen, beendeAndereSitzungen, raeumeAuf, starteTotpEinrichtung, bestaetigeTotpEinrichtung,
+    beendeAlleSitzungen, beendeAndereSitzungen, raeumeAuf, erstelleEinladung, einladungen, gueltigeEinladung, loeseEinladungEin, loescheEinladung, starteTotpEinrichtung, bestaetigeTotpEinrichtung,
     pruefeZweitenFaktor, deaktiviereTotp, neueWiederherstellungscodes, anzahlWiederherstellungscodes,
     aenderePasswort, holeBenutzer: (id) => q.perId.get(id),
   };

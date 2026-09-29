@@ -408,6 +408,46 @@ const MIGRATIONEN = [
   // 20: Link zur Seite des Spiels auf IGDB.com (Quellenangabe „Auf IGDB.com ansehen“)
   `
   ALTER TABLE katalog ADD COLUMN igdb_url TEXT;
+  `,  // 21: Fotos zu Vorschlägen (nur für die Moderation), Plattform-Vorschläge, Einladungslinks
+  `
+  CREATE TABLE vorschlag_fotos (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    katalog_id     INTEGER,                       -- ohne Fremdschlüssel: Aufräumen löscht auch die Datei
+    benutzer_id    INTEGER,                       -- NULL = von einer anderen Installation übermittelt
+    datei          TEXT    NOT NULL,
+    groesse        INTEGER NOT NULL DEFAULT 0,
+    zentral_gesendet INTEGER NOT NULL DEFAULT 0,  -- an zockerdb.de weitergegeben
+    erstellt_am    TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX idx_vorschlag_fotos_katalog ON vorschlag_fotos (katalog_id);
+
+  CREATE TABLE plattform_vorschlaege (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    benutzer_id      INTEGER REFERENCES benutzer (id) ON DELETE SET NULL,
+    instanz_id       INTEGER,                     -- zockerdb.de: Vorschlag einer selbst gehosteten Installation
+    name             TEXT    NOT NULL,
+    hersteller       TEXT,
+    erscheinungsjahr INTEGER,
+    typ              TEXT    NOT NULL DEFAULT 'konsole',
+    hinweis          TEXT,
+    status           TEXT    NOT NULL DEFAULT 'offen',  -- offen, angenommen, abgelehnt
+    antwort          TEXT,
+    plattform_id     INTEGER REFERENCES plattformen (id) ON DELETE SET NULL,
+    zentral_id       INTEGER,                     -- selbst gehostet: Kennung des Vorschlags bei zockerdb.de
+    erstellt_am      TEXT    NOT NULL DEFAULT (datetime('now')),
+    entschieden_am   TEXT
+  );
+
+  CREATE TABLE einladungen (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash   TEXT    NOT NULL UNIQUE,
+    notiz        TEXT,
+    erstellt_von INTEGER REFERENCES benutzer (id) ON DELETE SET NULL,
+    laeuft_ab    TEXT    NOT NULL,
+    benutzt_am   TEXT,
+    benutzer_id  INTEGER REFERENCES benutzer (id) ON DELETE SET NULL,
+    erstellt_am  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
   `,
 ];
 

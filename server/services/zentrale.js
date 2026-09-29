@@ -60,7 +60,7 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
   let letzterFehler = null;
 
   /** Anfrage an die Zentrale. `bild` = Foto als Körper senden, `roh` = Antwort als Puffer (Fotos) statt JSON. */
-  async function roh(pfad, { methode = 'GET', daten, token, zeit = 15_000, bild, roh: binaer = false } = {}) {
+  async function roh(pfad, { methode = 'GET', daten, token, zeit = 15_000, bild, bildTyp = 'image/jpeg', roh: binaer = false } = {}) {
     let antwort;
     try {
       antwort = await fetchFn(`${url()}${pfad}`, {
@@ -68,7 +68,7 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
         headers: {
           Accept: 'application/json',
           ...(daten !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          ...(bild ? { 'Content-Type': 'image/jpeg' } : {}),
+          ...(bild ? { 'Content-Type': bildTyp } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: bild ?? (daten !== undefined ? JSON.stringify(daten) : undefined),

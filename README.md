@@ -66,7 +66,8 @@ docker compose up -d
 ```
 
 Die App läuft unter **<http://localhost:3000>**. **Das erste Konto, das du registrierst, wird Administrator.**
-Danach kannst du die Registrierung unter *Mehr → Administration → Einstellungen* schließen.
+Danach kannst du die Registrierung unter *Mehr → Administration → Einstellungen* schließen. Familie und Freunde lädst du dann
+unter *Administration → Benutzer & Rollen → Jemanden einladen* per Link ein (7 Tage gültig, einmal nutzbar).
 
 ```bash
 docker compose logs -f                        # Protokoll ansehen

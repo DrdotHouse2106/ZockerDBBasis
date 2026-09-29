@@ -109,6 +109,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     <Layout
       route={route}
       titel={artikel.titel}
+      titelImInhalt={false}
       zurueck={zurueckPfad}
       aktionen={eigener && (
         <a href={`#/artikel/${id}/bearbeiten`} className="rounded-lg p-2 text-leise hover:bg-karte hover:text-text" aria-label="Bearbeiten">

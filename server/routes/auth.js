@@ -50,17 +50,30 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     res.set('Cache-Control', 'no-store').json(captcha.aufgabe());
   });
 
+  // Einladungslink prüfen (Anmeldeseite zeigt dann das Registrierungsformular)
+  router.get('/auth/einladung/:token', (req, res) => {
+    if (drossel.gesperrt(`e:${req.ip}`)) return res.status(429).json({ fehler: ZU_VIELE });
+    const e = konten.gueltigeEinladung(req.params.token);
+    if (!e) drossel.fehlschlag(`e:${req.ip}`);
+    res.json({ gueltig: Boolean(e), laeuft_ab: e?.laeuft_ab ?? null });
+  });
+
   router.post('/auth/registrieren', async (req, res) => {
-    if (!registrierungOffen() && !konten.istErsteinrichtung()) {
+    // Einladung: gilt auch bei geschlossener Registrierung, einmal nutzbar
+    const einladung = req.body?.einladung ? konten.gueltigeEinladung(req.body.einladung) : null;
+    if (req.body?.einladung && !einladung) return res.status(403).json({ fehler: 'Der Einladungslink ist ungültig, abgelaufen oder wurde schon benutzt.' });
+    if (!registrierungOffen() && !konten.istErsteinrichtung() && !einladung) {
       return res.status(403).json({ fehler: 'Die Registrierung ist auf diesem Server geschlossen.' });
     }
     if (registrierDrossel.gesperrt(req.ip)) return res.status(429).json({ fehler: 'Zu viele Registrierungen. Bitte später erneut versuchen.' });
     // Das allererste Konto (Administrator) ohne Spam-Prüfung, damit eine Fehlkonfiguration nicht aussperrt
-    if (!konten.istErsteinrichtung()) await captcha.pruefe(req.body?.captcha, { aktion: 'registrieren', ip: req.ip });
+    // Mit Einladung ohne Spam-Prüfung – der Link selbst ist der Nachweis
+    if (!konten.istErsteinrichtung() && !einladung) await captcha.pruefe(req.body?.captcha, { aktion: 'registrieren', ip: req.ip });
     // E-Mail vorab prüfen, damit bei einem Tippfehler kein halbes Konto entsteht
     const email = kontoMail.bereit() ? normalisiereEmail(req.body?.email) : null;
     if (emailPflicht() && !email) throw new ValidierungsFehler({ email: 'Bitte gib eine E-Mail-Adresse an.' });
     const benutzer = await konten.registriere(req.body ?? {});
+    if (einladung) konten.loeseEinladungEin(einladung.id, benutzer.id);
     registrierDrossel.fehlschlag(req.ip); // zählt jede Registrierung
     if (email) {
       try {

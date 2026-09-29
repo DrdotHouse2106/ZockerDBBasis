@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { ValidierungsFehler } from '../services/validierung.js';
 
-export function zentraleRouter({ db, zentrale, katalog, sync }) {
+export function zentraleRouter({ db, zentrale, katalog, sync, vorschlaege }) {
   const router = Router();
 
   // ── Katalog ──────────────────────────────────────────────
@@ -12,7 +12,10 @@ export function zentraleRouter({ db, zentrale, katalog, sync }) {
     if (!e || e.quelle !== 'eigen' || e.erstellt_von !== req.benutzer.id) return res.status(404).json({ fehler: 'Katalogeintrag nicht gefunden.' });
     if (!zentrale.aktiv) return res.status(409).json({ fehler: 'Die Verbindung zu zockerdb.de ist ausgeschaltet.' });
     if (['eingereicht', 'freigegeben'].includes(e.zentral_status)) return res.status(409).json({ fehler: 'Der Eintrag wurde bereits eingereicht.' });
-    res.json(await zentrale.einreichen(e));
+    const ergebnis = await zentrale.einreichen(e);
+    // Fotos zum Vorschlag gleich mitschicken
+    await vorschlaege.sendeAnZentrale(e.id).catch(() => null);
+    res.json(ergebnis);
   });
 
   // Sammlerzahlen bei zockerdb.de und Link zur öffentlichen Seite

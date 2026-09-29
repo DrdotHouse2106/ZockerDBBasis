@@ -121,6 +121,19 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
       })));
   });
 
+  // ── Einladungen: Konto für Bekannte bei geschlossener Registrierung ──
+  router.get('/einladungen', (_req, res) => res.json(konten.einladungen()));
+  router.post('/einladungen', (req, res) => {
+    const e = konten.erstelleEinladung(req.benutzer.id, { notiz: req.body?.notiz, tage: req.body?.tage });
+    // Der Link wird nur jetzt angezeigt – gespeichert ist nur eine Prüfsumme
+    const basis = konfiguration.oeffentlicheUrl || `${req.protocol}://${req.get('host')}`;
+    res.status(201).json({ ...e, link: `${basis}/#/?einladung=${e.token}` });
+  });
+  router.delete('/einladungen/:id', (req, res) => {
+    if (!konten.loescheEinladung(req.params.id)) throw new KontoFehler('Einladung nicht gefunden.', 404);
+    res.status(204).end();
+  });
+
   router.put('/benutzer/:id', (req, res) => {
     const b = ziel(req);
     const { rolle, gesperrt, speicher_limit_mb: limitMb } = req.body ?? {};
