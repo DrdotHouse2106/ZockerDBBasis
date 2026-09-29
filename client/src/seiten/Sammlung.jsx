@@ -45,8 +45,10 @@ export default function Sammlung({ route }) {
     return () => abbruch.abort();
   }, [JSON.stringify(filter)]);
 
+  const [anzahlen, setAnzahlen] = useState({});
   useEffect(() => {
     api.plattformen().then(setPlattformen).catch(() => {});
+    api.artikelAnzahl().then(setAnzahlen).catch(() => {});
   }, []);
 
   const aktiveFilter = ['region', 'zustand', 'vollstaendigkeit', 'herkunft', 'ohne_preis'].filter((f) => filter[f]).length;
@@ -225,6 +227,21 @@ export default function Sammlung({ route }) {
               {karten.map((k) => <ArtikelKarte key={k.artikel.id} artikel={k.artikel} exemplare={k.exemplare} />)}
             </div>
           </>
+        )}
+
+        {/* Unter der Sammlung: Zugang zu den digitalen Spielen (getrennt, zählen nicht zur Sammlung) */}
+        {!filter.bestand && anzahlen.digital > 0 && artikel && (
+          <a href="#/?bestand=digital" className="karte flex items-center justify-between gap-3 p-4 hover:bg-karte-hover">
+            <span>
+              <span className="mr-2 rounded bg-sky-600 px-2 py-0.5 text-xs font-bold tracking-widest text-white uppercase">Digital</span>
+              <strong>{anzahlen.digital} digitale Spiele</strong>
+              <span className="block text-sm text-leise">Steam, PlayStation Store, eShop … – getrennt von deiner Sammlung</span>
+            </span>
+            <Symbol name="weiter" className="size-5 shrink-0 text-leise" />
+          </a>
+        )}
+        {filter.bestand === 'digital' && (
+          <a href="#/neu" className="text-sm text-akzent-hell underline">Digitales Spiel von Hand hinzufügen (z. B. PlayStation Store) – beim Anlegen „Digitale Version“ ankreuzen</a>
         )}
       </div>
     </Layout>

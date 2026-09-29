@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, istModerator,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, DIGITAL_QUELLEN, istModerator,
 } from '../../../shared/konstanten.js';
 import { usePlattformen } from '../plattformen.js';
 import { useSitzung } from '../sitzung.js';
@@ -24,7 +24,7 @@ const FARBVORSCHLAEGE = [
 const LEER = {
   typ: 'spiel', titel: '', plattform: '', plattform_id: null, variante_id: null, katalog_id: null, barcode: '', cover_url: '', zustand: '', vollstaendigkeit: '',
   region: 'pal_de', farbe: '', edition: '', modellnummer: '', seriennummer: '', notizen: '', kaufpreis: '', kaufdatum: '', anzahl: 1,
-  marktwert: '', herkunft: '', konvolut_id: null,
+  marktwert: '', herkunft: '', konvolut_id: null, bestand: 'besitz', digital_quelle: null,
 };
 
 export default function ArtikelFormular({ route, artikelId }) {
@@ -169,7 +169,7 @@ export default function ArtikelFormular({ route, artikelId }) {
           zeigeHinweis(`Gespeichert, aber das Foto konnte nicht hochgeladen werden: ${bildFehler.message}`, 'fehler');
         }
       }
-      zeigeHinweis(bearbeiten ? 'Änderungen gespeichert.' : `„${artikel.titel}“ wurde zur Sammlung hinzugefügt.`);
+      zeigeHinweis(bearbeiten ? 'Änderungen gespeichert.' : artikel.bestand === 'digital' ? `„${artikel.titel}“ als digitales Spiel gespeichert.` : `„${artikel.titel}“ wurde zur Sammlung hinzugefügt.`);
       // Konvolut erfassen: gleich mit dem nächsten Artikel aus dem Paket weitermachen
       if (!bearbeiten && p.konvolut && artikel.konvolut_id) navigiere('/neu', { konvolut: artikel.konvolut_id });
       else navigiere(`/artikel/${artikel.id}`);
@@ -245,6 +245,27 @@ export default function ArtikelFormular({ route, artikelId }) {
                 </select>
               )}
             </Feld>
+          )}
+          {['besitz', 'digital'].includes(werte.bestand) && werte.typ === 'spiel' && (
+            <div className="space-y-2 rounded-xl bg-karte-hover p-3 text-sm sm:col-span-2">
+              <label className="flex items-start gap-2">
+                <input type="checkbox" className="mt-0.5 size-5 accent-akzent" checked={werte.bestand === 'digital'}
+                  onChange={(e) => setWerte((w) => ({ ...w, bestand: e.target.checked ? 'digital' : 'besitz', digital_quelle: e.target.checked ? (w.digital_quelle ?? 'playstation') : null }))} />
+                <span><strong>Digitale Version</strong> (kein physisches Exemplar)
+                  <span className="block text-xs text-leise">Wird mit „DIGITAL“ über dem Cover gekennzeichnet und zählt nicht zu Sammlung und Sammlungswert.</span></span>
+              </label>
+              {werte.bestand === 'digital' && (
+                <>
+                  <select className="eingabe" value={werte.digital_quelle ?? ''} onChange={setze('digital_quelle')} aria-label="Store">
+                    {DIGITAL_QUELLEN.map((q) => <option key={q.value} value={q.value}>{q.label}</option>)}
+                  </select>
+                  <p className="text-xs text-leise">
+                    Bitte nur <strong className="text-text">gekaufte</strong> Spiele eintragen – keine Spiele, die du nur über ein Abo spielen kannst
+                    (PlayStation Plus, Game Pass, Nintendo Switch Online): Die verschwinden, sobald das Abo endet oder das Spiel aus dem Katalog fliegt.
+                  </p>
+                </>
+              )}
+            </div>
           )}
           <Feld label="Region" fehler={fehler.region}>
             {(id) => <Auswahl id={id} wert={werte.region} onChange={setze('region')} optionen={REGIONEN} />}

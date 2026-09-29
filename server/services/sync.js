@@ -19,7 +19,7 @@ import { zentralZuEintrag } from './zentrale.js';
 
 const SEITE = 500;
 const FELDER = ['typ', 'titel', 'plattform', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region', 'farbe', 'edition',
-  'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'herkunft', 'bestand', 'abgang_am', 'verkaufspreis'];
+  'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'herkunft', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle'];
 const ZEIT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 const UUID = /^[0-9a-f]{32}$/;
 const jetzt = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -128,7 +128,7 @@ export function wendeAn(db, benutzer, { artikel = [], geloescht = [] }, { katalo
       try {
         // Ältere Gegenstellen kennen den Bestand noch nicht – dann bleibt er wie er ist
         const eingabe = Object.fromEntries(FELDER.map((f) => [f, roh[f]]));
-        if (roh.bestand === undefined && vorhanden) Object.assign(eingabe, { bestand: vorhanden.bestand, abgang_am: vorhanden.abgang_am, verkaufspreis: vorhanden.verkaufspreis });
+        if (roh.bestand === undefined && vorhanden) Object.assign(eingabe, { bestand: vorhanden.bestand, abgang_am: vorhanden.abgang_am, verkaufspreis: vorhanden.verkaufspreis, digital_quelle: vorhanden.digital_quelle });
         daten = pruefeArtikel(eingabe);
       } catch (e) {
         ergebnis.fehler.push({ sync_uuid: uuid, fehler: e instanceof ValidierungsFehler ? Object.values(e.fehler ?? {}).join(' ') || e.message : e.message });

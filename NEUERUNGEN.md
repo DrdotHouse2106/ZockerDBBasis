@@ -9,6 +9,11 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 29.09.2026 – Digitale Spiele von Hand (PlayStation, eShop …)
+- Beim Anlegen eines Spiels „Digitale Version“ ankreuzen und den Store wählen (PlayStation Store, Nintendo eShop, Xbox, Steam, GOG, Epic, anderer) – Kennzeichnung „DIGITAL · PLAYSTATION“ usw. über dem Cover
+- Hinweis: nur gekaufte Spiele eintragen, keine Abo-Spiele (PlayStation Plus, Game Pass, Nintendo Switch Online)
+- Unter der Sammlung und im Katalog ein Knopf zu den eigenen digitalen Spielen
+
 ## 29.09.2026 – Steam-Bibliothek importieren
 - Unter „Import“: Steam-Profil angeben, alle Spiele samt Spielzeit werden als digitale Spiele übernommen; erneut importieren aktualisiert und ergänzt
 - Digitale Spiele tragen über dem Cover den Schriftzug „DIGITAL · STEAM“, stehen unter dem eigenen Filter „Digital“ und zählen nicht zu Sammlung, Sammlungswert, Statistik und öffentlichen Zahlen

@@ -108,7 +108,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
     const katalogVorhanden = db.prepare("SELECT id FROM katalog WHERE id = ? AND (status = 'freigegeben' OR erstellt_von = ?)");
     const felder = ['benutzer_id', 'typ', 'titel', 'plattform', 'katalog_id', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region',
       'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'plattform_id',
-      'herkunft', 'konvolut_id', 'kaufpreis_anteilig', 'bestand', 'abgang_am', 'verkaufspreis'];
+      'herkunft', 'konvolut_id', 'kaufpreis_anteilig', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle'];
     const einfuegen = db.prepare(`INSERT INTO artikel (${felder.join(', ')}) VALUES (${felder.map((f) => `@${f}`).join(', ')})`);
 
     const fehlerhaft = [];

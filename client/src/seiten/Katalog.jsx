@@ -21,6 +21,8 @@ export default function Katalog({ route }) {
   const zeigeListe = Boolean(p.plattform || p.q || p.typ);
   // „Meine Systeme“: nur die ausgewählten (bzw. Standard-)Systeme, der Rest auf Wunsch
   const [alleZeigen, setAlleZeigen] = useState(false);
+  const [digitalAnzahl, setDigitalAnzahl] = useState(0);
+  useEffect(() => { if (benutzer) api.artikelAnzahl().then((a) => setDigitalAnzahl(a.digital ?? 0)).catch(() => {}); }, [benutzer?.id]);
   const [auswahlOffen, setAuswahlOffen] = useState(false);
   const sichtbar = plattformen.filter((x) => x.sichtbar !== false);
   // Veröffentlichungsregion: standardmäßig PAL (zuletzt gewählte wird gemerkt)
@@ -67,6 +69,13 @@ export default function Katalog({ route }) {
               {KATALOG_REGIONEN.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
+        )}
+
+        {!zeigeListe && benutzer && digitalAnzahl > 0 && (
+          <a href="#/?bestand=digital" className="knopf-sekundaer w-fit">
+            <span className="rounded bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-white uppercase">Digital</span>
+            Meine digitalen Spiele ({anzahl(digitalAnzahl)})
+          </a>
         )}
 
         {!zeigeListe && (

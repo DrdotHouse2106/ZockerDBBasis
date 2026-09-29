@@ -17,7 +17,7 @@ const ERLAUBTE_BILDTYPEN = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/w
 const FELDER = [
   'typ', 'titel', 'plattform', 'katalog_id', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region',
   'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert',
-  'plattform_id', 'variante_id', 'herkunft', 'konvolut_id', 'bestand', 'abgang_am', 'verkaufspreis',
+  'plattform_id', 'variante_id', 'herkunft', 'konvolut_id', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle',
 ];
 
 export function artikelZuObjekt(zeile) {
@@ -126,6 +126,12 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     const where = `WHERE ${bedingungen.join(' AND ')}`;
     const zeilen = db.prepare(`${basisAbfrage} ${where} ORDER BY ${sortierung}`).all(parameter);
     res.json(zeilen.map(artikelZuObjekt));
+  });
+
+  // Anzahl je Bestand (für Hinweise wie „23 digitale Spiele“)
+  router.get('/anzahl', (req, res) => {
+    const zeilen = db.prepare('SELECT bestand, COUNT(*) AS n FROM artikel WHERE benutzer_id = ? GROUP BY bestand').all(req.benutzer.id);
+    res.json(Object.fromEntries(zeilen.map((z) => [z.bestand, z.n])));
   });
 
   // Plattformen in der eigenen Sammlung (für Filter-Chips)

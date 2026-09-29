@@ -1,8 +1,13 @@
+import { DIGITAL_QUELLEN } from '../../../shared/konstanten.js';
 import Cover from './Cover.jsx';
 import Abzeichen from './Abzeichen.jsx';
 
-/** Schriftzug für digitale Spiele (Steam-Import): „DIGITAL · STEAM“. */
-export const digitalBand = (a) => (a?.bestand === 'digital' ? `Digital${a.digital_quelle === 'steam' ? ' · Steam' : ''}` : null);
+/** Schriftzug für digitale Spiele: „DIGITAL · STEAM“, „DIGITAL · PLAYSTATION“ … */
+export const digitalBand = (a) => {
+  if (a?.bestand !== 'digital') return null;
+  const kurz = DIGITAL_QUELLEN.find((q) => q.value === a.digital_quelle)?.kurz;
+  return `Digital${kurz ? ` · ${kurz}` : ''}`;
+};
 
 export default function ArtikelKarte({ artikel, href, exemplare }) {
   const variante = [artikel.edition, artikel.farbe, artikel.modellnummer].filter(Boolean).join(' · ');

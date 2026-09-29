@@ -84,3 +84,26 @@ test('Steam-Import ohne Schlüssel: ausgeblendet', async () => {
     await server.stoppe();
   }
 });
+
+test('Digitale Spiele von Hand (z. B. PlayStation Store) und Zähler je Bestand', async () => {
+  const server = await starteTestServer();
+  try {
+    const b = await server.registriere('psfan');
+    const r = await b.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Astro Bot', plattform: 'PlayStation 5', bestand: 'digital', digital_quelle: 'playstation' } });
+    assert.equal(r.status, 201, r.text);
+    assert.equal(r.json.bestand, 'digital');
+    assert.equal(r.json.digital_quelle, 'playstation');
+    await b.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Physisch', digital_quelle: 'playstation' } });
+    const physisch = (await b.api('/api/artikel')).json;
+    assert.equal(physisch.length, 1);
+    assert.equal(physisch[0].digital_quelle, null, 'Store nur bei digitalen Spielen');
+    assert.equal((await b.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'X', bestand: 'digital', digital_quelle: 'unsinn' } })).status, 400);
+    assert.deepEqual((await b.api('/api/artikel/anzahl')).json, { besitz: 1, digital: 1 });
+    // Bearbeiten: wieder physisch → Store entfällt
+    const g = (await b.api(`/api/artikel/${r.json.id}`, { methode: 'PUT', daten: { bestand: 'besitz' } })).json;
+    assert.equal(g.bestand, 'besitz');
+    assert.equal(g.digital_quelle, null);
+  } finally {
+    await server.stoppe();
+  }
+});

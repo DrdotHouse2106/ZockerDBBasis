@@ -69,6 +69,7 @@ export const abfrage = (parameter) => {
 
 export const api = {
   status: () => anfrage('/api/status'),
+  artikelAnzahl: () => anfrage('/api/artikel/anzahl'),
   artikelListe: (filter = {}, signal) => anfrage(`/api/artikel${abfrage(filter)}`, { signal }),
   plattformen: () => anfrage('/api/artikel/plattformen'),
   artikel: (id) => anfrage(`/api/artikel/${id}`),

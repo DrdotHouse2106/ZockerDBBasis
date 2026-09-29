@@ -126,7 +126,19 @@ export const KATALOG_REGIONEN = [
   { value: 'alle', label: 'Alle Regionen', codes: null },
 ];
 
+/** Woher ein digitales Spiel stammt (Store) – für die Kennzeichnung „DIGITAL · …“. */
+export const DIGITAL_QUELLEN = [
+  { value: 'playstation', label: 'PlayStation Store', kurz: 'PlayStation' },
+  { value: 'nintendo', label: 'Nintendo eShop', kurz: 'eShop' },
+  { value: 'xbox', label: 'Xbox Store', kurz: 'Xbox' },
+  { value: 'steam', label: 'Steam', kurz: 'Steam' },
+  { value: 'gog', label: 'GOG', kurz: 'GOG' },
+  { value: 'epic', label: 'Epic Games Store', kurz: 'Epic' },
+  { value: 'andere', label: 'Anderer Store', kurz: null },
+];
+
 export const ALLE_WERTE = {
+  digital_quelle: DIGITAL_QUELLEN.map((e) => e.value),
   bestand: BESTAND.map((e) => e.value),
   herkunft: HERKUNFT.map((e) => e.value),
   typ: ARTIKELTYPEN.map((e) => e.value),

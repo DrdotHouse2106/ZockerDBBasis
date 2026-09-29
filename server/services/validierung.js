@@ -112,6 +112,12 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     daten.abgang_am = datum;
   }
   if (daten.bestand === 'besitz') Object.assign(daten, { abgang_am: null, verkaufspreis: null });
+  // Store eines digitalen Spiels (nur bei Bestand „digital“)
+  if (hat('digital_quelle') || daten.bestand) {
+    const quelle = daten.bestand && daten.bestand !== 'digital' ? null : leerZuNull(eingabe.digital_quelle);
+    if (quelle && !ALLE_WERTE.digital_quelle.includes(quelle)) fehler.digital_quelle = 'Ungültige Auswahl.';
+    else if (hat('digital_quelle') || daten.bestand !== undefined) daten.digital_quelle = quelle;
+  }
   if (daten.bestand === 'abgegeben' && hat('verkaufspreis')) daten.verkaufspreis = null;
 
   if (!teilweise || hat('anzahl')) {
