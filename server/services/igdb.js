@@ -26,7 +26,10 @@ function jahr(unixSekunden) {
 /** Felder eines Spiels, die für einen Katalogeintrag gebraucht werden (auch mit Präfix, z. B. „similar_games.“). */
 export const SPIEL_FELDER = 'name, first_release_date, summary, cover.image_id, platforms.name, '
   + 'involved_companies.company.name, involved_companies.publisher, involved_companies.developer, '
-  + 'alternative_names.name, alternative_names.comment, url';
+  + 'alternative_names.name, alternative_names.comment, url, game_type.type';
+
+/** IGDB-Spieltyp als Schlüssel: „Main Game“ → main_game, „DLC“ → dlc, „Bundle“ → bundle. */
+export const spieltypSchluessel = (text) => (text ? String(text).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || null : null);
 
 /**
  * Echter deutscher Titel: IGDB führt ihn als Alternativnamen mit Vermerk wie „German title“. Titel werden
@@ -55,6 +58,7 @@ export function spielZuEintrag(spiel) {
     hersteller,
     cover_url: igdbBildUrl(spiel.cover?.image_id),
     beschreibung: spiel.summary ?? null,
+    spieltyp: spieltypSchluessel(spiel.game_type?.type),
   };
 }
 

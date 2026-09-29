@@ -106,9 +106,9 @@ export function vergleichsTitel(titel) {
 /**
  * Treffer einer Barcode-Suche nach Übereinstimmung mit dem Produktnamen sortieren:
  * gleicher Titel zuerst, dann Titel, die damit beginnen (kürzere – meist das Hauptspiel – vor Editionen und Zusatzinhalten),
- * dann der Rest; bei Gleichstand passende Plattform zuerst.
+ * dann der Rest; Bundles und Zusatzinhalte eine Stufe tiefer; bei Gleichstand passende Plattform, dann kürzerer Titel.
  */
-export function rangiereTreffer(treffer, begriffe, plattformName = null) {
+export function rangiereTreffer(treffer, begriffe, plattformName = null, nebentypen = []) {
   const ziele = [...new Set(begriffe.map(vergleichsTitel).filter(Boolean))];
   const rang = (e) => {
     const titel = [e.titel, e.titel_original].filter(Boolean).map(vergleichsTitel);
@@ -118,7 +118,9 @@ export function rangiereTreffer(treffer, begriffe, plattformName = null) {
     return 3;
   };
   return treffer
-    .map((e, i) => ({ e, i, r: rang(e), p: plattformName && e.plattformen?.includes(plattformName) ? 0 : 1, l: String(e.titel ?? '').length }))
-    .sort((a, b) => a.r - b.r || a.p - b.p || (a.r === 1 ? a.l - b.l : 0) || a.i - b.i)
+    // Bundle/DLC zählt eine Stufe schlechter: gleich gut passender Titel → Hauptspiel zuerst; ein genau passendes Bundle
+    // (z. B. „Ezio Trilogy“) bleibt aber vor nur ähnlichen Titeln
+    .map((e, i) => ({ e, i, r: rang(e) * 2 + (nebentypen.includes(e.spieltyp) ? 2 : 0), p: plattformName && e.plattformen?.includes(plattformName) ? 0 : 1, l: String(e.titel ?? '').length }))
+    .sort((a, b) => a.r - b.r || a.p - b.p || a.l - b.l || a.i - b.i)
     .map((x) => x.e);
 }

@@ -41,6 +41,7 @@ export function zentralZuEintrag(e) {
     hersteller: text(e.hersteller, 200),
     cover_url: /^https:\/\//.test(e.cover_url ?? '') ? String(e.cover_url).slice(0, 1000) : null,
     beschreibung: text(e.beschreibung, 5000),
+    spieltyp: /^[a-z0-9_]{2,40}$/.test(e.spieltyp ?? '') ? e.spieltyp : null,
     status: 'freigegeben',
   };
 }

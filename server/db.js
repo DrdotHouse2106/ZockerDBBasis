@@ -578,6 +578,10 @@ const MIGRATIONEN = [
     SELECT a.plattform_id FROM artikel a WHERE a.barcode = barcode_zuordnungen.code AND a.katalog_id = barcode_zuordnungen.katalog_id
       AND a.benutzer_id = barcode_zuordnungen.benutzer_id AND a.plattform_id IS NOT NULL LIMIT 1);
   `,
+  // 31: IGDB-Spieltyp (main_game, bundle, dlc, remaster …) – Hauptspiele vor Bundles und Zusatzinhalten sortieren
+  `
+  ALTER TABLE katalog ADD COLUMN spieltyp TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

@@ -45,13 +45,18 @@ export function istSichtbar(eintrag, benutzer) {
 const MINDEST_TREFFER = 5;
 const ONLINE_JE_SEITE = 20;
 
+// Bundles, Pakete und Zusatzinhalte stehen in Suchergebnissen hinter Hauptspielen, Remakes, Remastern usw.
+export const NEBENTYPEN = ['bundle', 'pack', 'dlc', 'dlc_addon', 'expansion', 'update', 'mod', 'episode', 'season', 'fork'];
+const NEBENTYPEN_SQL = NEBENTYPEN.map((t) => `'${t}'`).join(', ');
+
 export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, erweiterungen, zentrale }) {
   const upsert = db.prepare(`
     INSERT INTO katalog (quelle, externe_id, typ, titel, titel_original, igdb_url, plattformen, erscheinungsjahr, hersteller, cover_url, beschreibung,
-                         erstellt_von, status, eingereicht_am)
+                         erstellt_von, status, eingereicht_am, spieltyp)
     VALUES (@quelle, @externe_id, @typ, @titel, @titel_original, @igdb_url, @plattformen, @erscheinungsjahr, @hersteller, @cover_url, @beschreibung,
-            @erstellt_von, @status, CASE WHEN @status = 'eingereicht' THEN datetime('now') END)
+            @erstellt_von, @status, CASE WHEN @status = 'eingereicht' THEN datetime('now') END, @spieltyp)
     ON CONFLICT (quelle, externe_id) DO UPDATE SET
+      spieltyp = COALESCE(excluded.spieltyp, katalog.spieltyp),
       titel = excluded.titel, titel_original = excluded.titel_original, igdb_url = COALESCE(excluded.igdb_url, katalog.igdb_url), plattformen = excluded.plattformen, erscheinungsjahr = excluded.erscheinungsjahr,
       hersteller = excluded.hersteller, cover_url = excluded.cover_url, beschreibung = excluded.beschreibung,
       aktualisiert_am = datetime('now')
@@ -62,7 +67,8 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
   const lokaleSuche = db.prepare(`
     SELECT k.* FROM katalog k
     WHERE (k.titel LIKE @muster ESCAPE '\\' OR k.titel_original LIKE @muster ESCAPE '\\') AND (@typ IS NULL OR k.typ = @typ) AND ${SICHTBAR_SQL}
-    ORDER BY (k.erstellt_von = @benutzer) DESC, (k.quelle = 'eigen') DESC, (k.titel LIKE @anfang ESCAPE '\\') DESC, length(k.titel)
+    ORDER BY (k.erstellt_von = @benutzer) DESC, (k.quelle = 'eigen') DESC, (k.titel LIKE @anfang ESCAPE '\\') DESC,
+      (COALESCE(k.spieltyp, '') IN (${NEBENTYPEN_SQL})), length(k.titel)
     LIMIT 15`);
   const barcodeLesen = db.prepare('SELECT * FROM barcodes WHERE code = ?');
   const barcodeSchreiben = db.prepare(`
@@ -85,7 +91,7 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
   function speichere(eintrag) {
     const status = eintrag.status ?? (eintrag.quelle === 'igdb' ? 'freigegeben' : 'privat');
     const zeile = upsert.get({
-      erstellt_von: null, titel_original: null, igdb_url: null, erscheinungsjahr: null, hersteller: null, cover_url: null, beschreibung: null,
+      erstellt_von: null, titel_original: null, igdb_url: null, erscheinungsjahr: null, hersteller: null, cover_url: null, beschreibung: null, spieltyp: null,
       ...eintrag, status, plattformen: JSON.stringify(eintrag.plattformen ?? []),
     });
     // Manuell bearbeitete Einträge werden von Importen (IGDB) nicht überschrieben
@@ -273,7 +279,7 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
     const plattformName = produktname ? plattformImNamen(produktname) : null;
     const p = plattformName ? plattformen?.zuordnen(plattformName) : null;
     // Beste Übereinstimmung mit dem Produktnamen zuerst (Hauptspiel vor Editionen/Zusatzinhalten), dann passende Plattform
-    if (produktname) treffer = rangiereTreffer(treffer, suchbegriffe(produktname, 20), p?.name ?? null);
+    if (produktname) treffer = rangiereTreffer(treffer, suchbegriffe(produktname, 20), p?.name ?? null, NEBENTYPEN);
     return { code, produktname, quelle: bekannt?.quelle ?? null, suchbegriff, treffer, vorhandeneArtikel, fehler, plattform_id: p?.id ?? null, plattform: p?.name ?? null };
   }
 

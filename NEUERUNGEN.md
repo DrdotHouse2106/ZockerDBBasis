@@ -9,6 +9,10 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Hauptspiele vor Bundles und Zusatzinhalten
+- Der Katalog kennt jetzt den Spieltyp aus IGDB (Hauptspiel, Bundle, DLC, Remaster …) – bei zockerdb.de für alle Einträge aus dem Datenabzug nach dem Update automatisch nachgetragen, selbst gehostete Installationen erhalten ihn über zockerdb.de
+- Beim Barcode-Scan und in der Katalogsuche stehen Bundles, Pakete und Zusatzinhalte hinter dem Hauptspiel mit gleich gut passendem Titel; ein genau passendes Bundle (z. B. „Ezio Trilogy“) bleibt aber oben
+
 ## 30.09.2026 – Bessere Reihenfolge der Barcode-Treffer
 - Beim ersten Scan eines unbekannten Barcodes steht jetzt der Titel oben, der am besten zum Produktnamen passt – das Hauptspiel vor Editionen und Zusatzinhalten, die passende Plattform zuerst
 - Ab dem zweiten Scan eines Barcodes wird direkt über den gemerkten Barcode gefunden
