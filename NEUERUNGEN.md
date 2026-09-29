@@ -9,6 +9,11 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 29.09.2026 – Meine Systeme
+- Im Katalog erscheinen die gängigen Systeme (Standardsysteme); unter „Systeme auswählen“ legt jeder seine eigene Auswahl fest
+- „Alle Systeme zeigen“ blendet die übrigen ein; Systeme, von denen man etwas besitzt, sind immer dabei
+- Plattformen lassen sich in der Moderation als Standardsystem markieren; neue Plattformen ordnen vorhandene Katalogeinträge automatisch zu
+
 ## 29.09.2026 – Coverbilder wieder sichtbar
 - Behoben: Coverbilder von IGDB wurden nicht angezeigt, sobald die App im Offline-Zwischenspeicher lief
 

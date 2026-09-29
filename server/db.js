@@ -473,6 +473,12 @@ const MIGRATIONEN = [
     PRIMARY KEY (idee_id, benutzer_id)
   );
   `,
+  // 23: „Meine Systeme“ – Standardsysteme (für den deutschen Markt gängige Plattformen, vorausgewählt) und die
+  //     persönliche Auswahl je Benutzer (JSON-Liste von Plattform-IDs; NULL = Standardsysteme)
+  `
+  ALTER TABLE plattformen ADD COLUMN standard INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE benutzer ADD COLUMN meine_systeme TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

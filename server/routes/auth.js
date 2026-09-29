@@ -231,6 +231,12 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     if (perEmail !== undefined) {
       db.prepare('UPDATE benutzer SET benachrichtigung_email = ? WHERE id = ?').run(perEmail ? 1 : 0, req.benutzer.id);
     }
+    // „Meine Systeme“: Liste von Plattform-IDs oder null (= Standardsysteme)
+    if (req.body?.meine_systeme !== undefined) {
+      const ids = Array.isArray(req.body.meine_systeme)
+        ? [...new Set(req.body.meine_systeme.map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 500) : null;
+      db.prepare('UPDATE benutzer SET meine_systeme = ? WHERE id = ?').run(ids ? JSON.stringify(ids) : null, req.benutzer.id);
+    }
     if (anzeigename !== undefined) {
       db.prepare('UPDATE benutzer SET anzeigename = ? WHERE id = ?').run(String(anzeigename).trim().slice(0, 60) || null, req.benutzer.id);
     }

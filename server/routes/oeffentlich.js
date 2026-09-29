@@ -1,6 +1,7 @@
 // Katalog-Seiten, die – wenn PUBLIC_CATALOG aktiv ist – auch ohne Anmeldung erreichbar sind.
 // Enthält nur freigegebene, nicht personenbezogene Daten (plus eigene Daten, wenn angemeldet).
 import { Router } from 'express';
+import { meineSysteme } from '../services/plattformen.js';
 import { HERSTELLER_REIHENFOLGE } from '../../shared/konstanten.js';
 import { katalogZeileZuObjekt, SICHTBAR_SQL, sichtbarParameter, fuerBenutzer } from '../services/katalog.js';
 
@@ -27,7 +28,12 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
       : [];
     const katalogZahl = new Map(zaehler.map((z) => [z.id, z.eintraege]));
     const meineZahl = new Map(meine.map((z) => [z.id, z.stueck]));
-    const liste = plattformen.alle().map((p) => ({ ...p, katalog: katalogZahl.get(p.id) ?? 0, meine: meineZahl.get(p.id) ?? 0 }));
+    // „Meine Systeme“: eigene Auswahl oder Standardsysteme – Systeme, von denen man etwas besitzt, sind immer dabei
+    const auswahl = meineSysteme(req.benutzer);
+    const liste = plattformen.alle().map((p) => {
+      const meineStueck = meineZahl.get(p.id) ?? 0;
+      return { ...p, katalog: katalogZahl.get(p.id) ?? 0, meine: meineStueck, sichtbar: auswahl ? auswahl.has(p.id) || meineStueck > 0 : p.standard || meineStueck > 0 };
+    });
     liste.sort((a, b) => (HERSTELLER_REIHENFOLGE.indexOf(a.hersteller) + 1 || 99) - (HERSTELLER_REIHENFOLGE.indexOf(b.hersteller) + 1 || 99)
       || (a.erscheinungsjahr ?? 9999) - (b.erscheinungsjahr ?? 9999));
     res.json(liste);
