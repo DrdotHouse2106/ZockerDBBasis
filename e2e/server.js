@@ -16,6 +16,7 @@ const konfiguration = ladeKonfiguration({
   REGISTRATIONS_PER_HOUR: '1000',
   CAPTCHA_PROVIDER: 'aus',
   MARKET_MIN_ACCOUNT_DAYS: '0',
+  ZOCKERDB_CENTRAL: 'aus', // Browser-Tests (auch die Basis-Variante in der CI) melden sich nie bei zockerdb.de an
 });
 const { app } = erstelleApp(konfiguration, { db: oeffneDatenbank(konfiguration.datenbankPfad) });
 const server = app.listen(konfiguration.port, '127.0.0.1', () => console.log(`E2E-Server auf Port ${konfiguration.port}`));
