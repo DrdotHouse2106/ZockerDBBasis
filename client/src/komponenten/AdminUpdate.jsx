@@ -84,10 +84,16 @@ export default function AdminUpdate() {
           {meldung && <p className={phase === 'fehler' ? 'text-gefahr' : 'text-erfolg'} role="status">{meldung}</p>}
         </>
       ) : (
-        <p className="text-leise">
-          Update per Knopf ist nicht eingerichtet. Mit einem Watchtower-Container geht es ohne Kommandozeile –
-          Anleitung im README unter „Update per Knopf“. Ohne Watchtower: <code>docker compose pull && docker compose up -d</code>
-        </p>
+        <div className="space-y-1 text-leise">
+          <p>
+            Update per Knopf ist nicht eingerichtet. Mit einem Watchtower-Container geht es ohne Kommandozeile –
+            Anleitung im README unter „Update per Knopf“.
+          </p>
+          <p>Bis dahin von Hand per SSH – mit docker-compose:</p>
+          <code className="block overflow-x-auto rounded bg-flaeche p-2 text-xs whitespace-pre">docker compose pull && docker compose up -d</code>
+          <p>Einzelner Container (z. B. Plesk, Portainer) – lädt das neue Image und übernimmt alle Einstellungen:</p>
+          <code className="block overflow-x-auto rounded bg-flaeche p-2 text-xs whitespace-pre">{'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\\n  -v /root/.docker/config.json:/config.json:ro \\\n  nickfedor/watchtower --run-once --cleanup zockerdb'}</code>
+        </div>
       )}
     </section>
   );
