@@ -132,6 +132,18 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
     return { treffer, mehrOnline: Boolean(r.mehrOnline), seite: Number.isInteger(r.seite) ? r.seite : null };
   }
 
+  /** Releasekalender von zockerdb.de: Termine mit Katalogeintrag (Format wie bei der Suche). */
+  async function kalender({ von, bis }) {
+    const r = await anfrage(`/api/zentral/kalender${abfrage({ von, bis })}`);
+    const TAG = /^\d{4}-\d{2}-\d{2}$/;
+    return (Array.isArray(r.termine) ? r.termine : []).slice(0, 5000).map((t) => {
+      const eintrag = zentralZuEintrag(t.eintrag);
+      if (!eintrag || !TAG.test(String(t.datum ?? ''))) return null;
+      const kurz = (w, n) => (typeof w === 'string' && w.trim() ? w.trim().slice(0, n) : null);
+      return { eintrag, datum: t.datum, plattform: kurz(t.plattform, 100), region: kurz(t.region, 40), text: kurz(t.text, 60) };
+    }).filter(Boolean);
+  }
+
   async function barcode(code) {
     const r = await anfrage(`/api/zentral/barcode/${encodeURIComponent(code)}`);
     return {
@@ -307,6 +319,6 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
     setzeKatalog(dienst) { katalog = dienst; },
     /** Merker für Hinweise in der Administration (gefragt, weggeklickt). */
     merkeHinweis(schluessel) { schreibe('zentrale_hinweise', { ...(lies('zentrale_hinweise') ?? {}), [schluessel]: new Date().toISOString() }); },
-    anfrage, roh, suche, barcode, abgleich, einreichen, pruefeEinreichungen, spendeDaten, spende, statistik, pruefeVersion, lauf, status,
+    anfrage, roh, suche, kalender, barcode, abgleich, einreichen, pruefeEinreichungen, spendeDaten, spende, statistik, pruefeVersion, lauf, status,
   };
 }

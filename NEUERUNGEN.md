@@ -9,6 +9,13 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 29.09.2026 – Releasekalender „Erscheint demnächst“
+- Neue Seite „Erscheint demnächst“ (Mehr → Erscheint demnächst, am Desktop „Kalender“): Termine nach Monat, für deine Systeme, einzelne Plattform oder alle
+- Umschalter „Kürzlich erschienen“, Zeitraum 30 Tage / 4 Monate / 1 Jahr; europäische bzw. weltweite Termine werden bevorzugt
+- Auf der Sammlungsseite oben eine einklappbare Reihe „Erscheint demnächst“
+- Installationen mit Verbindung zu zockerdb.de holen die Termine von dort; die Titel landen dabei im eigenen Katalog
+- „Mehr“: Der Serverstatus ist nur noch für Admins sichtbar
+
 ## 29.09.2026 – Kamera-Hinweis für iPhone
 - Der Barcode-Scanner erklärt auf iPhone/iPad, warum iOS nach der Kamera fragt und wie man sie in Safari dauerhaft erlaubt
 

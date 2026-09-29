@@ -18,10 +18,11 @@ const NAVIGATION = [
 // Zusätzliche Einträge nur in der Desktop-Navigation
 const NUR_DESKTOP = [
   { pfad: '/katalog', label: 'Katalog', symbol: 'suche' },
+  { pfad: '/kalender', label: 'Kalender', symbol: 'kalender' },
   ...(MODUL.desktop ?? []),
 ];
 
-const MEHR_PFADE = ['/einstellungen', '/konto', '/statistik', '/admin', '/druck', '/katalog', '/seite', '/konvolute', '/ideen', ...(MODUL.mehrPfade ?? [])];
+const MEHR_PFADE = ['/einstellungen', '/konto', '/statistik', '/admin', '/druck', '/katalog', '/seite', '/konvolute', '/ideen', '/kalender', ...(MODUL.mehrPfade ?? [])];
 
 function istAktiv(eintrag, route) {
   if (eintrag.pfad === '/') return route.pfad === '/' || route.pfad.startsWith('/artikel');

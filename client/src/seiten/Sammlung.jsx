@@ -6,6 +6,10 @@ import Layout from '../komponenten/Layout.jsx';
 import ArtikelKarte from '../komponenten/ArtikelKarte.jsx';
 import { SpendeFrage } from '../komponenten/Zockerdb.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
+import { spaeter } from '../spaeter.js';
+import { Andockpunkt } from '../erweiterungen.jsx';
+
+const DemnaechstVorschau = spaeter(() => import('./Kalender.jsx'), 'DemnaechstVorschau');
 
 const SORTIERUNGEN = [
   { value: 'neueste', label: 'Zuletzt hinzugefügt' },
@@ -66,6 +70,8 @@ export default function Sammlung({ route }) {
     <Layout route={route} titel="Meine Sammlung">
       <div className="space-y-3">
         <SpendeFrage />
+        <DemnaechstVorschau />
+        <Andockpunkt name="sammlung.oben" />
         <div className="flex gap-2">
           <label className="relative flex-1">
             <span className="sr-only">Sammlung durchsuchen</span>

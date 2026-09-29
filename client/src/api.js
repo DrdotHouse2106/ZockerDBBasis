@@ -141,6 +141,7 @@ export const api = {
   adminZentraleLauf: (spende) => anfrage('/api/admin/zentrale/lauf', { methode: 'POST', daten: { spende } }),
   speicher: () => anfrage('/api/konto/speicher'),
   kontoAendern: (daten) => anfrage('/api/konto', { methode: 'PUT', daten }),
+  kalender: (p) => anfrage(`/api/kalender${abfrage(p)}`),
   passwortAendern: (daten) => anfrage('/api/konto/passwort', { methode: 'POST', daten }),
   ueberallAbmelden: () => anfrage('/api/konto/abmelden-ueberall', { methode: 'POST', daten: {} }),
   kontoLoeschen: (passwort) => anfrage('/api/konto', { methode: 'DELETE', daten: { passwort } }),

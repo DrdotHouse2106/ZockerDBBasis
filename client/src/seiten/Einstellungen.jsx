@@ -50,6 +50,7 @@ export default function Einstellungen({ route }) {
           {[
             ['#/konto', 'benutzer', 'Konto & Sicherheit', benutzer?.totp_aktiv ? 'Passwort, 2FA aktiv, Sichtbarkeit' : 'Passwort, Zwei-Faktor-Anmeldung, Sichtbarkeit'],
             ['#/katalog', 'suche', 'Katalog', 'Alle Spiele, Konsolen & Zubehör nach Plattform'],
+            ['#/kalender', 'kalender', 'Erscheint demnächst', 'Releasekalender für deine Systeme'],
             // Einträge von Zusatzmodulen
             ...(MODUL.menue ?? []).filter((m) => !m.sichtbar || m.sichtbar({ auth, benutzer })).map((m) => [m.href, m.symbol, m.titel, m.text]),
             ['#/statistik', 'statistik', 'Statistik', 'Verteilung nach Plattform, Region, Zustand'],
@@ -72,8 +73,13 @@ export default function Einstellungen({ route }) {
           </button>
         </nav>
 
+        {/* Serverstatus nur für die Administration – andere sehen nur Hinweise, die sie selbst betreffen */}
+        {benutzer?.rolle !== 'admin' && !window.isSecureContext && (
+          <p className="karte p-4 text-sm text-warnung">Der Barcode-Scanner braucht eine sichere Verbindung (HTTPS) – über diese Adresse ist die Kamera nicht verfügbar.</p>
+        )}
+        {benutzer?.rolle === 'admin' && (
         <section className="karte space-y-2 p-4">
-          <h2 className="font-semibold">Serverstatus</h2>
+          <h2 className="font-semibold">Serverstatus <span className="text-xs font-normal text-leise">· nur für Admins sichtbar</span></h2>
           <Zeile label="Online-Suche (IGDB)" ok={status?.igdbKonfiguriert}
             text={status?.igdbKonfiguriert ? 'Aktiv' : 'Nicht eingerichtet – TWITCH_CLIENT_ID/SECRET in .env setzen'} />
           <Zeile label="Barcode-Datenbanken" ok={status?.barcodeAnbieter?.length > 0}
@@ -85,6 +91,7 @@ export default function Einstellungen({ route }) {
             text={window.isSecureContext ? 'Verfügbar (sichere Verbindung)' : 'Nur über HTTPS verfügbar'} />
           {status?.version && <p className="pt-1 text-xs text-leise">Version {status.version}</p>}
         </section>
+        )}
 
         <section className="karte space-y-3 p-4">
           <h2 className="font-semibold">Datensicherung</h2>
