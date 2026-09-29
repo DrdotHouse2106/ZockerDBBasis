@@ -26,7 +26,22 @@ export function pruefeIdee(eingabe = {}) {
   return { titel, beschreibung, bereich: BEREICHE.includes(eingabe.bereich) ? eingabe.bereich : 'sonstiges' };
 }
 
-export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen }) {
+export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen, erweiterungen }) {
+  const stimmenVon = (id) => db.prepare('SELECT COUNT(*) FROM ideen_stimmen WHERE idee_id = ?').pluck().get(id) + 1;
+
+  /**
+   * Neue Idee auf dem Brett: Administratoren benachrichtigen (App, Push bzw. E-Mail je nach ihren Einstellungen) und
+   * Andockpunkt „idee.neu“ melden (z. B. GitHub-Issue anlegen).
+   */
+  function neueIdee(id) {
+    const i = db.prepare('SELECT * FROM ideen WHERE id = ?').get(id);
+    if (!i) return;
+    for (const admin of db.prepare("SELECT id FROM benutzer WHERE rolle = 'admin' AND gesperrt = 0").pluck().all()) {
+      if (admin === i.benutzer_id) continue;
+      benachrichtigungen?.sende(admin, { art: 'system', titel: `Neue Idee: „${i.titel}“`, text: i.beschreibung?.slice(0, 200) ?? null, link: '#/ideen' });
+    }
+    erweiterungen?.melde('idee.neu', { ...i, stimmen: 1 });
+  }
   /** 'brett' = hier wird entschieden und abgestimmt; 'zentrale' = weiter an zockerdb.de; null = nicht verfügbar. */
   const modus = () => (katalog.moderiert() ? 'brett' : zentrale?.aktiv ? 'zentrale' : null);
 
@@ -43,8 +58,11 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen 
   /** Brett: alle Ideen (beliebteste zuerst); selbst gehostet: nur die eigenen. */
   function alle(benutzer) {
     const bedingung = modus() === 'brett' ? '' : 'WHERE i.benutzer_id = @b';
-    return db.prepare(`${liste.source} ${bedingung} ORDER BY CASE i.status WHEN 'umgesetzt' THEN 1 WHEN 'abgelehnt' THEN 2 ELSE 0 END, stimmen DESC, i.id DESC LIMIT 500`)
+    const liste2 = db.prepare(`${liste.source} ${bedingung} ORDER BY CASE i.status WHEN 'umgesetzt' THEN 1 WHEN 'abgelehnt' THEN 2 ELSE 0 END, stimmen DESC, i.id DESC LIMIT 500`)
       .all({ b: benutzer.id }).map((i) => objekt(i, benutzer));
+    // Andockpunkt „ideen.zusatz“: { [id]: { … } } – z. B. Link zum GitHub-Issue
+    const zusatz = erweiterungen?.sammle('ideen.zusatz', liste2.map((i) => i.id)) ?? {};
+    return liste2.map((i) => ({ ...i, ...(zusatz[i.id] ?? {}) }));
   }
 
   /** Ähnliche offene Ideen zum eingegebenen Titel – lieber dafür stimmen als doppelt einreichen. */
@@ -73,6 +91,7 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen 
     }
     const i = db.prepare(`INSERT INTO ideen (benutzer_id, titel, beschreibung, bereich, zentral_id) VALUES (?, ?, ?, ?, ?) RETURNING id`)
       .get(benutzer.id, d.titel, d.beschreibung, d.bereich, zentralId);
+    if (m === 'brett') neueIdee(i.id);
     return { ...hole(i.id, benutzer), ziel: m === 'brett' ? 'hier' : 'zockerdb.de' };
   }
 
@@ -89,6 +108,7 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen 
     if (i.eigene) throw new KontoFehler('Deine eigene Idee zählt schon mit.', 409);
     if (i.gestimmt) db.prepare('DELETE FROM ideen_stimmen WHERE idee_id = ? AND benutzer_id = ?').run(i.id, benutzer.id);
     else db.prepare('INSERT OR IGNORE INTO ideen_stimmen (idee_id, benutzer_id) VALUES (?, ?)').run(i.id, benutzer.id);
+    erweiterungen?.melde('idee.stimme', { id: i.id, stimmen: stimmenVon(i.id) });
     return hole(i.id, benutzer);
   }
 
@@ -99,6 +119,7 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen 
     if (!STATUS.includes(status)) throw new ValidierungsFehler({ status: 'Unbekannter Stand.' });
     const text = String(antwort ?? '').trim().slice(0, 2000) || null;
     db.prepare("UPDATE ideen SET status = ?, antwort = ?, geaendert_am = datetime('now') WHERE id = ?").run(status, text, i.id);
+    if (status !== i.status && admin.id) erweiterungen?.melde('idee.entschieden', { id: i.id, status, antwort: text });
     if (status !== i.status && status !== 'neu') {
       const empfaenger = new Set([i.benutzer_id, ...db.prepare('SELECT benutzer_id FROM ideen_stimmen WHERE idee_id = ?').all(i.id).map((s) => s.benutzer_id)]);
       empfaenger.delete(null);
@@ -123,7 +144,9 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen 
     const d = pruefeIdee(eingabe);
     const heute = db.prepare("SELECT COUNT(*) AS n FROM ideen WHERE instanz_id = ? AND erstellt_am >= datetime('now', '-1 day')").get(instanzId).n;
     if (heute >= 50) throw new KontoFehler('Heute wurden schon genug Ideen eingereicht.', 429);
-    return db.prepare('INSERT INTO ideen (instanz_id, titel, beschreibung, bereich) VALUES (?, ?, ?, ?) RETURNING id').get(instanzId, d.titel, d.beschreibung, d.bereich);
+    const neu = db.prepare('INSERT INTO ideen (instanz_id, titel, beschreibung, bereich) VALUES (?, ?, ?, ?) RETURNING id').get(instanzId, d.titel, d.beschreibung, d.bereich);
+    neueIdee(neu.id);
+    return neu;
   }
 
   /** Selbst gehostet: Stand der eigenen Ideen bei zockerdb.de abfragen und Einreicher benachrichtigen. */

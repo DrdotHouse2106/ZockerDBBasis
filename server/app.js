@@ -93,7 +93,7 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const vorschlaege = erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattformen, benachrichtigungen });
   // Fotos zu Vorschlägen: nur für Einsender und Moderationsteam
   erweiterungen.an('dateien.zugriff', (b, datei) => vorschlaege.darfSehen(b, datei));
-  const ideen = erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen });
+  const ideen = erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen, erweiterungen });
   const sync = erstelleSyncDienst(db, { zentrale, katalog, schluessel, dateien, speicher, plattformen, erweiterungen });
   const steam = erstelleSteamDienst(db, { konfiguration, fetchFn, katalog, plattformen });
   const verleih = erstelleVerleihDienst(db, { benachrichtigungen });

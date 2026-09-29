@@ -2,10 +2,12 @@
 import { Router } from 'express';
 import { IDEEN_BEREICHE, IDEEN_STATUS } from '../services/ideen.js';
 
-export function ideenRouter({ ideen }) {
+export function ideenRouter({ ideen, erweiterungen }) {
   const router = Router();
   router.get('/ideen', (req, res) => res.json({
     modus: ideen.modus(), bereiche: IDEEN_BEREICHE, status: IDEEN_STATUS, ideen: ideen.modus() ? ideen.alle(req.benutzer) : [],
+    // Zusatzmodule: z. B. { github: true }, wenn Ideen als GitHub-Issue veröffentlicht werden
+    ...(ideen.modus() === 'brett' ? erweiterungen?.sammle('ideen.info') ?? {} : {}),
   }));
   router.get('/ideen/aehnliche', (req, res) => res.json(ideen.aehnliche(req.query.q, req.benutzer)));
   router.post('/ideen', async (req, res) => res.status(201).json(await ideen.einreichen(req.benutzer, req.body)));

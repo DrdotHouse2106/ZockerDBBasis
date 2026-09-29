@@ -70,6 +70,7 @@ export default function Ideen({ route }) {
                     </div>
                     {i.beschreibung && <p className="text-sm whitespace-pre-line">{i.beschreibung}</p>}
                     {i.antwort && <p className="rounded-lg bg-karte-hover p-2 text-sm"><strong>Antwort:</strong> {i.antwort}</p>}
+                    {i.github && <a href={i.github.url} target="_blank" rel="noopener noreferrer" className="text-xs text-akzent-hell underline">Auf GitHub verfolgen (#{i.github.nummer}) ↗</a>}
                     <p className="text-xs text-leise">{i.eigene ? 'Deine Idee' : i.von ? `von ${i.von}` : ''} · {datumDe(i.erstellt_am?.slice(0, 10))}</p>
                     {benutzer?.rolle === 'admin' && brett && <Entscheiden idee={i} status={d.status} onFertig={ersetze} />}
                     {(i.eigene && i.status === 'neu') || (benutzer?.rolle === 'admin' && brett) ? (
@@ -159,6 +160,12 @@ function NeueIdee({ d, brett, onNeu, onStimme }) {
           {d.bereiche.map(([wert, label]) => <option key={wert} value={wert}>{label}</option>)}
         </select>
       </label>
+      {d.github && (
+        <p className="text-xs text-leise">
+          Ideen werden auch als öffentliches Issue auf GitHub veröffentlicht (Titel, Beschreibung, Bereich, Stimmen – ohne deinen Namen).
+          Bitte keine persönlichen Daten in den Text schreiben.
+        </p>
+      )}
       {fehler.allgemein && <p className="text-sm text-gefahr" role="alert">{fehler.allgemein}</p>}
       <div className="flex flex-wrap gap-2">
         <button type="submit" className="knopf-primaer" disabled={sendet}>{sendet ? 'Wird gesendet …' : 'Idee einreichen'}</button>
