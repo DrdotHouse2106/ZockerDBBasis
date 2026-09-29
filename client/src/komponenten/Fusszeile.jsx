@@ -1,9 +1,13 @@
 // Links zu Impressum, Datenschutz, Nutzungsbedingungen und Sicherheit – auf jeder Seite.
+import { MODUL } from '../erweiterungen.jsx';
+
 export default function Fusszeile({ className = '' }) {
   const links = [
     ['impressum', 'Impressum'],
     ['datenschutz', 'Datenschutz'],
     ['nutzungsbedingungen', 'Nutzungsbedingungen'],
+    // Weitere Seiten von Zusatzmodulen (z. B. Widerrufsbelehrung)
+    ...(MODUL.fusszeilenLinks ?? []),
     ['sicherheit', 'Sicherheitslücke melden'],
   ];
   return (

@@ -39,7 +39,8 @@ test('Registrierung verlangt die Zustimmung zu den Nutzungsbedingungen', async (
 test('Rechtliche Seiten: öffentlich lesbar, nur vom Admin änderbar', async () => {
   const gast = server.client();
   const liste = (await gast.api('/api/seiten')).json;
-  assert.deepEqual(liste.map((s) => s.slug), ['impressum', 'datenschutz', 'nutzungsbedingungen', 'sicherheit']);
+  // Zusatzmodule können weitere Seiten mitbringen (z. B. Widerrufsbelehrung)
+  for (const slug of ['impressum', 'datenschutz', 'nutzungsbedingungen', 'sicherheit']) assert.ok(liste.some((s) => s.slug === slug), slug);
   assert.match((await gast.api('/api/seiten/datenschutz')).json.inhalt, /DSGVO/);
   assert.equal((await moni.api('/api/admin/seiten/impressum', { methode: 'PUT', daten: { titel: 'X', inhalt: 'Y' } })).status, 403);
   const neu = (await admin.api('/api/admin/seiten/impressum', { methode: 'PUT', daten: { titel: 'Impressum', inhalt: '# Impressum\n\nMax Muster' } })).json;
