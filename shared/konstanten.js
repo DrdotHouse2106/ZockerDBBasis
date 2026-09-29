@@ -111,6 +111,8 @@ export const BESTAND = [
   { value: 'besitz', label: 'Im Besitz', kurz: 'Im Besitz' },
   { value: 'verkauft', label: 'Verkauft', kurz: 'Verkauft' },
   { value: 'abgegeben', label: 'Verschenkt / getauscht', kurz: 'Abgegeben' },
+  // Digital (z. B. Steam-Import): deutlich gekennzeichnet, zählt nicht zur Sammlung und zum Sammlungswert
+  { value: 'digital', label: 'Digital', kurz: 'Digital' },
 ];
 
 /**

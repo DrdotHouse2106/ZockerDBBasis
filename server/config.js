@@ -63,6 +63,10 @@ export function ladeKonfiguration(env = process.env) {
         : /^[\w.-]+\/[\w.-]+$/.test(String(env.UPDATE_CHECK_REPO ?? '').trim()) ? String(env.UPDATE_CHECK_REPO).trim() : 'DrdotHouse2106/ZockerDBBasis',
       githubToken: String(env.UPDATE_GITHUB_TOKEN ?? '').trim(),
     },
+    // Steam-Import der eigenen Bibliothek (Schlüssel: https://steamcommunity.com/dev/apikey)
+    steam: {
+      apiKey: (env.STEAM_API_KEY || '').trim(),
+    },
     igdb: {
       clientId: (env.TWITCH_CLIENT_ID || '').trim(),
       clientSecret: (env.TWITCH_CLIENT_SECRET || '').trim(),

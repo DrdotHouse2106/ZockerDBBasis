@@ -50,7 +50,8 @@ export default function Sammlung({ route }) {
   }, []);
 
   const aktiveFilter = ['region', 'zustand', 'vollstaendigkeit', 'herkunft', 'ohne_preis'].filter((f) => filter[f]).length;
-  const weg = Boolean(filter.bestand && filter.bestand !== 'besitz');
+  const weg = ['weg', 'verkauft', 'abgegeben', 'alle'].includes(filter.bestand);
+  const digital = filter.bestand === 'digital';
 
   // Mehrere Exemplare/Varianten desselben Katalogeintrags zu einer Karte zusammenfassen
   const karten = [];
@@ -65,7 +66,7 @@ export default function Sammlung({ route }) {
       gruppen.get(schluessel).exemplare += 1;
     }
   }
-  const hatFilter = Boolean(filter.typ || filter.q || filter.plattform_id || aktiveFilter || weg);
+  const hatFilter = Boolean(filter.typ || filter.q || filter.plattform_id || aktiveFilter || weg || digital);
 
   return (
     <Layout route={route} titel="Meine Sammlung">
@@ -121,14 +122,24 @@ export default function Sammlung({ route }) {
             title="Verkaufte, verschenkte und getauschte Exemplare">
             Verkauft & abgegeben
           </button>
+          <button type="button" className={filter.bestand === 'digital' ? 'chip-aktiv' : 'chip'}
+            onClick={() => setzeFilter({ bestand: filter.bestand === 'digital' ? undefined : 'digital' })} title="Digitale Spiele, z. B. aus Steam">
+            Digital
+          </button>
         </div>
+        {digital && (
+          <p className="rounded-xl bg-karte-hover p-3 text-sm text-leise">
+            Digitale Spiele (z. B. aus deiner Steam-Bibliothek) – deutlich gekennzeichnet, sie zählen nicht zur Sammlung und zum Sammlungswert.
+            Importieren und aktualisieren unter <a href="#/import" className="underline">Import</a>.
+          </p>
+        )}
         {weg && (
           <p className="rounded-xl bg-karte-hover p-3 text-sm text-leise">
             Nicht mehr in deinem Besitz – zählt weder zur Sammlung noch zum Sammlungswert. Erlöse und Gewinn/Verlust siehst du in der{' '}
             <a href="#/statistik" className="underline">Statistik</a>.
             <select className="eingabe mt-2 w-auto py-1 text-sm" value={filter.bestand} onChange={(e) => setzeFilter({ bestand: e.target.value })} aria-label="Bestand">
               <option value="weg">Verkauft und abgegeben</option>
-              {BESTAND.filter((b) => b.value !== 'besitz').map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+              {BESTAND.filter((b) => !['besitz', 'digital'].includes(b.value)).map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
               <option value="alle">Alle (auch im Besitz)</option>
             </select>
           </p>

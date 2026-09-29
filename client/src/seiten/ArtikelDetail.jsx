@@ -8,6 +8,7 @@ import { euro, datumDe, euroMitVorzeichen } from '../format.js';
 import Layout from '../komponenten/Layout.jsx';
 import Cover from '../komponenten/Cover.jsx';
 import Abzeichen from '../komponenten/Abzeichen.jsx';
+import { digitalBand } from '../komponenten/ArtikelKarte.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import Scans from '../komponenten/Scans.jsx';
@@ -42,7 +43,7 @@ function AbgangDialog({ artikel, onFertig }) {
       <form onSubmit={speichern} className="karte w-full max-w-md space-y-3 p-4">
         <h2 id="abgang-titel" className="text-lg font-semibold">Nicht mehr in der Sammlung</h2>
         <div className="flex gap-2">
-          {BESTAND.filter((b) => b.value !== 'besitz').map((b) => (
+          {BESTAND.filter((b) => ['verkauft', 'abgegeben'].includes(b.value)).map((b) => (
             <button key={b.value} type="button" className={bestand === b.value ? 'chip-aktiv' : 'chip'} onClick={() => setBestand(b.value)}>{b.label}</button>
           ))}
         </div>
@@ -172,8 +173,11 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
       : eigener && artikel.herkunft ? 'unbekannt' : null],
     ['Marktwert', artikel.marktwert != null ? `${euro(artikel.marktwert)} (eigene Schätzung)` : null],
     ['Kaufdatum', artikel.kaufdatum ? datumDe(artikel.kaufdatum) : null],
-    ['Bestand', artikel.bestand && artikel.bestand !== 'besitz'
-      ? `${beschriftung(BESTAND, artikel.bestand)}${artikel.abgang_am ? ` am ${datumDe(artikel.abgang_am)}` : ''}` : null],
+    ['Bestand', artikel.bestand === 'digital'
+      ? `Digital${artikel.digital_quelle === 'steam' ? ' (Steam-Bibliothek)' : ''} – zählt nicht zur Sammlung`
+      : artikel.bestand && artikel.bestand !== 'besitz'
+        ? `${beschriftung(BESTAND, artikel.bestand)}${artikel.abgang_am ? ` am ${datumDe(artikel.abgang_am)}` : ''}` : null],
+    ['Spielzeit', artikel.spielzeit_minuten ? `${Math.floor(artikel.spielzeit_minuten / 60)} Std. ${artikel.spielzeit_minuten % 60} Min.` : null],
     ['Verkaufspreis', artikel.verkaufspreis != null ? `${euro(artikel.verkaufspreis)}${artikel.anzahl > 1 ? ' je Stück' : ''}` : null],
     ['Gewinn/Verlust', artikel.verkaufspreis != null && artikel.kaufpreis != null
       ? euroMitVorzeichen((artikel.verkaufspreis - artikel.kaufpreis) * artikel.anzahl) : null],
@@ -194,7 +198,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     >
       <div className="mx-auto grid max-w-4xl grid-cols-1 gap-6 md:grid-cols-[18rem_minmax(0,1fr)]">
         <div className="space-y-3">
-          <Cover url={artikel.bild_url} typ={artikel.typ} alt={artikel.titel} className="mx-auto aspect-[3/4] w-2/3 rounded-2xl border border-rand md:w-full" />
+          <Cover url={artikel.bild_url} typ={artikel.typ} alt={artikel.titel} className="mx-auto aspect-[3/4] w-2/3 rounded-2xl border border-rand md:w-full" band={digitalBand(artikel)} />
           {eigener && <div className="flex justify-center gap-2">
             <label className={`knopf-sekundaer cursor-pointer px-3 py-1.5 ${laedtBild ? 'opacity-50' : ''}`}>
               <Symbol name="kamera" className="size-4" />
@@ -247,9 +251,8 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
               )}
               {artikel.katalog_status && artikel.katalog_status !== 'freigegeben' && <StatusAbzeichen status={artikel.katalog_status} />}
               <Andockpunkt name="artikel.aktionen" artikel={artikel} katalogDaten={katalogDaten} />
-              {artikel.bestand === 'besitz'
-                ? <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setAbgangOffen(true)}>Verkauft / abgegeben …</button>
-                : <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={zurueckInSammlung}>Zurück in die Sammlung</button>}
+              {artikel.bestand === 'besitz' && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setAbgangOffen(true)}>Verkauft / abgegeben …</button>}
+              {['verkauft', 'abgegeben'].includes(artikel.bestand) && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={zurueckInSammlung}>Zurück in die Sammlung</button>}
             </div>
           )}
           {abgangOffen && (

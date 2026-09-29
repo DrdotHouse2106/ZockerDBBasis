@@ -31,7 +31,9 @@ export function statistikRouter({ db }) {
         COALESCE(SUM(CASE WHEN verkaufspreis IS NOT NULL AND kaufpreis IS NOT NULL THEN (verkaufspreis - kaufpreis) * anzahl END), 0) AS gewinn
       FROM artikel WHERE benutzer_id = ? AND bestand = 'verkauft' GROUP BY jahr ORDER BY jahr DESC`).all(req.benutzer.id);
     const abgegeben = db.prepare("SELECT COALESCE(SUM(anzahl), 0) AS stueck FROM artikel WHERE benutzer_id = ? AND bestand = 'abgegeben'").get(req.benutzer.id).stueck;
+    const digital = db.prepare("SELECT COUNT(*) AS eintraege, COALESCE(SUM(spielzeit_minuten), 0) AS minuten FROM artikel WHERE benutzer_id = ? AND bestand = 'digital'").get(req.benutzer.id);
     res.json({
+      digital,
       verkauf: { ...verkauf, jahre: verkaufJahre, abgegeben },
       gesamt,
       nachTyp: gruppiert('typ'),

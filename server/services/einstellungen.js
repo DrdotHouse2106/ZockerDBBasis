@@ -67,6 +67,8 @@ export const EINSTELLUNGEN = [
   { schluessel: 'TWITCH_CLIENT_SECRET', gruppe: 'Spieledaten (IGDB) & Barcodes', titel: 'Twitch Client-Secret (IGDB)', typ: 'geheim', sicher: true },
   { schluessel: 'BARCODE_PROVIDERS', gruppe: 'Spieledaten (IGDB) & Barcodes', titel: 'Barcode-Dienste', typ: 'text', platzhalter: 'opengtindb,upcitemdb',
     hinweis: 'Kommagetrennt, Reihenfolge = Abfragereihenfolge.' },
+  { schluessel: 'STEAM_API_KEY', gruppe: 'Spieledaten (IGDB) & Barcodes', titel: 'Steam-API-Schlüssel (Import der Steam-Bibliothek)', typ: 'geheim', sicher: true,
+    hinweis: 'Kostenlos unter steamcommunity.com/dev/apikey (mit Steam-Konto anmelden, Domain angeben). Ohne Schlüssel ist der Steam-Import ausgeblendet.' },
   { schluessel: 'OPENGTINDB_QUERYID', gruppe: 'Spieledaten (IGDB) & Barcodes', titel: 'OpenGTINDB-Query-ID', typ: 'geheim', sicher: true },
 ];
 

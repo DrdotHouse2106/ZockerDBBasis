@@ -1,6 +1,9 @@
 import Cover from './Cover.jsx';
 import Abzeichen from './Abzeichen.jsx';
 
+/** Schriftzug für digitale Spiele (Steam-Import): „DIGITAL · STEAM“. */
+export const digitalBand = (a) => (a?.bestand === 'digital' ? `Digital${a.digital_quelle === 'steam' ? ' · Steam' : ''}` : null);
+
 export default function ArtikelKarte({ artikel, href, exemplare }) {
   const variante = [artikel.edition, artikel.farbe, artikel.modellnummer].filter(Boolean).join(' · ');
   return (
@@ -8,7 +11,7 @@ export default function ArtikelKarte({ artikel, href, exemplare }) {
       href={href ?? `#/artikel/${artikel.id}`}
       className="karte group flex flex-col overflow-hidden transition hover:border-akzent/60 hover:bg-karte-hover"
     >
-      <Cover url={artikel.bild_url} typ={artikel.typ} alt={artikel.titel} className="aspect-[3/4] w-full" />
+      <Cover url={artikel.bild_url} typ={artikel.typ} alt={artikel.titel} className="aspect-[3/4] w-full" band={digitalBand(artikel)} />
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         <h3 className="line-clamp-2 text-sm leading-snug font-semibold">{artikel.titel}</h3>
         {artikel.plattform && (
@@ -17,13 +20,13 @@ export default function ArtikelKarte({ artikel, href, exemplare }) {
             <span className="truncate">{artikel.plattform}</span>
           </p>
         )}
-        {artikel.bestand && artikel.bestand !== 'besitz' && (
+        {artikel.bestand && !['besitz', 'digital'].includes(artikel.bestand) && (
           <p className="text-xs font-semibold text-warnung">
             {artikel.bestand === 'verkauft' ? 'Verkauft' : 'Abgegeben'}{artikel.abgang_am ? ` am ${artikel.abgang_am.split('-').reverse().join('.')}` : ''}
           </p>
         )}
         {exemplare > 1
-          ? <p className="text-xs font-semibold text-akzent-hell">{exemplare} Exemplare / Varianten</p>
+          ? <p className="text-xs font-semibold text-akzent-hell">{exemplare} {artikel.bestand === 'digital' ? 'Einträge' : 'Exemplare / Varianten'}</p>
           : variante && <p className="truncate text-xs text-akzent-hell">{variante}</p>}
         <div className="mt-auto pt-1">
           <Abzeichen artikel={artikel} />

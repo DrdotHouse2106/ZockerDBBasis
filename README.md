@@ -92,6 +92,7 @@ Viele Werte lassen sich zusätzlich unter *Administration → Einstellungen* än
 | `ZOCKERDB_CENTRAL` | `https://zockerdb.de` | Zentraler Katalog für Suche und Barcodes; `aus` = nur eigener IGDB-Zugang |
 | `ZOCKERDB_DONATE` | `false` | Anonyme Datenspende an zockerdb.de (nur Anzahlen je Titel) |
 | `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` | – | Eigener IGDB-Zugang – nur mit `ZOCKERDB_CENTRAL=aus` nötig (siehe unten) |
+| `STEAM_API_KEY` | – | Optional: Import der Steam-Bibliothek als digitale Spiele (Schlüssel unter steamcommunity.com/dev/apikey) |
 | `BARCODE_PROVIDERS` | `opengtindb,upcitemdb` | Barcode-Datenbanken in Abfragereihenfolge; leer = nur gelernte Barcodes |
 | `OPENGTINDB_QUERYID` | – | Zugangsnummer für [opengtindb.org](https://opengtindb.org) |
 | `STORAGE_QUOTA_MB` | `1024` | Speicher je Benutzer für Fotos und Scans (`0` = unbegrenzt) |

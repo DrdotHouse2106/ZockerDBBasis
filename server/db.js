@@ -492,6 +492,15 @@ const MIGRATIONEN = [
   `
   ALTER TABLE katalog ADD COLUMN regionen TEXT;
   `,
+  // 26: Digitale Spiele (Steam-Import): eigener Bestand „digital“ mit Herkunft und Spielzeit; Steam-Profil je Benutzer
+  `
+  ALTER TABLE artikel ADD COLUMN digital_quelle TEXT;          -- z. B. steam
+  ALTER TABLE artikel ADD COLUMN digital_id TEXT;              -- ID bei der Quelle (Steam: App-ID)
+  ALTER TABLE artikel ADD COLUMN spielzeit_minuten INTEGER;
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_artikel_digital ON artikel (benutzer_id, digital_quelle, digital_id) WHERE digital_id IS NOT NULL;
+  ALTER TABLE benutzer ADD COLUMN steam_id TEXT;
+  ALTER TABLE benutzer ADD COLUMN steam_import_am TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

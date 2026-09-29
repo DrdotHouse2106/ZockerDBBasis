@@ -94,10 +94,10 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     const parameter = { benutzer_id: req.benutzer.id };
     // Standard: nur, was man besitzt; „bestand=verkauft|abgegeben|weg|alle“ zeigt die übrigen
     const bestand = String(req.query.bestand ?? 'besitz');
-    if (bestand === 'weg') bedingungen.push("a.bestand <> 'besitz'");
+    if (bestand === 'weg') bedingungen.push("a.bestand IN ('verkauft', 'abgegeben')");
     else if (bestand !== 'alle') {
       bedingungen.push('a.bestand = @bestand');
-      parameter.bestand = ['besitz', 'verkauft', 'abgegeben'].includes(bestand) ? bestand : 'besitz';
+      parameter.bestand = ['besitz', 'verkauft', 'abgegeben', 'digital'].includes(bestand) ? bestand : 'besitz';
     }
     const { typ, q, plattform, region, zustand, vollstaendigkeit, herkunft } = req.query;
     if (req.query.ohne_preis === '1') bedingungen.push('a.kaufpreis IS NULL');
@@ -253,6 +253,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
   router.post('/:id/zurueck', (req, res) => {
     const vorhanden = holeOder404(req, res);
     if (!vorhanden) return;
+    if (vorhanden.bestand === 'digital') throw new ValidierungsFehler({ bestand: 'Digitale Spiele gehören nicht zur Sammlung physischer Exemplare.' });
     db.prepare("UPDATE artikel SET bestand = 'besitz', abgang_am = NULL, verkaufspreis = NULL, aktualisiert_am = datetime('now') WHERE id = ?").run(vorhanden.id);
     erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
     res.json(artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)));

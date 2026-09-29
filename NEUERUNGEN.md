@@ -9,6 +9,13 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 29.09.2026 – Steam-Bibliothek importieren
+- Unter „Import“: Steam-Profil angeben, alle Spiele samt Spielzeit werden als digitale Spiele übernommen; erneut importieren aktualisiert und ergänzt
+- Digitale Spiele tragen über dem Cover den Schriftzug „DIGITAL · STEAM“, stehen unter dem eigenen Filter „Digital“ und zählen nicht zu Sammlung, Sammlungswert, Statistik und öffentlichen Zahlen
+- Zuordnung zum Katalog über den Titel (PC bevorzugt), sonst eigener Eintrag mit Steam-Cover; „Trennen & entfernen“ löscht alle importierten Steam-Spiele
+- Voraussetzung: Steam-API-Schlüssel in der Administration (Einstellungen → Spieledaten) und öffentliche „Spieldetails“ im Steam-Profil
+- PlayStation: keine offizielle Schnittstelle – daher kein Import (nur manuell oder per CSV)
+
 ## 29.09.2026 – Scanner: Bild der Frontkamera gespiegelt
 - Laptop-/Frontkameras (z. B. MacBook) zeigen das Bild jetzt wie einen Spiegel – der Barcode bewegt sich in die Richtung, in die man ihn schiebt
 - Knopf „Bild spiegeln“ / „Nicht spiegeln“ im Scanner, die Wahl wird gemerkt

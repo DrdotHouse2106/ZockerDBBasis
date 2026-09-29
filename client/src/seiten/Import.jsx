@@ -1,5 +1,5 @@
 // Import aus CLZ Games, Tabellen (Excel/LibreOffice als CSV) oder dem eigenen CSV-Export
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ARTIKELTYPEN, REGIONEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, beschriftung } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import Layout from '../komponenten/Layout.jsx';
@@ -148,7 +148,77 @@ export default function Import({ route }) {
             </div>
           </section>
         )}
+
+        <SteamImport />
       </div>
     </Layout>
+  );
+}
+
+/** Steam-Bibliothek als digitale Spiele importieren (nur wenn der Server einen Steam-API-Schlüssel hat). */
+function SteamImport() {
+  const zeigeHinweis = useHinweis();
+  const [status, setStatus] = useState(null);
+  const [profil, setProfil] = useState('');
+  const [laeuft, setLaeuft] = useState(false);
+  const [ergebnis, setErgebnis] = useState(null);
+  useEffect(() => { api.steamStatus().then((s) => { setStatus(s); setProfil(s.steam_id ?? ''); }).catch(() => {}); }, []);
+  if (!status?.aktiv) return null;
+  async function importieren(e) {
+    e.preventDefault();
+    setLaeuft(true);
+    try {
+      const r = await api.steamImport(profil);
+      setErgebnis(r);
+      setStatus(r);
+      zeigeHinweis(`${r.neu} neue Spiele aus Steam übernommen.`);
+    } catch (err) {
+      zeigeHinweis(Object.values(err.felder ?? {})[0] ?? err.message, 'fehler');
+    } finally {
+      setLaeuft(false);
+    }
+  }
+  async function trennen() {
+    if (!window.confirm(`Steam trennen und alle ${status.anzahl} importierten Steam-Spiele entfernen?`)) return;
+    try {
+      const r = await api.steamTrennen();
+      zeigeHinweis(`${r.entfernt} Steam-Spiele entfernt.`);
+      setStatus({ ...status, steam_id: null, zuletzt: null, anzahl: 0 });
+      setProfil('');
+      setErgebnis(null);
+    } catch (err) {
+      zeigeHinweis(err.message, 'fehler');
+    }
+  }
+  return (
+    <section className="karte space-y-3 p-4">
+      <h2 className="font-semibold">Steam-Bibliothek (digitale Spiele)</h2>
+      <p className="text-sm text-leise">
+        Holt deine Steam-Spiele samt Spielzeit. Sie erscheinen unter dem Filter <strong className="text-text">„Digital“</strong>, sind über dem Cover
+        deutlich mit <strong className="text-text">DIGITAL · STEAM</strong> gekennzeichnet und zählen nicht zu Sammlung, Sammlungswert und Statistik.
+        Voraussetzung: In den Steam-Datenschutzeinstellungen sind „Spieldetails“ öffentlich. Erneut importieren aktualisiert die Spielzeiten
+        und ergänzt neue Spiele.
+      </p>
+      <form onSubmit={importieren} className="flex flex-wrap gap-2">
+        <input className="eingabe min-w-0 flex-1" value={profil} onChange={(e) => setProfil(e.target.value)} required
+          placeholder="https://steamcommunity.com/id/deinname oder Steam-ID" aria-label="Steam-Profil" />
+        <button type="submit" className="knopf-primaer" disabled={laeuft}>{laeuft ? 'Wird importiert …' : status.anzahl ? 'Aktualisieren' : 'Importieren'}</button>
+      </form>
+      {status.anzahl > 0 && (
+        <p className="flex flex-wrap items-center justify-between gap-2 text-sm text-leise">
+          <span>{status.anzahl} Steam-Spiele{status.zuletzt ? ` · zuletzt am ${status.zuletzt.slice(0, 10).split('-').reverse().join('.')}` : ''}</span>
+          <span className="flex gap-3">
+            <a href="#/?bestand=digital" className="underline">Ansehen</a>
+            <button type="button" className="underline" onClick={trennen}>Trennen & entfernen</button>
+          </span>
+        </p>
+      )}
+      {ergebnis && (
+        <p className="text-sm">
+          {ergebnis.gesamt} Spiele bei Steam · {ergebnis.neu} neu ({ergebnis.katalog} mit dem Katalog verknüpft, {ergebnis.eigene} als eigene Einträge)
+          · {ergebnis.aktualisiert} schon vorhanden.
+        </p>
+      )}
+    </section>
   );
 }

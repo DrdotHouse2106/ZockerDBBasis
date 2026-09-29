@@ -60,7 +60,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
   router.get('/export/datenauskunft.json', (req, res) => {
     const b = req.benutzer.id;
     const alle = (sql) => db.prepare(sql).all(b);
-    const konto = db.prepare(`SELECT id, benutzername, anzeigename, email, rolle, gesperrt, totp_aktiv, sammlung_oeffentlich, benachrichtigung_email,
+    const konto = db.prepare(`SELECT id, benutzername, anzeigename, email, rolle, gesperrt, totp_aktiv, sammlung_oeffentlich, benachrichtigung_email, steam_id,
         freigabe_token IS NOT NULL AS freigabe_link_aktiv, freigabe_wert, speicher_limit_mb, bedingungen_akzeptiert_am, erstellt_am, letzte_anmeldung
       FROM benutzer WHERE id = ?`).get(b);
     res.attachment(`zockerdb-datenauskunft-${datumHeute()}.json`);

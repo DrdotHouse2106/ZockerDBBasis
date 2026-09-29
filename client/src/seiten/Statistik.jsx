@@ -50,6 +50,16 @@ export default function Statistik({ route }) {
             )}
           </div>
 
+          {daten.digital?.eintraege > 0 && (
+            <p className="karte flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+              <span>
+                <strong>{anzahl(daten.digital.eintraege)} digitale Spiele</strong>
+                {daten.digital.minuten > 0 && ` · ${anzahl(Math.round(daten.digital.minuten / 60))} Stunden gespielt`} – nicht in den Zahlen oben enthalten.
+              </span>
+              <a href="#/?bestand=digital" className="underline">Ansehen</a>
+            </p>
+          )}
+
           {(daten.verkauf?.stueck > 0 || daten.verkauf?.abgegeben > 0) && (
             <section className="karte space-y-3 p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
