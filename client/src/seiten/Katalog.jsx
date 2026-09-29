@@ -1,6 +1,6 @@
 // Globaler Katalog: Plattformen nach Hersteller, Suche und Liste – auch ohne Anmeldung.
 import { useEffect, useState } from 'react';
-import { ARTIKELTYPEN } from '../../../shared/konstanten.js';
+import { ARTIKELTYPEN, KATALOG_REGIONEN } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
 import { anzahl } from '../format.js';
@@ -23,6 +23,13 @@ export default function Katalog({ route }) {
   const [alleZeigen, setAlleZeigen] = useState(false);
   const [auswahlOffen, setAuswahlOffen] = useState(false);
   const sichtbar = plattformen.filter((x) => x.sichtbar !== false);
+  // Veröffentlichungsregion: standardmäßig PAL (zuletzt gewählte wird gemerkt)
+  const gemerkteRegion = () => { try { return localStorage.getItem('katalog-region') || 'pal'; } catch { return 'pal'; } };
+  const region = p.region ?? gemerkteRegion();
+  const setzeRegion = (r) => {
+    try { localStorage.setItem('katalog-region', r); } catch { /* egal */ }
+    navigiere('/katalog', { ...p, region: r, seite: undefined });
+  };
   const weitere = plattformen.length - sichtbar.length;
 
   useEffect(() => {
@@ -34,8 +41,8 @@ export default function Katalog({ route }) {
   useEffect(() => {
     if (!zeigeListe) return;
     setDaten(null);
-    api.katalogListe({ plattform: p.plattform, q: p.q, typ: p.typ, seite: p.seite }).then(setDaten).catch(() => setDaten({ eintraege: [], gesamt: 0, seite: 1, seiten: 1 }));
-  }, [p.plattform, p.q, p.typ, p.seite]);
+    api.katalogListe({ plattform: p.plattform, q: p.q, typ: p.typ, seite: p.seite, region }).then(setDaten).catch(() => setDaten({ eintraege: [], gesamt: 0, seite: 1, seiten: 1 }));
+  }, [p.plattform, p.q, p.typ, p.seite, region]);
 
   return (
     <Layout route={route} titel={plattform ? `Katalog: ${plattform.name}` : 'Katalog'} zurueck={zeigeListe ? '/katalog' : undefined}>
@@ -55,6 +62,10 @@ export default function Katalog({ route }) {
                 <Symbol name={t.value} className="size-4" />{t.mehrzahl}
               </button>
             ))}
+            <select className="eingabe w-auto shrink-0 py-1 text-sm" value={region} onChange={(e) => setzeRegion(e.target.value)} aria-label="Veröffentlichungsregion"
+              title="Nur Spiele, die in dieser Region erschienen sind (Einträge ohne bekannte Termine werden immer gezeigt)">
+              {KATALOG_REGIONEN.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
           </div>
         )}
 

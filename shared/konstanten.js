@@ -113,6 +113,17 @@ export const BESTAND = [
   { value: 'abgegeben', label: 'Verschenkt / getauscht', kurz: 'Abgegeben' },
 ];
 
+/**
+ * Katalogfilter nach Veröffentlichungsregion. Einträge ohne bekannte Regionen werden immer gezeigt.
+ * Australien/Neuseeland sind PAL-Märkte; weltweite Veröffentlichungen zählen überall.
+ */
+export const KATALOG_REGIONEN = [
+  { value: 'pal', label: 'PAL (Europa)', codes: ['eu', 'au', 'ww'] },
+  { value: 'ntsc_u', label: 'NTSC-U (Nordamerika)', codes: ['na', 'ww'] },
+  { value: 'ntsc_j', label: 'NTSC-J (Japan)', codes: ['jp', 'ww'] },
+  { value: 'alle', label: 'Alle Regionen', codes: null },
+];
+
 export const ALLE_WERTE = {
   bestand: BESTAND.map((e) => e.value),
   herkunft: HERKUNFT.map((e) => e.value),

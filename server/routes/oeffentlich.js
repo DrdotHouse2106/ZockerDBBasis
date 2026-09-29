@@ -2,7 +2,7 @@
 // Enthält nur freigegebene, nicht personenbezogene Daten (plus eigene Daten, wenn angemeldet).
 import { Router } from 'express';
 import { meineSysteme } from '../services/plattformen.js';
-import { HERSTELLER_REIHENFOLGE } from '../../shared/konstanten.js';
+import { HERSTELLER_REIHENFOLGE, KATALOG_REGIONEN } from '../../shared/konstanten.js';
 import { katalogZeileZuObjekt, SICHTBAR_SQL, sichtbarParameter, fuerBenutzer } from '../services/katalog.js';
 
 const SEITENGROESSE = 48;
@@ -56,6 +56,11 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
     if (typeof req.query.q === 'string' && req.query.q.trim()) {
       bedingungen.push("(k.titel LIKE @q ESCAPE '\\' OR k.titel_original LIKE @q ESCAPE '\\')");
       parameter.q = `%${req.query.q.trim().replace(/[\\%_]/g, (z) => `\\${z}`)}%`;
+    }
+    // Veröffentlichungsregion (z. B. nur PAL): Einträge ohne bekannte Regionen bleiben sichtbar
+    const region = KATALOG_REGIONEN.find((r) => r.value === req.query.region);
+    if (region?.codes) {
+      bedingungen.push(`(k.regionen IS NULL OR EXISTS (SELECT 1 FROM json_each(k.regionen) WHERE value IN (${region.codes.map((c) => `'${c}'`).join(', ')})))`);
     }
     const seite = Math.max(1, Number.parseInt(req.query.seite, 10) || 1);
     const where = bedingungen.join(' AND ');

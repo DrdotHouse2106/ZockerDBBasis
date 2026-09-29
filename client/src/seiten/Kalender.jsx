@@ -1,6 +1,7 @@
 // Releasekalender „Erscheint demnächst“: Termine nach Monat, Filter Plattform / nur Wunschliste,
 // standardmäßig für „Meine Systeme“ (bzw. die Standardsysteme).
 import { useEffect, useState } from 'react';
+import { KATALOG_REGIONEN } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
 import { usePlattformen, nachHersteller } from '../plattformen.js';
@@ -41,9 +42,9 @@ export default function Kalender({ route }) {
   const von = vergangen ? plusTage(heute(), -60) : heute();
   const bis = vergangen ? plusTage(heute(), -1) : plusTage(heute(), Number(p.tage) || 120);
 
-  const laden = () => api.kalender({ von, bis, plattform: p.plattform, alle: p.alle, wunschliste: p.wunschliste })
+  const laden = () => api.kalender({ von, bis, plattform: p.plattform, alle: p.alle, wunschliste: p.wunschliste, region: p.region })
     .then((d) => { setDaten(d); setFehler(null); }).catch((e) => setFehler(e.message));
-  useEffect(() => { setDaten(null); laden(); }, [p.plattform, p.alle, p.wunschliste, p.ansicht, p.tage]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setDaten(null); laden(); }, [p.plattform, p.alle, p.wunschliste, p.ansicht, p.tage, p.region]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setze = (neu) => navigiere('/kalender', Object.fromEntries(Object.entries({ ...p, ...neu }).filter(([, w]) => w)));
   const termine = daten ? (vergangen ? [...daten.termine].reverse() : daten.termine) : [];
@@ -75,6 +76,9 @@ export default function Kalender({ route }) {
                 {liste.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
               </optgroup>
             ))}
+          </select>
+          <select className="eingabe w-auto" value={p.region ?? 'pal'} onChange={(e) => setze({ region: e.target.value === 'pal' ? null : e.target.value })} aria-label="Region">
+            {KATALOG_REGIONEN.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
           {!vergangen && (
             <select className="eingabe w-auto" value={p.tage ?? '120'} onChange={(e) => setze({ tage: e.target.value === '120' ? null : e.target.value })} aria-label="Zeitraum">

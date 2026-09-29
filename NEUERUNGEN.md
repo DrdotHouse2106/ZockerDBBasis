@@ -9,6 +9,11 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 29.09.2026 – Katalog und Kalender standardmäßig PAL
+- Katalog und Releasekalender zeigen standardmäßig nur Spiele, die in Europa (bzw. Australien oder weltweit) erschienen sind
+- Auswahl daneben: NTSC-U, NTSC-J oder alle Regionen – die Wahl im Katalog wird gemerkt
+- Einträge ohne bekannte Erscheinungstermine (z. B. eigene) werden immer gezeigt
+
 ## 29.09.2026 – Verkaufte Exemplare behalten
 - Am Exemplar „Verkauft / abgegeben …“: verkauft oder verschenkt/getauscht, mit Datum und Verkaufspreis – bei mehreren Stück auch nur ein Teil (z. B. 2 von 3)
 - Verkaufte Stücke verschwinden aus Sammlung, Sammlungswert und Statistik, bleiben aber unter „Verkauft & abgegeben“ mit Foto, Kaufpreis und Herkunft sichtbar

@@ -7,6 +7,11 @@ import { Router } from 'express';
 import { meineSysteme } from '../services/plattformen.js';
 
 const TAG = /^\d{4}-\d{2}-\d{2}$/;
+const REGION_TERMINE = {
+  pal: ['Europa', 'Weltweit', 'Australien', 'Neuseeland'],
+  ntsc_u: ['Nordamerika', 'Weltweit'],
+  ntsc_j: ['Japan', 'Weltweit'],
+};
 const heute = () => new Date().toISOString().slice(0, 10);
 const plusTage = (datum, tage) => new Date(Date.parse(`${datum}T00:00:00Z`) + tage * 86400000).toISOString().slice(0, 10);
 
@@ -71,6 +76,9 @@ export function kalenderRouter({ db, plattformen, zentrale, katalog, erweiterung
     if (Number.isInteger(plattformId) && plattformId > 0) erlaubt = new Set([plattformId]);
     else if (req.query.alle !== '1') erlaubt = meineSysteme(req.benutzer) ?? new Set(standardSysteme.all());
     let liste = erlaubt ? ergebnis.liste.filter((t) => t.plattform_id && erlaubt.has(t.plattform_id)) : ergebnis.liste;
+    // Region: standardmäßig PAL (Europa, Australien/Neuseeland, weltweit); Termine ohne Region bleiben
+    const region = REGION_TERMINE[req.query.region ?? 'pal'];
+    if (region) liste = liste.filter((t) => !t.region || region.includes(t.region));
 
     // Markierungen von Zusatzmodulen (z. B. Wunschliste) und eigener Besitz
     const ids = [...new Set(liste.map((t) => t.katalog.id))];

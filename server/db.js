@@ -487,6 +487,11 @@ const MIGRATIONEN = [
   ALTER TABLE artikel ADD COLUMN verkaufspreis REAL;                      -- je Stück
   CREATE INDEX IF NOT EXISTS idx_artikel_bestand ON artikel (benutzer_id, bestand);
   `,
+  // 25: Regionen, in denen ein Spiel erschienen ist (JSON-Liste: eu, na, jp, au, ww = weltweit, andere; NULL = unbekannt) –
+  //     für den Katalogfilter „nur PAL“. Gefüllt aus den Erscheinungsterminen (IGDB-Datenabzug auf zockerdb.de).
+  `
+  ALTER TABLE katalog ADD COLUMN regionen TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {
