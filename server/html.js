@@ -46,6 +46,8 @@ main.breit{max-width:1120px}
 .reihe{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(128px,150px);gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;list-style:none;padding:0 0 8px;margin:0}
 .reihe li{scroll-snap-align:start}.reihe a{display:block;color:var(--text);text-decoration:none}.reihe img,.reihe .platzhalter{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;background:var(--karte);border:1px solid var(--rand)}
 .reihe .platzhalter{display:grid;place-items:center;font-size:36px}.reihe b{display:block;font-size:14px;line-height:1.3;margin-top:6px}.reihe .preis{color:var(--akzent-hell);font-weight:700}
+.steckbrief{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:0}.steckbrief dt{color:var(--leise)}.steckbrief dd{margin:0}
+.galerie{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}.galerie img{width:100%;height:auto;border-radius:10px;display:block;aspect-ratio:16/9;object-fit:cover}
 .kacheln{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.kacheln a{display:block;background:var(--karte);border:1px solid var(--rand);border-radius:14px;padding:12px;color:var(--text);text-decoration:none}.kacheln a b{display:block}
 .schluss{text-align:center}.schluss .knoepfe{margin-bottom:0}
 footer{max-width:860px;margin:24px auto;padding:16px;color:var(--leise);font-size:14px;display:flex;flex-wrap:wrap;gap:12px}footer a{color:var(--leise)}

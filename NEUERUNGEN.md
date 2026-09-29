@@ -9,6 +9,9 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 29.09.2026 – Kamera-Hinweis für iPhone
+- Der Barcode-Scanner erklärt auf iPhone/iPad, warum iOS nach der Kamera fragt und wie man sie in Safari dauerhaft erlaubt
+
 ## 29.09.2026 – Einladungen per E-Mail
 - Einladungen lassen sich direkt per E-Mail verschicken (Link kopieren geht weiterhin)
 - Behoben: Einladungslinks führten ohne Anmeldung auf die öffentliche Startseite statt zur Registrierung

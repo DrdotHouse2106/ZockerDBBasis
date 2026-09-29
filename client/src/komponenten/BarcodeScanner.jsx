@@ -5,6 +5,29 @@ import Symbol from './Symbole.jsx';
 
 const LESER_ID = 'barcode-leser';
 
+// iPhone/iPad (auch iPad im Desktop-Modus): iOS merkt sich die Kamera-Freigabe nur für die laufende Sitzung.
+const IST_IOS = typeof navigator !== 'undefined'
+  && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+const IST_APP = typeof window !== 'undefined'
+  && (window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true);
+
+function IosHinweis() {
+  const [offen, setOffen] = useState(false);
+  if (!IST_IOS) return null;
+  return (
+    <div className="max-w-lg text-center text-xs text-white/60">
+      <button type="button" className="underline" onClick={() => setOffen(!offen)}>Warum fragt das iPhone jedes Mal nach der Kamera?</button>
+      {offen && (
+        <p className="mt-2 text-left">
+          {IST_APP
+            ? 'iOS merkt sich die Kamera-Freigabe bei Apps vom Home-Bildschirm nur, solange die App geöffnet ist. Nach einem Neustart der App fragt das iPhone erneut – das lässt sich dort leider nicht dauerhaft einstellen. Innerhalb einer Sitzung wird nur einmal gefragt.'
+            : 'In Safari kannst du die Kamera dauerhaft erlauben: In der Adressleiste auf „aA“ tippen → „Website-Einstellungen“ → „Kamera“ → „Erlauben“. Alternativ für alle Seiten unter Einstellungen → Apps → Safari → Kamera.'}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function fehlerText(fehler) {
   const text = String(fehler?.name ?? fehler?.message ?? fehler ?? '');
   if (!window.isSecureContext) {
@@ -91,6 +114,7 @@ export default function BarcodeScanner({ onErkannt, onSchliessen }) {
         ) : (
           <p className="max-w-lg text-center text-sm text-white/70">Halte den Barcode (EAN/UPC) auf der Rückseite der Verpackung in den Rahmen.</p>
         )}
+        <IosHinweis />
       </div>
 
       <form onSubmit={absenden} className="unten-sicher mx-auto flex w-full max-w-lg gap-2 p-4">
