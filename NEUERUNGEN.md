@@ -9,6 +9,11 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Aufgeräumte Detailseite eines Exemplars
+- Oben nur Cover, Titel und Plattform; Spielstatus als eine Auswahl statt fünf Knöpfen
+- Seltener gebrauchte Aktionen (weiteres Exemplar, Katalogseite, verleihen, verkauft, eigenes Foto, bearbeiten, löschen) im Menü „Weitere Aktionen“
+- Kommentare, Cover & Handbücher und Scans sind zusammen eingeklappt und öffnen sich mit einem Tipp
+
 ## 30.09.2026 – Releasekalender ohne Doppelungen
 - Erscheint ein Spiel am selben Tag für mehrere Plattformen, gibt es nur noch eine Kachel mit allen Plattformen („PS5 · PC · XSX“) – in der Vorschau über der Sammlung und im Kalender
 

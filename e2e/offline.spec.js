@@ -13,7 +13,7 @@ test('Offline: Sammlung lesbar, Spielstatus offline setzen, danach automatisch �
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
   await expect(page.getByText('Offline-Abenteuer')).toBeVisible();
   await page.goto(`/?app=1#/artikel/${a.id}`);
-  await expect(page.getByRole('button', { name: /Durchgespielt/ })).toBeVisible();
+  await expect(page.getByLabel('Spielstatus')).toBeVisible();
   await page.goto('/?app=1#/');
   await expect(page.getByText('Offline-Abenteuer')).toBeVisible();
 
@@ -32,7 +32,7 @@ test('Offline: Sammlung lesbar, Spielstatus offline setzen, danach automatisch �
 
   // Änderung offline: landet in der Warteschlange
   await page.goto(`/?app=1#/artikel/${a.id}`);
-  await page.getByRole('button', { name: /Durchgespielt/ }).click();
+  await page.getByLabel('Spielstatus').selectOption('durchgespielt');
   await expect(page.getByText(/1 Änderung wartet/)).toBeVisible();
 
   // Verbindung zurück: wird automatisch übertragen

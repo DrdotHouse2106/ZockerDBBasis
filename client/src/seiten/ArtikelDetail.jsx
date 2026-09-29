@@ -276,64 +276,66 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
         </a>
       )}
     >
-      <div className="mx-auto grid max-w-4xl grid-cols-1 gap-6 md:grid-cols-[18rem_minmax(0,1fr)]">
-        <div className="space-y-3">
-          <Cover url={artikel.bild_url} typ={artikel.typ} alt={artikel.titel} className="mx-auto aspect-[3/4] w-2/3 rounded-2xl border border-rand md:w-full" band={digitalBand(artikel)} />
-          {eigener && <div className="flex justify-center gap-2">
-            <label className={`knopf-sekundaer cursor-pointer px-3 py-1.5 ${laedtBild ? 'opacity-50' : ''}`}>
-              <Symbol name="kamera" className="size-4" />
-              {laedtBild ? 'Lädt hoch …' : artikel.bild_datei ? 'Foto ersetzen' : 'Foto hinzufügen'}
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={bildWaehlen} disabled={laedtBild} />
-            </label>
-            {artikel.bild_datei && (
-              <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={bildEntfernen}>Foto entfernen</button>
-            )}
-          </div>}
+      <div className="mx-auto grid max-w-4xl grid-cols-1 gap-5 md:grid-cols-[16rem_minmax(0,1fr)]">
+        <div className="space-y-2">
+          <Cover url={artikel.bild_url} typ={artikel.typ} alt={artikel.titel} className="mx-auto aspect-[3/4] w-40 rounded-2xl border border-rand md:w-full" band={digitalBand(artikel)} />
           {eigener && <ArtikelFotoSync artikel={artikel} onGeaendert={setArtikel} />}
         </div>
 
         <div className="min-w-0 space-y-4">
-          <div>
+          <div className="space-y-1.5">
             {sammler && (
-              <p className="mb-1 text-sm text-leise">
+              <p className="text-sm text-leise">
                 Aus der Sammlung von <a className="text-akzent-hell underline" href={`#${zurueckPfad}`}>{sammler.anzeigename}</a>
               </p>
             )}
             <h2 className="text-2xl font-bold">{artikel.titel}</h2>
-            <p className="flex flex-wrap items-center gap-1.5 text-leise">
-              {artikel.plattform_kurz && <span className="abzeichen text-akzent-hell" title={artikel.plattform}>{artikel.plattform_kurz}</span>}
-              {artikel.plattform}
-              {artikel.variante_bezeichnung && <span className="abzeichen">Variante: {artikel.variante_bezeichnung}</span>}
-            </p>
-            <div className="mt-2"><Abzeichen artikel={artikel} mitZustand /></div>
+            <div className="flex flex-wrap items-center gap-1.5 text-sm">
+              {artikel.plattform && <span className="abzeichen text-akzent-hell" title={artikel.plattform}>{artikel.plattform_kurz || artikel.plattform}</span>}
+              {artikel.variante_bezeichnung && <span className="abzeichen">{artikel.variante_bezeichnung}</span>}
+              <Abzeichen artikel={artikel} mitZustand />
+              {artikel.katalog_status && artikel.katalog_status !== 'freigegeben' && <StatusAbzeichen status={artikel.katalog_status} />}
+            </div>
           </div>
 
           {eigener && exemplare.length > 1 && (
-            <nav className="karte p-3" aria-label="Deine Exemplare">
-              <p className="mb-2 text-xs font-semibold tracking-wide text-leise uppercase">Deine Exemplare ({exemplare.length})</p>
-              <div className="flex flex-wrap gap-2">
-                {exemplare.map((x, i) => (
-                  <a key={x.id} href={`#/artikel/${x.id}`} className={String(x.id) === String(id) ? 'chip-aktiv' : 'chip'}>
-                    {[x.modellnummer, x.farbe, x.edition].filter(Boolean).join(' · ') || `Exemplar ${i + 1}`}
-                  </a>
-                ))}
-              </div>
+            <nav className="flex flex-wrap items-center gap-2 text-sm" aria-label="Deine Exemplare">
+              <span className="text-xs text-leise">{exemplare.length} Exemplare:</span>
+              {exemplare.map((x, i) => (
+                <a key={x.id} href={`#/artikel/${x.id}`} className={`${String(x.id) === String(id) ? 'chip-aktiv' : 'chip'} px-2.5 py-1 text-xs`}>
+                  {[x.modellnummer, x.farbe, x.edition].filter(Boolean).join(' · ') || `Nr. ${i + 1}`}
+                </a>
+              ))}
             </nav>
           )}
 
+          {/* Aktionen: das Wichtigste sichtbar, der Rest im Menü */}
           {eigener && (
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => navigiere('/neu/formular', { von: artikel.id })}>
-                <Symbol name="plus" className="size-4" />Weiteres Exemplar / Variante
-              </button>
-              {artikel.katalog_id && (
-                <a href={`#/katalog/${artikel.katalog_id}`} className="knopf-sekundaer px-3 py-1.5">Katalogseite</a>
+              {artikel.typ === 'spiel' && ['besitz', 'digital'].includes(artikel.bestand) && (
+                <label className="flex items-center gap-1.5">
+                  <span className="sr-only">Spielstatus</span>
+                  <select className="eingabe w-auto py-1.5 text-sm" value={artikel.spielstatus ?? ''} onChange={(e) => setzeSpielstatus(e.target.value || null)} aria-label="Spielstatus">
+                    <option value="">🎮 Spielstatus …</option>
+                    {SPIELSTATUS.map((st) => <option key={st.value} value={st.value}>{st.icon} {st.label}</option>)}
+                  </select>
+                </label>
               )}
-              {artikel.katalog_status && artikel.katalog_status !== 'freigegeben' && <StatusAbzeichen status={artikel.katalog_status} />}
               <Andockpunkt name="artikel.aktionen" artikel={artikel} katalogDaten={katalogDaten} />
-              {artikel.bestand === 'besitz' && !artikel.verleih_id && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setVerleihOffen(true)}>Verleihen …</button>}
-              {artikel.bestand === 'besitz' && !artikel.verleih_id && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setAbgangOffen(true)}>Verkauft / abgegeben …</button>}
               {['verkauft', 'abgegeben'].includes(artikel.bestand) && <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={zurueckInSammlung}>Zurück in die Sammlung</button>}
+              <AktionenMenue>
+                <button type="button" onClick={() => navigiere('/neu/formular', { von: artikel.id })}>Weiteres Exemplar / Variante</button>
+                {artikel.katalog_id && <a href={`#/katalog/${artikel.katalog_id}`}>Zur Katalogseite</a>}
+                {artikel.bestand === 'besitz' && !artikel.verleih_id && <button type="button" onClick={() => setVerleihOffen(true)}>Verleihen …</button>}
+                {artikel.bestand === 'besitz' && !artikel.verleih_id && <button type="button" onClick={() => setAbgangOffen(true)}>Verkauft / abgegeben …</button>}
+                <label className={`cursor-pointer ${laedtBild ? 'opacity-50' : ''}`}>
+                  {laedtBild ? 'Foto lädt hoch …' : artikel.bild_datei ? 'Eigenes Foto ersetzen' : 'Eigenes Foto hinzufügen'}
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={bildWaehlen} disabled={laedtBild} />
+                </label>
+                {artikel.bild_datei && <button type="button" onClick={bildEntfernen}>Eigenes Foto entfernen</button>}
+                <a href={`#/artikel/${id}/bearbeiten`}>Bearbeiten</a>
+                <button type="button" className="text-gefahr" onClick={loeschen}>Löschen</button>
+              </AktionenMenue>
             </div>
           )}
           {eigener && artikel.verleih_id && (
@@ -349,17 +351,6 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
             </div>
           )}
           {verleihOffen && <VerleihDialog artikel={artikel} onFertig={(neu) => { setVerleihOffen(false); if (neu) setArtikel(neu); }} />}
-          {eigener && artikel.typ === 'spiel' && ['besitz', 'digital'].includes(artikel.bestand) && (
-            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Spielstatus">
-              <span className="text-xs text-leise">Spielstatus:</span>
-              {SPIELSTATUS.map((s) => (
-                <button key={s.value} type="button" onClick={() => setzeSpielstatus(s.value)} aria-pressed={artikel.spielstatus === s.value}
-                  className={`${artikel.spielstatus === s.value ? 'chip-aktiv' : 'chip'} px-2.5 py-1 text-xs`}>
-                  <span aria-hidden="true">{s.icon}</span>{s.label}
-                </button>
-              ))}
-            </div>
-          )}
           {abgangOffen && (
             <AbgangDialog artikel={artikel} onFertig={(r) => {
               setAbgangOffen(false);
@@ -371,7 +362,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
 
           <dl className="karte divide-y divide-rand">
             {angaben.map(([label, wert]) => (
-              <div key={label} className="grid grid-cols-[9rem_1fr] gap-2 px-4 py-2.5 text-sm">
+              <div key={label} className="grid grid-cols-[8rem_1fr] gap-2 px-4 py-2 text-sm">
                 <dt className="text-leise">{label}</dt>
                 <dd className={`break-words ${label === 'Barcode' || label === 'Seriennummer' ? 'font-mono' : ''}`}>{wert}</dd>
               </div>
@@ -390,27 +381,29 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
 
           <Andockpunkt name="artikel.wert" artikel={artikel} eigenerArtikel={eigener} />
 
-          <Kommentare katalogId={artikel.katalog_id} />
-
-          <Andockpunkt name="artikel.links" artikel={artikel} eigenerArtikel={eigener} />
-
-          <Scans
-            katalogId={artikel.katalog_id}
-            artikelId={eigener ? artikel.id : null}
-            nurLesen={!eigener}
-            onKatalogVerknuepft={() => laden()}
-          />
+          {/* Seltener Gebrauchtes zusammengeklappt */}
+          <details className="group space-y-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl border border-rand px-4 py-3 text-sm font-semibold hover:bg-karte-hover">
+              <span>Kommentare, Cover & Handbücher, Scans</span>
+              <span className="text-leise transition group-open:rotate-90" aria-hidden="true">›</span>
+            </summary>
+            <div className="space-y-4 pt-3">
+              <Kommentare katalogId={artikel.katalog_id} />
+              <Andockpunkt name="artikel.links" artikel={artikel} eigenerArtikel={eigener} />
+              <Scans
+                katalogId={artikel.katalog_id}
+                artikelId={eigener ? artikel.id : null}
+                nurLesen={!eigener}
+                onKatalogVerknuepft={() => laden()}
+              />
+            </div>
+          </details>
 
           {eigener && <p className="text-xs text-leise">
             Erfasst am {datumDe(artikel.erstellt_am)}
             {artikel.aktualisiert_am !== artikel.erstellt_am && ` · zuletzt geändert am ${datumDe(artikel.aktualisiert_am)}`}
             {artikel.katalog_quelle === 'igdb' && ' · Daten: IGDB.com'}
           </p>}
-
-          {eigener && <div className="flex flex-wrap gap-2">
-            <a href={`#/artikel/${id}/bearbeiten`} className="knopf-primaer"><Symbol name="stift" className="size-4" />Bearbeiten</a>
-            <button type="button" className="knopf-gefahr" onClick={loeschen}><Symbol name="muell" className="size-4" />Löschen</button>
-          </div>}
         </div>
       </div>
     </Layout>
@@ -427,4 +420,25 @@ function beilagenText(a) {
   const werte = Object.values(a.beilagen);
   const cib = a.beilagen.ovp === true && a.beilagen.anleitung === true && !werte.includes(false);
   return `${cib ? 'Vollständig (CIB) – ' : werte.includes(false) ? 'Unvollständig – ' : ''}${teile.join(', ')}`;
+}
+
+/** Menü „Weitere Aktionen“ – hält die Seite übersichtlich; schließt nach einer Auswahl. */
+function AktionenMenue({ children }) {
+  const [offen, setOffen] = useState(false);
+  return (
+    <div className="relative">
+      <button type="button" className="knopf-sekundaer px-3 py-1.5" aria-haspopup="menu" aria-expanded={offen} onClick={() => setOffen(!offen)}>
+        Weitere Aktionen <span aria-hidden="true">▾</span>
+      </button>
+      {offen && (
+        <>
+          <button type="button" className="fixed inset-0 z-30 cursor-default" aria-label="Menü schließen" onClick={() => setOffen(false)} />
+          <div role="menu" onClick={(e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') setOffen(false); }}
+            className="karte absolute right-0 z-40 mt-1 flex w-64 flex-col overflow-hidden py-1 text-sm shadow-lg [&>*]:px-4 [&>*]:py-2.5 [&>*]:text-left [&>*:hover]:bg-karte-hover">
+            {children}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
