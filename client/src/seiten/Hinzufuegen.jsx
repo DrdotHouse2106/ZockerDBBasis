@@ -92,7 +92,11 @@ export default function Hinzufuegen({ route }) {
     api.katalogBarcode(p.barcode).then(setBarcodeErgebnis).catch((e) => setBarcodeFehler(e.message));
   }, [p.barcode]);
 
-  const waehle = (eintrag) => navigiere('/neu/formular', { katalog: eintrag.id, typ: eintrag.typ, barcode: p.barcode, konvolut: p.konvolut });
+  const waehle = (eintrag) => navigiere('/neu/formular', {
+    katalog: eintrag.id, typ: eintrag.typ, barcode: p.barcode, konvolut: p.konvolut,
+    // Plattform aus dem Barcode (z. B. „PS3“) übernehmen
+    plattform_id: p.barcode && barcodeErgebnis?.plattform_id ? barcodeErgebnis.plattform_id : undefined,
+  });
   const eigenerEintrag = () => navigiere('/neu/formular', {
     typ, barcode: p.barcode, titel: suchtext.trim() || barcodeErgebnis?.suchbegriff, konvolut: p.konvolut,
   });

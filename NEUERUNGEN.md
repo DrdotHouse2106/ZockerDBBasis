@@ -9,6 +9,10 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Plattformwahl beim Hinzufügen
+- Wählst du ein Spiel aus dem Katalog, stehen nur noch die Plattformen zur Wahl, für die es erschienen ist (z. B. PS3, Xbox 360 …) – gibt es nur eine, ist sie gleich gesetzt; „Andere Plattform …“ öffnet bei Bedarf die volle Liste
+- Nach einem Barcode-Scan wird die Plattform aus dem Produktnamen (z. B. „Ps3“) vorausgewählt
+
 ## 30.09.2026 – Barcode-Scan erkennt Händlertitel besser
 - Liefert die Barcode-Datenbank einen Händlertitel wie „Assassin's Creed 4: Black Flag - Bonus Edition - Ps3 Boxed + Instructions B1393“, werden Zusätze (Verpackung, Anleitung, Artikelnummern, Editionen) schrittweise entfernt und auch „4“ ↔ „IV“ probiert, bis das Spiel gefunden ist
 - Steht im Produktnamen eine Plattform (z. B. PS3), erscheinen passende Einträge zuerst

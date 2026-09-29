@@ -90,6 +90,8 @@ export default function ArtikelFormular({ route, artikelId }) {
             cover_url: eintrag.cover_url ?? '',
             plattform: eintrag.plattformen.length === 1 ? eintrag.plattformen[0] : eintrag.typ === 'konsole' ? eintrag.titel : '',
           });
+          // Plattform aus dem Barcode-Produktnamen (z. B. „Ps3“), falls es den Titel dafür gibt
+          if (p.plattform_id) basis.plattform_id = Number(p.plattform_id);
           const liste = await api.varianten(eintrag.id).catch(() => []);
           setVarianten(liste);
           const gewaehlt = liste.find((v) => String(v.id) === p.variante);
@@ -108,12 +110,25 @@ export default function ArtikelFormular({ route, artikelId }) {
   }, [artikelId, p.katalog, p.von]); // Formular nur beim Wechsel des Artikels neu laden
 
   // Freitext-Plattform (z. B. aus IGDB) der festen Plattformliste zuordnen
+  const plattformZu = (name) => {
+    const n = String(name ?? '').toLowerCase();
+    return n ? plattformen.find((x) => x.name.toLowerCase() === n || x.kurz.toLowerCase() === n || x.aliase.some((a) => a.toLowerCase() === n)) : null;
+  };
   useEffect(() => {
     if (!werte || werte.plattform_id || !werte.plattform || !plattformen.length) return;
-    const n = werte.plattform.toLowerCase();
-    const treffer = plattformen.find((x) => x.name.toLowerCase() === n || x.kurz.toLowerCase() === n || x.aliase.some((a) => a.toLowerCase() === n));
+    const treffer = plattformZu(werte.plattform);
     if (treffer) setWerte((w) => ({ ...w, plattform_id: treffer.id }));
   }, [werte?.plattform, plattformen.length]);
+  // Plattformen, für die es den gewählten Katalogeintrag gibt – nur diese stehen zur Wahl
+  const katalogPlattformIds = useMemo(() => [...new Set((katalogEintrag?.plattformen ?? []).map((n) => plattformZu(n)?.id).filter(Boolean))],
+    [katalogEintrag?.id, plattformen.length]);
+  // Genau eine passende Plattform: gleich vorauswählen
+  useEffect(() => {
+    if (werte && !werte.plattform_id && katalogPlattformIds.length === 1) {
+      const pl = plattformen.find((x) => x.id === katalogPlattformIds[0]);
+      setWerte((w) => ({ ...w, plattform_id: pl.id, plattform: pl.name }));
+    }
+  }, [katalogPlattformIds.join(','), Boolean(werte)]);
 
   const bildVorschau = useMemo(() => (bildDatei ? URL.createObjectURL(bildDatei) : null), [bildDatei]);
   useEffect(() => () => bildVorschau && URL.revokeObjectURL(bildVorschau), [bildVorschau]);
@@ -238,7 +253,7 @@ export default function ArtikelFormular({ route, artikelId }) {
           </Feld>
           <Feld label="Plattform / System" fehler={fehler.plattform_id ?? fehler.plattform}>
             {(id) => (
-              <PlattformAuswahl id={id} wert={werte.plattform_id}
+              <PlattformAuswahl id={id} wert={werte.plattform_id} nur={katalogPlattformIds}
                 onChange={(pid) => setWerte((w) => ({ ...w, plattform_id: pid, plattform: plattformen.find((x) => x.id === pid)?.name ?? '' }))} />
             )}
           </Feld>
