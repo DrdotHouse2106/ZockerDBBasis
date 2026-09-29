@@ -1,6 +1,7 @@
 // Releasekalender „Erscheint demnächst“: Termine nach Monat, Filter Plattform / nur Wunschliste,
 // standardmäßig für „Meine Systeme“ (bzw. die Standardsysteme).
 import { useEffect, useState } from 'react';
+import { zusammenfassen } from '../../../shared/kalender.js';
 import { KATALOG_REGIONEN } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
@@ -25,7 +26,7 @@ export function TerminKachel({ t, onGeaendert, klein = false }) {
       <div className="flex flex-1 flex-col gap-0.5 p-2">
         <p className="text-xs font-semibold text-akzent-hell">{TAG.format(datum(t.datum))}</p>
         <a href={`#/katalog/${t.katalog.id}`} className="line-clamp-2 text-sm font-semibold hover:underline">{t.katalog.titel}</a>
-        <p className="text-xs text-leise">{[t.plattform_kurz || t.plattform, t.region && t.region !== 'Europa' ? t.region : null].filter(Boolean).join(' · ')}</p>
+        <p className="text-xs text-leise">{[...(t.plattformen ?? [t.plattform_kurz || t.plattform]), t.region && t.region !== 'Europa' ? t.region : null].filter(Boolean).join(' · ')}</p>
         {t.im_besitz && <p className="text-xs text-erfolg">In deiner Sammlung</p>}
         {!klein && <div className="mt-auto pt-1"><Andockpunkt name="kalender.termin" termin={t} onGeaendert={onGeaendert} /></div>}
       </div>
@@ -47,7 +48,7 @@ export default function Kalender({ route }) {
   useEffect(() => { setDaten(null); laden(); }, [p.plattform, p.alle, p.wunschliste, p.ansicht, p.tage, p.region]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setze = (neu) => navigiere('/kalender', Object.fromEntries(Object.entries({ ...p, ...neu }).filter(([, w]) => w)));
-  const termine = daten ? (vergangen ? [...daten.termine].reverse() : daten.termine) : [];
+  const termine = daten ? zusammenfassen(vergangen ? [...daten.termine].reverse() : daten.termine) : [];
   const monate = [];
   for (const t of termine) {
     const m = MONAT.format(datum(t.datum));
@@ -107,7 +108,7 @@ export default function Kalender({ route }) {
           <section key={m.name} className="space-y-2">
             <h2 className="font-semibold">{m.name} <span className="text-sm font-normal text-leise">· {m.termine.length}</span></h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-              {m.termine.map((t) => <TerminKachel key={`${t.katalog.id}-${t.plattform}`} t={t} onGeaendert={laden} />)}
+              {m.termine.map((t) => <TerminKachel key={`${t.katalog.id}-${t.datum}`} t={t} onGeaendert={laden} />)}
             </div>
           </section>
         ))}
@@ -123,7 +124,8 @@ export function DemnaechstVorschau() {
   const [daten, setDaten] = useState(null);
   const [zu, setZu] = useState(() => { try { return localStorage.getItem('demnaechst-zu') === '1'; } catch { return false; } });
   useEffect(() => {
-    api.kalender({ von: heute(), bis: plusTage(heute(), 60), grenze: 20 }).then(setDaten).catch(() => {});
+    api.kalender({ von: heute(), bis: plusTage(heute(), 60), grenze: 80 })
+      .then((d) => setDaten({ ...d, termine: zusammenfassen(d.termine ?? []).slice(0, 20) })).catch(() => {});
   }, []);
   if (!daten?.termine?.length) return null;
   const umschalten = () => {
@@ -138,7 +140,7 @@ export function DemnaechstVorschau() {
       </div>
       {!zu && (
         <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
-          {daten.termine.map((t) => <TerminKachel key={`${t.katalog.id}-${t.plattform}`} t={t} klein />)}
+          {daten.termine.map((t) => <TerminKachel key={`${t.katalog.id}-${t.datum}`} t={t} klein />)}
         </div>
       )}
     </section>

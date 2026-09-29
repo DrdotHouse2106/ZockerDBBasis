@@ -9,6 +9,9 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Releasekalender ohne Doppelungen
+- Erscheint ein Spiel am selben Tag für mehrere Plattformen, gibt es nur noch eine Kachel mit allen Plattformen („PS5 · PC · XSX“) – in der Vorschau über der Sammlung und im Kalender
+
 ## 30.09.2026 – Plattformwahl beim Hinzufügen
 - Wählst du ein Spiel aus dem Katalog, stehen nur noch die Plattformen zur Wahl, für die es erschienen ist (z. B. PS3, Xbox 360 …) – gibt es nur eine, ist sie gleich gesetzt; „Andere Plattform …“ öffnet bei Bedarf die volle Liste
 - Nach einem Barcode-Scan wird die Plattform aus dem Produktnamen (z. B. „Ps3“) vorausgewählt
