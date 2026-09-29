@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { api, leereZwischenspeicher } from './api.js';
+import { starteAbgleich, loeseKonflikt, zustand as offlineZustand, WARTESCHLANGE_EREIGNIS } from './offline.js';
 import { useRoute, passt, navigiere } from './router.js';
 import { SitzungKontext } from './sitzung.js';
 import { HinweisAnbieter } from './komponenten/Hinweise.jsx';
@@ -116,15 +117,21 @@ export default function App() {
       const a = await api.authStatus();
       setAuth(a);
       setFehler(null);
+      // Für den Start ohne Verbindung: zuletzt bekannte Anmeldung merken (nur Name/Rolle, kein Geheimnis)
+      try { if (a.angemeldet) localStorage.setItem('zockerdb-auth', JSON.stringify(a)); else localStorage.removeItem('zockerdb-auth'); } catch { /* egal */ }
       if (a.angemeldet) api.status().then(setStatus).catch(() => {});
     } catch (e) {
-      setFehler(e.message);
+      // Offline: mit der zuletzt bekannten Anmeldung weiterarbeiten (Daten kommen aus dem Zwischenspeicher)
+      let gemerkt = null;
+      try { gemerkt = e.status === 0 ? JSON.parse(localStorage.getItem('zockerdb-auth') ?? 'null') : null; } catch { /* egal */ }
+      if (gemerkt) { setAuth(gemerkt); setFehler(null); } else setFehler(e.message);
     }
   }, []);
 
   const abmelden = useCallback(async () => {
     await api.abmelden().catch(() => {});
     await leereZwischenspeicher().catch(() => {});
+    try { localStorage.removeItem('zockerdb-auth'); } catch { /* egal */ }
     setStatus(null);
     navigiere('/');
     await aktualisiere();
@@ -133,7 +140,8 @@ export default function App() {
   useEffect(() => {
     aktualisiere();
     vorladen();
-    const an = () => setOffline(false);
+    const stoppeAbgleich = starteAbgleich();
+    const an = () => { setOffline(false); aktualisiere(); };
     const aus = () => setOffline(true);
     const abgemeldet = () => setAuth((a) => (a ? { ...a, angemeldet: false, benutzer: null } : a));
     const zweiFaktorPflicht = () => navigiere('/konto', { pflicht: '1' });
@@ -146,6 +154,7 @@ export default function App() {
       window.removeEventListener('offline', aus);
       window.removeEventListener('vss:abgemeldet', abgemeldet);
       window.removeEventListener('vss:2fa-pflicht', zweiFaktorPflicht);
+      stoppeAbgleich();
     };
   }, [aktualisiere]);
 
@@ -187,11 +196,7 @@ export default function App() {
   return (
     <SitzungKontext.Provider value={kontext}>
       <HinweisAnbieter>
-        {offline && (
-          <div className="bg-warnung px-4 py-1.5 text-center text-sm font-medium text-black" role="status">
-            Offline – du siehst die zuletzt geladenen Daten. Änderungen sind erst wieder mit Verbindung möglich.
-          </div>
-        )}
+        <OfflineLeiste offline={offline} />
         <Suspense fallback={<Laden />}>{inhalt}</Suspense>
       </HinweisAnbieter>
     </SitzungKontext.Provider>
@@ -201,4 +206,54 @@ export default function App() {
 function Weiterleitung({ ziel }) {
   useEffect(() => { window.location.replace(ziel); }, [ziel]);
   return <div className="flex min-h-dvh items-center justify-center p-6 text-leise">Wird geladen …</div>;
+}
+
+/** Offline-Hinweis mit Zähler wartender Änderungen und Konflikten zur Entscheidung. */
+function OfflineLeiste({ offline }) {
+  const [z, setZ] = useState({ warten: 0, konflikte: [] });
+  const [offen, setOffen] = useState(false);
+  useEffect(() => {
+    const neu = (e) => setZ(e.detail);
+    window.addEventListener(WARTESCHLANGE_EREIGNIS, neu);
+    offlineZustand();
+    return () => window.removeEventListener(WARTESCHLANGE_EREIGNIS, neu);
+  }, []);
+  const warten = z.warten > 0 ? ` · ${z.warten === 1 ? '1 Änderung wartet' : `${z.warten} Änderungen warten`}` : '';
+  return (
+    <>
+      {offline && (
+        <div className="bg-warnung px-4 py-1.5 text-center text-sm font-medium text-black" role="status">
+          Offline – du siehst die zuletzt geladenen Daten. Neue Einträge und Änderungen werden gespeichert und automatisch übertragen{warten}.
+        </div>
+      )}
+      {!offline && z.warten > 0 && (
+        <div className="bg-akzent px-4 py-1.5 text-center text-sm font-medium text-akzent-text" role="status">{z.warten} Offline-Änderungen werden übertragen …</div>
+      )}
+      {z.konflikte.length > 0 && (
+        <div className="bg-gefahr/90 px-4 py-1.5 text-center text-sm text-white" role="alert">
+          <button type="button" className="underline" onClick={() => setOffen(!offen)}>
+            {z.konflikte.length === 1 ? '1 Offline-Änderung' : `${z.konflikte.length} Offline-Änderungen`} ließen sich nicht übertragen – bitte entscheiden
+          </button>
+          {offen && (
+            <ul className="mx-auto mt-2 max-w-2xl space-y-2 text-left">
+              {z.konflikte.map((k) => (
+                <li key={k.nr} className="rounded-lg bg-black/30 p-2">
+                  <p><strong>{k.beschreibung ?? `${k.methode} ${k.pfad}`}</strong> – {k.art === 'geaendert' ? 'der Eintrag wurde inzwischen an anderer Stelle geändert'
+                    : k.art === 'geloescht' ? 'der Eintrag wurde inzwischen gelöscht' : k.meldung}</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {k.art !== 'fehler' && !(k.art === 'geloescht' && k.methode === 'DELETE') && (
+                      <button type="button" className="rounded bg-white px-2 py-0.5 text-black" onClick={() => loeseKonflikt(k.nr, true)}>
+                        {k.art === 'geloescht' ? 'Neu anlegen' : 'Meine Änderung speichern'}</button>
+                    )}
+                    <button type="button" className="rounded bg-white/20 px-2 py-0.5" onClick={() => loeseKonflikt(k.nr, false)}>
+                      {k.art === 'fehler' ? 'Verwerfen' : 'Server-Stand behalten'}</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </>
+  );
 }

@@ -197,9 +197,20 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     res.status(201).json(artikelZuObjekt(perId.get(id, req.benutzer.id)));
   });
 
+  /**
+   * Offline-Änderungen: Die App schickt den Stand mit, auf dem die Änderung beruht (X-Basis-Stand = aktualisiert_am).
+   * Wurde der Eintrag seitdem auf dem Server geändert, gibt es 409 mit dem aktuellen Stand – der Benutzer entscheidet.
+   */
+  function konflikt(req, res, vorhanden) {
+    const basis = req.get('x-basis-stand');
+    if (!basis || !vorhanden || vorhanden.aktualisiert_am <= basis) return false;
+    res.status(409).json({ fehler: 'Dieser Eintrag wurde inzwischen an anderer Stelle geändert.', code: 'konflikt', artikel: artikelZuObjekt(vorhanden) });
+    return true;
+  }
+
   router.put('/:id', (req, res) => {
     const vorhanden = holeOder404(req, res);
-    if (!vorhanden) return;
+    if (!vorhanden || konflikt(req, res, vorhanden)) return;
     const daten = pruefeArtikel(req.body, true);
     if (daten.katalog_id) pruefeKatalog(daten.katalog_id, req);
     pruefeKonvolut(daten, req);
@@ -284,7 +295,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
 
   router.delete('/:id', (req, res) => {
     const vorhanden = holeOder404(req, res);
-    if (!vorhanden) return;
+    if (!vorhanden || konflikt(req, res, vorhanden)) return;
     loeschen.run(vorhanden.id);
     if (vorhanden.konvolut_id) konvolute.aufteilen(vorhanden.konvolut_id);
     bildEntfernen(vorhanden.bild_datei);

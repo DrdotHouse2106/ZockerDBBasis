@@ -153,8 +153,8 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
   async function loeschen() {
     if (!window.confirm(`„${artikel.titel}“ wirklich aus der Sammlung löschen? Das kann nicht rückgängig gemacht werden.`)) return;
     try {
-      await api.artikelLoeschen(id);
-      zeigeHinweis('Artikel gelöscht.');
+      const r = await api.artikelLoeschen(id, { basis: artikel.aktualisiert_am, beschreibung: `„${artikel.titel}“ löschen` });
+      zeigeHinweis(r?.offline ? 'Offline gemerkt – wird gelöscht, sobald du wieder online bist.' : 'Artikel gelöscht.');
       navigiere('/');
     } catch (e) {
       zeigeHinweis(e.message, 'fehler');
@@ -192,7 +192,8 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     const daten = { spielstatus: neu };
     if (['durchgespielt', 'komplett'].includes(neu) && !artikel.durchgespielt_am) daten.durchgespielt_am = new Date().toISOString().slice(0, 10);
     try {
-      setArtikel(await api.artikelAendern(id, daten));
+      const r = await api.artikelAendern(id, daten, { basis: artikel.aktualisiert_am, beschreibung: `Spielstatus „${artikel.titel}“` });
+      setArtikel(r?.offline ? { ...artikel, ...daten } : r);
     } catch (err) {
       zeigeHinweis(err.message, 'fehler');
     }

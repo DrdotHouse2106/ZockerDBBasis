@@ -1,4 +1,5 @@
 // Dünne Hülle um fetch mit deutschen Fehlermeldungen.
+import { offlineFaehig, merke } from './offline.js';
 
 export class ApiFehler extends Error {
   constructor(meldung, status, felder, code) {
@@ -35,8 +36,18 @@ export function hochladenMitFortschritt(pfad, formular, onFortschritt) {
   });
 }
 
-export async function anfrage(pfad, { methode = 'GET', daten, formular, signal } = {}) {
+/**
+ * `basis`: Stand (aktualisiert_am), auf dem eine Änderung beruht – nur für Offline-Änderungen (Konflikterkennung beim Übertragen).
+ * Ohne Verbindung werden Sammlungsänderungen gemerkt und später übertragen; die Antwort trägt dann `offline: true`.
+ */
+export async function anfrage(pfad, { methode = 'GET', daten, formular, signal, basis, beschreibung } = {}) {
   let antwort;
+  const offlineMerken = async () => {
+    await merke({ pfad, methode, daten, basis, beschreibung });
+    const id = Number(/\/(\d+)$/.exec(pfad)?.[1]) || null;
+    return methode === 'DELETE' ? { offline: true, id } : { ...(daten ?? {}), id, offline: true };
+  };
+  if (!navigator.onLine && !formular && offlineFaehig(pfad, methode)) return offlineMerken();
   try {
     antwort = await fetch(pfad, {
       method: methode,
@@ -47,6 +58,7 @@ export async function anfrage(pfad, { methode = 'GET', daten, formular, signal }
     });
   } catch (fehler) {
     if (fehler.name === 'AbortError') throw fehler;
+    if (!formular && offlineFaehig(pfad, methode)) return offlineMerken();
     throw new ApiFehler(
       navigator.onLine ? 'Der Server ist nicht erreichbar.' : 'Keine Internetverbindung. Bitte später erneut versuchen.',
       0,
@@ -70,7 +82,7 @@ export const abfrage = (parameter) => {
 export const api = {
   status: () => anfrage('/api/status'),
   artikelAnzahl: () => anfrage('/api/artikel/anzahl'),
-  artikelListe: (filter = {}, signal) => anfrage(`/api/artikel${abfrage(filter)}`, { signal }),
+  artikelListe: (filter = {}, signal) => anfrage(`/api/artikel${abfrage(filter)}`, { signal }).catch((e) => (e.status === 0 ? sammlungOffline(filter, e) : Promise.reject(e))),
   plattformen: () => anfrage('/api/artikel/plattformen'),
   artikel: (id) => anfrage(`/api/artikel/${id}`),
   // Konvolute (mehrere Artikel zu einem Gesamtpreis)
@@ -81,9 +93,9 @@ export const api = {
   konvolutLoeschen: (id) => anfrage(`/api/konvolute/${id}`, { methode: 'DELETE' }),
   konvolutZuordnen: (id, ids) => anfrage(`/api/konvolute/${id}/artikel`, { methode: 'POST', daten: { ids } }),
   konvolutEntfernen: (id, artikelId) => anfrage(`/api/konvolute/${id}/artikel/${artikelId}`, { methode: 'DELETE' }),
-  artikelAnlegen: (daten) => anfrage('/api/artikel', { methode: 'POST', daten }),
-  artikelAendern: (id, daten) => anfrage(`/api/artikel/${id}`, { methode: 'PUT', daten }),
-  artikelLoeschen: (id) => anfrage(`/api/artikel/${id}`, { methode: 'DELETE' }),
+  artikelAnlegen: (daten, { beschreibung } = {}) => anfrage('/api/artikel', { methode: 'POST', daten, beschreibung }),
+  artikelAendern: (id, daten, { basis, beschreibung } = {}) => anfrage(`/api/artikel/${id}`, { methode: 'PUT', daten, basis, beschreibung }),
+  artikelLoeschen: (id, { basis, beschreibung } = {}) => anfrage(`/api/artikel/${id}`, { methode: 'DELETE', basis, beschreibung }),
   // Verkauft bzw. abgegeben ({ bestand, anzahl, datum, preis = Gesamterlös }) und zurück in die Sammlung
   artikelAbgang: (id, daten) => anfrage(`/api/artikel/${id}/abgang`, { methode: 'POST', daten }),
   artikelVerleihen: (id, daten) => anfrage(`/api/artikel/${id}/verleihen`, { methode: 'POST', daten }),
@@ -232,4 +244,37 @@ export async function leereZwischenspeicher() {
   if (!('caches' in window)) return;
   const namen = await caches.keys();
   await Promise.all(namen.filter((n) => !n.startsWith('huelle-')).map((n) => caches.delete(n)));
+  // Offline-Warteschlange gehört zum abgemeldeten Konto
+  try { indexedDB.deleteDatabase('zockerdb-offline'); } catch { /* egal */ }
+}
+
+/**
+ * Offline-Suche in der Sammlung: die zuletzt geladene Liste aus dem Zwischenspeicher des Service-Workers, im Browser gefiltert.
+ * Das Ergebnis trägt `offline = true` (die App kennzeichnet es als „nur geladene Daten“).
+ */
+async function sammlungOffline(filter, fehler) {
+  if (!('caches' in window)) throw fehler;
+  let beste = null;
+  for (const name of (await caches.keys()).filter((n) => n.startsWith('daten-'))) {
+    const cache = await caches.open(name);
+    for (const anfrageAlt of await cache.keys()) {
+      const url = new URL(anfrageAlt.url);
+      if (url.pathname !== '/api/artikel') continue;
+      const p = Object.fromEntries(url.searchParams);
+      // Am besten eine ungefilterte Liste (Sortierung egal) desselben Bestands
+      const passend = !p.q && !p.typ && !p.plattform_id && !p.spielstatus && !p.verliehen && (p.bestand ?? 'besitz') === (filter.bestand ?? 'besitz');
+      if (passend) { beste = await cache.match(anfrageAlt); break; }
+    }
+    if (beste) break;
+  }
+  if (!beste) throw fehler;
+  const liste = await beste.json();
+  const q = String(filter.q ?? '').trim().toLowerCase();
+  const ergebnis = liste.filter((a) => (!filter.typ || a.typ === filter.typ)
+    && (!filter.plattform_id || String(a.plattform_id) === String(filter.plattform_id))
+    && (!filter.spielstatus || a.spielstatus === filter.spielstatus)
+    && (!filter.verliehen || a.verleih_id)
+    && (!q || [a.titel, a.plattform, a.edition, a.farbe, a.barcode].some((w) => String(w ?? '').toLowerCase().includes(q))));
+  ergebnis.offline = true;
+  return ergebnis;
 }

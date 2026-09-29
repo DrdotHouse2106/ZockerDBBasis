@@ -3,6 +3,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = process.env.E2E_PORT || '4310';
+// Offline-Tests: Netzwerk des Service-Workers mit emulieren (sonst gilt „offline“ in Chromium nur für die Seite selbst)
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS ??= '1';
 // Mit ZOCKERDB_MODULE=aus nur die Basis-Version testen (Oberfläche vorher ebenso bauen)
 const nurBasis = ['aus', 'false', '0', 'nein'].includes(String(process.env.ZOCKERDB_MODULE ?? '').toLowerCase());
 

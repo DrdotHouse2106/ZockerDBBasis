@@ -161,7 +161,15 @@ export default function ArtikelFormular({ route, artikelId }) {
         nutzdaten.katalog_einreichen = katalogFreigabe === 'einreichen';
         nutzdaten.katalog_veroeffentlichen = katalogFreigabe === 'veroeffentlichen';
       }
-      let artikel = bearbeiten ? await api.artikelAendern(artikelId, nutzdaten) : await api.artikelAnlegen(nutzdaten);
+      const beschreibung = `„${daten.titel}“ ${bearbeiten ? 'geändert' : 'angelegt'}`;
+      let artikel = bearbeiten
+        ? await api.artikelAendern(artikelId, nutzdaten, { basis: werte.aktualisiert_am || null, beschreibung })
+        : await api.artikelAnlegen(nutzdaten, { beschreibung });
+      if (artikel?.offline) {
+        zeigeHinweis('Offline gespeichert – die Änderung wird übertragen, sobald du wieder online bist.');
+        navigiere(bearbeiten ? `/artikel/${artikelId}` : '/');
+        return;
+      }
       if (bildDatei) {
         try {
           artikel = await api.bildHochladen(artikel.id, bildDatei);

@@ -9,6 +9,13 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Offlinemodus
+- Die App startet auch ohne Verbindung und zeigt die zuletzt geladene Sammlung, Exemplare, Katalogseiten und Cover
+- Neue Einträge, Änderungen (auch Spielstatus) und Löschungen ohne Verbindung werden gespeichert und automatisch übertragen, sobald du wieder online bist – mit Zähler „3 Änderungen warten“
+- Barcode offline scannen: „Barcode offline merken“ legt den Eintrag später an, Titel und Details ergänzt du danach
+- Wurde ein Eintrag inzwischen an anderer Stelle geändert oder gelöscht, entscheidest du: meine Änderung speichern oder den Server-Stand behalten
+- Suche und Filter funktionieren offline in den zuletzt geladenen Daten (deutlich gekennzeichnet); beim Abmelden werden gespeicherte Daten und die Warteschlange gelöscht
+
 ## 30.09.2026 – Leihliste
 - Am Exemplar „Verleihen …“: an einen Namen oder an einen ZockerDB-Benutzer, mit Datum und geplanter Rückgabe (optional mit privater Notiz)
 - Benutzer werden benachrichtigt, sehen die Leihe unter „Ausgeliehen von anderen“ (nur Titel, Plattform, Verleiher – keine Preise) und bestätigen oder lehnen ab

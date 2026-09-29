@@ -165,6 +165,13 @@ export default function Hinzufuegen({ route }) {
             </div>
             {!barcodeErgebnis && !barcodeFehler && <p className="text-sm text-leise">Barcode wird gesucht …</p>}
             {barcodeFehler && <p className="text-sm text-gefahr" role="alert">{barcodeFehler}</p>}
+            {barcodeFehler && !navigator.onLine && (
+              <button type="button" className="knopf-primaer" onClick={async () => {
+                await api.artikelAnlegen({ typ: 'spiel', titel: `Gescannt (offline): ${p.barcode}`, barcode: p.barcode }, { beschreibung: `Barcode ${p.barcode} gescannt` });
+                zeigeHinweis('Offline gemerkt – der Eintrag wird angelegt, sobald du wieder online bist. Titel und Details kannst du danach ergänzen.');
+                navigiere('/');
+              }}>Barcode offline merken</button>
+            )}
             {barcodeErgebnis && (
               <>
                 {barcodeErgebnis.vorhandeneArtikel.length > 0 && (

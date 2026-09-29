@@ -58,3 +58,26 @@ test('Leihliste: verleihen, bestätigen, erinnern, zurückbekommen', async () =>
     await server.stoppe();
   }
 });
+
+test('Offline-Änderungen: Konflikt, wenn der Eintrag inzwischen geändert wurde', async () => {
+  const server = await starteTestServer();
+  try {
+    const b = await server.registriere('offline');
+    const a = (await b.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Tetris' } })).json;
+    const stand = a.aktualisiert_am;
+    // Gleicher Stand → ok
+    let r = await b.api(`/api/artikel/${a.id}`, { methode: 'PUT', daten: { titel: 'Tetris DX' }, headers: { 'X-Basis-Stand': stand } });
+    assert.equal(r.status, 200, r.text);
+    // Server-Stand ist neuer als der mitgeschickte → 409 mit aktuellem Eintrag
+    server.db.prepare("UPDATE artikel SET aktualisiert_am = datetime('now', '+1 minute') WHERE id = ?").run(a.id);
+    r = await b.api(`/api/artikel/${a.id}`, { methode: 'PUT', daten: { titel: 'Offline-Titel' }, headers: { 'X-Basis-Stand': stand } });
+    assert.equal(r.status, 409);
+    assert.equal(r.json.code, 'konflikt');
+    assert.equal(r.json.artikel.titel, 'Tetris DX');
+    assert.equal((await b.api(`/api/artikel/${a.id}`, { methode: 'DELETE', headers: { 'X-Basis-Stand': stand } })).status, 409);
+    // Ohne Stand (bewusst überschreiben) → ok
+    assert.equal((await b.api(`/api/artikel/${a.id}`, { methode: 'PUT', daten: { titel: 'Offline-Titel' } })).status, 200);
+  } finally {
+    await server.stoppe();
+  }
+});
