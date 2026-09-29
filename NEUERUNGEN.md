@@ -15,6 +15,7 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 
 ## 29.09.2026 – Einstellungen übersichtlicher, IGDB-Verbindung testen
 - Die Gruppen unter Administration → Einstellungen lassen sich einklappen; dein Browser merkt sich, welche offen sind
+- Das Änderungsprotokoll ist standardmäßig eingeklappt
 - Neuer Knopf „IGDB-Verbindung testen“: prüft Client-ID und Secret mit einer Beispielsuche
 - Neuer Katalogstatus „Ausgeblendet“ für Einträge, die die Datenquelle entfernt hat
 

@@ -149,10 +149,16 @@ export default function AdminEinstellungen() {
         <div className="flex flex-wrap gap-1.5">{daten.nurEnv.map((k) => <code key={k} className="abzeichen">{k}</code>)}</div>
       </section>
 
-      <section className="karte space-y-2 p-4">
-        <h2 className="font-semibold">Änderungsprotokoll</h2>
-        {daten.protokoll.length === 0 ? <p className="text-sm text-leise">Noch keine Änderungen über die Weboberfläche.</p> : (
-          <ul className="divide-y divide-rand text-sm">
+      <details className="karte group p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-semibold">
+          <span>
+            Änderungsprotokoll
+            <span className="ml-2 text-xs font-normal text-leise">{daten.protokoll.length} {daten.protokoll.length === 1 ? 'Eintrag' : 'Einträge'}</span>
+          </span>
+          <span className="text-leise transition-transform group-open:rotate-90" aria-hidden="true">›</span>
+        </summary>
+        {daten.protokoll.length === 0 ? <p className="mt-2 text-sm text-leise">Noch keine Änderungen über die Weboberfläche.</p> : (
+          <ul className="mt-2 divide-y divide-rand text-sm">
             {daten.protokoll.map((p) => (
               <li key={p.id} className="py-2">
                 <p><strong>{p.titel}</strong> <span className="text-leise">· {p.aktion === 'zurueckgesetzt' ? 'auf .env zurückgesetzt' : p.aktion === 'entfernt' ? 'entfernt' : 'geändert'}</span></p>
@@ -163,7 +169,7 @@ export default function AdminEinstellungen() {
             ))}
           </ul>
         )}
-      </section>
+      </details>
 
       {geaendert.length > 0 && (
         <div className="fixed inset-x-0 bottom-20 z-40 px-4 md:bottom-4">
