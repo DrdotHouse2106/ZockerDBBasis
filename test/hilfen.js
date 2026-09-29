@@ -31,11 +31,12 @@ export async function starteTestServer({ env = {}, fetchFn, kiAnbieterFn, mailFn
   /** Ein „Browser“ mit eigenem Cookie-Speicher. */
   function client() {
     let cookie = '';
-    const api = async (pfad, { methode = 'GET', daten, formular, headers = {} } = {}) => {
+    const api = async (pfad, { methode = 'GET', daten, formular, headers = {}, redirect = 'follow' } = {}) => {
       const antwort = await fetch(`${basis}${pfad}`, {
         method: methode,
         headers: { ...(daten ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}), ...headers },
         body: formular ?? (daten ? JSON.stringify(daten) : undefined),
+        redirect,
       });
       const gesetzt = antwort.headers.getSetCookie?.() ?? [];
       for (const c of gesetzt) cookie = c.split(';')[0].endsWith('=') ? '' : c.split(';')[0];
