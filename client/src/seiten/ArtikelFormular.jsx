@@ -246,7 +246,14 @@ export default function ArtikelFormular({ route, artikelId }) {
               )}
             </Feld>
           )}
-          {['besitz', 'digital'].includes(werte.bestand) && werte.typ === 'spiel' && (
+          {/* Physische Exemplare sind der Normalfall – „digital“ nur als unauffällige Zeile, die Box erst nach dem Umschalten */}
+          {werte.bestand === 'besitz' && werte.typ === 'spiel' && (
+            <button type="button" className="-mt-1 w-fit text-left text-xs text-leise underline decoration-dotted sm:col-span-2"
+              onClick={() => setWerte((w) => ({ ...w, bestand: 'digital', digital_quelle: w.digital_quelle || 'playstation' }))}>
+              Nur digital gekauft (z. B. PlayStation Store)?
+            </button>
+          )}
+          {werte.bestand === 'digital' && werte.typ === 'spiel' && (
             <div className="space-y-2 rounded-xl bg-karte-hover p-3 text-sm sm:col-span-2">
               <label className="flex items-start gap-2">
                 <input type="checkbox" className="mt-0.5 size-5 accent-akzent" checked={werte.bestand === 'digital'}

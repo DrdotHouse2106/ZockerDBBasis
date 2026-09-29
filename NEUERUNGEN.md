@@ -10,7 +10,7 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 -->
 
 ## 29.09.2026 – Digitale Spiele von Hand (PlayStation, eShop …)
-- Beim Anlegen eines Spiels „Digitale Version“ ankreuzen und den Store wählen (PlayStation Store, Nintendo eShop, Xbox, Steam, GOG, Epic, anderer) – Kennzeichnung „DIGITAL · PLAYSTATION“ usw. über dem Cover
+- Beim Anlegen eines Spiels über die kleine Zeile „Nur digital gekauft?“ auf digital umschalten und den Store wählen (PlayStation Store, Nintendo eShop, Xbox, Steam, GOG, Epic, anderer) – Kennzeichnung „DIGITAL · PLAYSTATION“ usw. über dem Cover
 - Hinweis: nur gekaufte Spiele eintragen, keine Abo-Spiele (PlayStation Plus, Game Pass, Nintendo Switch Online)
 - Unter der Sammlung und im Katalog ein Knopf zu den eigenen digitalen Spielen
 
