@@ -11,6 +11,7 @@ export default function AdminUpdate() {
   // null | 'laeuft' | 'neustart' | 'fertig' | 'aktuell' | 'fehler'
   const [phase, setPhase] = useState(null);
   const [meldung, setMeldung] = useState('');
+  const [prueft, setPrueft] = useState(false);
   const abbruch = useRef(null);
 
   useEffect(() => {
@@ -69,11 +70,31 @@ export default function AdminUpdate() {
     }
   };
 
+  const jetztPruefen = async () => {
+    setPrueft(true);
+    try { setD(await api.adminAktualisierung(true)); } catch { /* bleibt beim alten Stand */ } finally { setPrueft(false); }
+  };
+
   const beschaeftigt = phase === 'laeuft' || phase === 'neustart';
+  const p = d.pruefung;
   return (
     <section className="karte space-y-2 p-4 text-sm">
       <h2 className="font-semibold">Update</h2>
       <p>Installiert: <strong>{standText(d.build)}</strong></p>
+      {p && (
+        <div className={`rounded-lg border p-2 ${p.neu ? 'border-akzent/60 bg-akzent/10' : 'border-rand'}`} role="status">
+          {p.fehler ? <p className="text-warnung">Update-Prüfung nicht möglich: {p.fehler}</p>
+            : p.neu ? (
+              <p>🆕 <strong>Neue Version verfügbar:</strong> Stand {p.verfuegbar.commit} vom {zeit(p.verfuegbar.datum)}
+                {p.verfuegbar.titel ? <span className="block text-xs text-leise">„{p.verfuegbar.titel}“</span> : null}</p>
+            ) : d.build?.commit ? <p className="text-erfolg">✓ Aktuell – das ist der neueste Stand.</p>
+              : <p className="text-leise">Neuester Stand: {p.verfuegbar.commit} vom {zeit(p.verfuegbar.datum)} (installierter Stand unbekannt).</p>}
+          <p className="text-xs text-leise">
+            Geprüft {zeit(p.geprueft)} bei GitHub ({p.repo}) ·{' '}
+            <button type="button" className="underline" disabled={prueft} onClick={jetztPruefen}>{prueft ? 'prüft …' : 'jetzt prüfen'}</button>
+          </p>
+        </div>
+      )}
       {d.eingerichtet ? (
         <>
           <button type="button" className="knopf-primaer px-3 py-1.5" disabled={beschaeftigt} onClick={starten}>

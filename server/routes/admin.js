@@ -53,7 +53,11 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
   });
 
   // ── Update per Knopf (Watchtower) ──────────────────────────
-  router.get('/aktualisierung', (_req, res) => res.json(aktualisierung.status()));
+  router.get('/aktualisierung', async (req, res) => {
+    // Beim Öffnen der Übersicht: stündlich bei GitHub nachsehen, „Jetzt prüfen“ erzwingt es
+    await aktualisierung.pruefe({ erzwingen: req.query.pruefen === '1' });
+    res.json(aktualisierung.status());
+  });
   router.post('/aktualisierung', async (_req, res) => res.json(await aktualisierung.starte()));
 
   // ── Server-Einstellungen (Vorrang vor der .env, wirken sofort) ─────────

@@ -14,9 +14,45 @@ export function erstelleAktualisierung({ konfiguration, sicherung, build, fetchF
   const k = () => konfiguration.aktualisierung ?? {};
   // Zustand des letzten Versuchs; nach einem erfolgreichen Update startet der Server neu und der Zustand ist wieder leer
   let lauf = null;
+  // Letzte Update-Prüfung bei GitHub (höchstens stündlich, „Jetzt prüfen“ erzwingt sie)
+  let pruefung = null;
 
   function status() {
-    return { eingerichtet: Boolean(k().url && k().token), build, lauf };
+    return { eingerichtet: Boolean(k().url && k().token), build, lauf, pruefung };
+  }
+
+  /**
+   * Gibt es einen neueren, fertig gebauten Stand? Maßgeblich ist der letzte erfolgreiche CI-Lauf (Tests + Docker-Image)
+   * auf main im eingestellten Repository. Neuer heißt: anderer Commit und später fertig als das eigene Image gebaut wurde.
+   */
+  async function pruefe({ erzwingen = false } = {}) {
+    if (!erzwingen && pruefung && Date.now() - Date.parse(pruefung.geprueft) < 60 * 60 * 1000 && !pruefung.fehler) return pruefung;
+    const repo = k().repo;
+    if (!repo) return (pruefung = null);
+    const geprueft = new Date().toISOString();
+    try {
+      const antwort = await fetchFn(`https://api.github.com/repos/${repo}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1`, {
+        headers: {
+          Accept: 'application/vnd.github+json', 'User-Agent': 'ZockerDB-Update-Pruefung',
+          ...(k().githubToken ? { Authorization: `Bearer ${k().githubToken}` } : {}),
+        },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (antwort.status === 404 || antwort.status === 401) {
+        throw new Error(k().githubToken ? `Kein Zugriff auf ${repo} – GitHub-Token prüfen (Berechtigung „Actions: Read-only“).`
+          : `${repo} ist privat oder nicht erreichbar – für private Repositorys einen GitHub-Token eintragen.`);
+      }
+      if (!antwort.ok) throw new Error(`GitHub antwortet mit Fehler ${antwort.status}.`);
+      const run = (await antwort.json()).workflow_runs?.[0];
+      if (!run) throw new Error('Noch kein erfolgreicher Build gefunden.');
+      const verfuegbar = { commit: String(run.head_sha).slice(0, 7), datum: run.updated_at, titel: String(run.display_title ?? '').slice(0, 200) };
+      const neu = Boolean(build.commit && verfuegbar.commit !== build.commit
+        && (!build.datum || Date.parse(verfuegbar.datum) > Date.parse(build.datum)));
+      pruefung = { geprueft, repo, verfuegbar, neu, fehler: null };
+    } catch (fehler) {
+      pruefung = { geprueft, repo, verfuegbar: null, neu: false, fehler: fehler.name === 'TimeoutError' ? 'GitHub ist nicht erreichbar.' : fehler.message };
+    }
+    return pruefung;
   }
 
   async function starte() {
@@ -52,5 +88,5 @@ export function erstelleAktualisierung({ konfiguration, sicherung, build, fetchF
     return status();
   }
 
-  return { status, starte };
+  return { status, starte, pruefe };
 }

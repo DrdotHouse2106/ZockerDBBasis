@@ -110,3 +110,35 @@ test('Update-Hinweis: neuerer Stand bei zockerdb.de, auch bei gleicher Versionsn
     db.close();
   }
 });
+
+test('Update-Prüfung bei GitHub: neuer Stand, aktuell, privates Repository ohne Token', async () => {
+  let lauf = { head_sha: 'abcdef1234567', updated_at: '2026-09-29T09:00:00Z', display_title: 'Widerruf per Knopf' };
+  let status = 200;
+  const anfragen = [];
+  const fetchFn = async (url, optionen = {}) => {
+    anfragen.push({ url: String(url), auth: optionen.headers?.Authorization });
+    return status === 200 ? Response.json({ workflow_runs: [lauf] }) : new Response('{}', { status });
+  };
+  const { erstelleAktualisierung } = await import('../server/services/aktualisierung.js');
+  const konfiguration = { aktualisierung: { repo: 'beispiel/zockerdb', githubToken: '' } };
+  const a = erstelleAktualisierung({ konfiguration, sicherung: { lauf: async () => {} }, build: { commit: '1111111', datum: '2026-09-28T10:00:00.000Z' }, fetchFn });
+
+  let p = await a.pruefe();
+  assert.equal(p.neu, true);
+  assert.equal(p.verfuegbar.commit, 'abcdef1');
+  assert.match(anfragen[0].url, /repos\/beispiel\/zockerdb\/actions\/workflows\/ci\.yml\/runs\?branch=main&status=success/);
+  // Innerhalb einer Stunde aus dem Zwischenspeicher, „jetzt prüfen“ fragt neu
+  await a.pruefe();
+  assert.equal(anfragen.length, 1);
+  lauf = { ...lauf, head_sha: '1111111aaaa' };
+  p = await a.pruefe({ erzwingen: true });
+  assert.equal(p.neu, false, 'derselbe Stand = aktuell');
+
+  status = 404;
+  p = await a.pruefe({ erzwingen: true });
+  assert.match(p.fehler, /GitHub-Token/);
+  konfiguration.aktualisierung.githubToken = 'ghp_geheim';
+  status = 200;
+  await a.pruefe({ erzwingen: true });
+  assert.equal(anfragen.at(-1).auth, 'Bearer ghp_geheim');
+});

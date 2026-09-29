@@ -132,7 +132,7 @@ export const api = {
   adminEinladungen: () => anfrage('/api/admin/einladungen'),
   adminEinladungErstellen: (daten) => anfrage('/api/admin/einladungen', { methode: 'POST', daten }),
   adminEinladungLoeschen: (id) => anfrage(`/api/admin/einladungen/${id}`, { methode: 'DELETE' }),
-  adminAktualisierung: () => anfrage('/api/admin/aktualisierung'),
+  adminAktualisierung: (pruefen = false) => anfrage(`/api/admin/aktualisierung${pruefen ? '?pruefen=1' : ''}`),
   adminAktualisieren: () => anfrage('/api/admin/aktualisierung', { methode: 'POST' }),
   adminZentrale: () => anfrage('/api/admin/zentrale'),
   adminZentraleSpende: (an) => anfrage('/api/admin/zentrale/spende', { methode: 'POST', daten: { an } }),

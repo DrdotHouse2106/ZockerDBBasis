@@ -57,6 +57,11 @@ export function ladeKonfiguration(env = process.env) {
     aktualisierung: {
       url: /^https?:\/\/\S+$/i.test(String(env.UPDATE_URL ?? '').trim()) ? String(env.UPDATE_URL).trim() : '',
       token: String(env.UPDATE_TOKEN ?? '').trim(),
+      // Woher die App erfährt, ob es einen neueren Stand gibt: letzter erfolgreicher CI-Lauf dieses GitHub-Repositorys
+      // „aus“ schaltet die Prüfung ab
+      repo: String(env.UPDATE_CHECK_REPO ?? '').trim().toLowerCase() === 'aus' ? ''
+        : /^[\w.-]+\/[\w.-]+$/.test(String(env.UPDATE_CHECK_REPO ?? '').trim()) ? String(env.UPDATE_CHECK_REPO).trim() : 'DrdotHouse2106/ZockerDBBasis',
+      githubToken: String(env.UPDATE_GITHUB_TOKEN ?? '').trim(),
     },
     igdb: {
       clientId: (env.TWITCH_CLIENT_ID || '').trim(),
