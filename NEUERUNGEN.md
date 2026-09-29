@@ -9,6 +9,10 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 29.09.2026 – Scanner: Bild der Frontkamera gespiegelt
+- Laptop-/Frontkameras (z. B. MacBook) zeigen das Bild jetzt wie einen Spiegel – der Barcode bewegt sich in die Richtung, in die man ihn schiebt
+- Knopf „Bild spiegeln“ / „Nicht spiegeln“ im Scanner, die Wahl wird gemerkt
+
 ## 29.09.2026 – Katalog und Kalender standardmäßig PAL
 - Katalog und Releasekalender zeigen standardmäßig nur Spiele, die in Europa (bzw. Australien oder weltweit) erschienen sind
 - Auswahl daneben: NTSC-U, NTSC-J oder alle Regionen – die Wahl im Katalog wird gemerkt

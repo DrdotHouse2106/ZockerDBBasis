@@ -43,6 +43,17 @@ export default function BarcodeScanner({ onErkannt, onSchliessen }) {
   const [fehler, setFehler] = useState(null);
   const [laedt, setLaedt] = useState(true);
   const [manuell, setManuell] = useState('');
+  // Bild spiegeln: Frontkameras (z. B. MacBook, Laptop) wie ein Spiegel anzeigen, sonst bewegt sich der Code „falsch herum“.
+  // Nur die Anzeige wird gespiegelt, erkannt wird weiterhin das Originalbild. Eigene Wahl wird gemerkt.
+  const [spiegeln, setSpiegeln] = useState(() => {
+    try { const w = localStorage.getItem('scanner-spiegeln'); return w === null ? null : w === '1'; } catch { return null; }
+  });
+  const [frontkamera, setFrontkamera] = useState(false);
+  const gespiegelt = spiegeln ?? frontkamera;
+  const umschalten = () => {
+    setSpiegeln(!gespiegelt);
+    try { localStorage.setItem('scanner-spiegeln', gespiegelt ? '0' : '1'); } catch { /* egal */ }
+  };
   const erkanntRef = useRef(onErkannt);
   erkanntRef.current = onErkannt;
 
@@ -76,6 +87,11 @@ export default function BarcodeScanner({ onErkannt, onSchliessen }) {
           () => {},
         );
         if (beendet) await scanner.stop().catch(() => {});
+        else {
+          // Rückkamera meldet „environment“; Laptop-Kameras melden „user“ oder gar nichts
+          const spur = document.querySelector(`#${LESER_ID} video`)?.srcObject?.getVideoTracks?.()[0];
+          setFrontkamera(spur?.getSettings?.().facingMode !== 'environment');
+        }
       } catch (e) {
         if (!beendet) setFehler(fehlerText(e));
       } finally {
@@ -106,7 +122,13 @@ export default function BarcodeScanner({ onErkannt, onSchliessen }) {
 
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4">
         <div className="relative w-full max-w-lg">
-          <div id={LESER_ID} className="w-full overflow-hidden rounded-2xl bg-black" />
+          <div id={LESER_ID} className={`w-full overflow-hidden rounded-2xl bg-black ${gespiegelt ? '[&_video]:-scale-x-100' : ''}`} />
+          {!laedt && !fehler && (
+            <button type="button" onClick={umschalten} className="absolute right-2 bottom-2 rounded-full bg-black/60 px-3 py-1.5 text-xs text-white hover:bg-black/80"
+              aria-pressed={gespiegelt}>
+              {gespiegelt ? 'Nicht spiegeln' : 'Bild spiegeln'}
+            </button>
+          )}
           {laedt && !fehler && <p className="absolute inset-0 flex items-center justify-center text-sm text-white/70">Kamera wird gestartet …</p>}
         </div>
         {fehler ? (
