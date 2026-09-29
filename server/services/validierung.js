@@ -21,6 +21,9 @@ const TEXTFELDER = {
 
 const AUSWAHLFELDER = ['zustand', 'vollstaendigkeit', 'region', 'herkunft'];
 
+/** Datum TT.MM.JJJJ-frei: JJJJ-MM-TT, plausibel. */
+const gueltigerTag = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d)) && Number(d.slice(0, 4)) >= 1950 && Number(d.slice(0, 4)) <= 2100;
+
 export function leerZuNull(wert) {
   if (wert === undefined || wert === null) return null;
   const s = String(wert).trim();
@@ -76,7 +79,7 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     daten[feld] = wert;
   }
 
-  for (const feld of ['kaufpreis', 'marktwert']) {
+  for (const feld of ['kaufpreis', 'marktwert', 'verkaufspreis']) {
     if (teilweise && !hat(feld)) continue;
     const roh = leerZuNull(eingabe[feld]);
     if (roh === null) daten[feld] = null;
@@ -96,6 +99,20 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     }
     daten.kaufdatum = datum;
   }
+
+  // Bestand: im Besitz, verkauft oder abgegeben (mit Datum); Verkaufspreis nur bei „verkauft“
+  if (!teilweise || hat('bestand')) {
+    const bestand = leerZuNull(eingabe.bestand) ?? 'besitz';
+    if (!ALLE_WERTE.bestand.includes(bestand)) fehler.bestand = 'Ungültige Auswahl.';
+    else daten.bestand = bestand;
+  }
+  if (!teilweise || hat('abgang_am')) {
+    const datum = leerZuNull(eingabe.abgang_am);
+    if (datum && !gueltigerTag(datum)) fehler.abgang_am = 'Bitte ein gültiges Datum angeben.';
+    daten.abgang_am = datum;
+  }
+  if (daten.bestand === 'besitz') Object.assign(daten, { abgang_am: null, verkaufspreis: null });
+  if (daten.bestand === 'abgegeben' && hat('verkaufspreis')) daten.verkaufspreis = null;
 
   if (!teilweise || hat('anzahl')) {
     const anzahl = eingabe.anzahl === undefined || eingabe.anzahl === '' || eingabe.anzahl === null ? 1 : Number(eingabe.anzahl);

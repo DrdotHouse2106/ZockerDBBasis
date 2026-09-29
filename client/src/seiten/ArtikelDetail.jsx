@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, beschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, beschriftung,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
-import { euro, datumDe } from '../format.js';
+import { euro, datumDe, euroMitVorzeichen } from '../format.js';
 import Layout from '../komponenten/Layout.jsx';
 import Cover from '../komponenten/Cover.jsx';
 import Abzeichen from '../komponenten/Abzeichen.jsx';
@@ -15,6 +15,66 @@ import Kommentare from '../komponenten/Kommentare.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import { Andockpunkt } from '../erweiterungen.jsx';
 import { ArtikelFotoSync } from '../komponenten/Zockerdb.jsx';
+
+/** Exemplar als verkauft bzw. verschenkt/getauscht markieren – bei mehreren Stück wahlweise nur einen Teil. */
+function AbgangDialog({ artikel, onFertig }) {
+  const zeigeHinweis = useHinweis();
+  const [bestand, setBestand] = useState('verkauft');
+  const [anzahl, setAnzahl] = useState(artikel.anzahl);
+  const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10));
+  const [preis, setPreis] = useState('');
+  const [laeuft, setLaeuft] = useState(false);
+  async function speichern(e) {
+    e.preventDefault();
+    setLaeuft(true);
+    try {
+      const r = await api.artikelAbgang(artikel.id, { bestand, anzahl, datum, preis: bestand === 'verkauft' ? preis : null });
+      zeigeHinweis(r.rest ? `${anzahl} von ${artikel.anzahl} Stück als ${bestand === 'verkauft' ? 'verkauft' : 'abgegeben'} markiert.` : 'Aus der Sammlung genommen – unter „Verkauft & abgegeben“ bleibt es sichtbar.');
+      onFertig(r);
+    } catch (err) {
+      zeigeHinweis(Object.values(err.felder ?? {})[0] ?? err.message, 'fehler');
+    } finally {
+      setLaeuft(false);
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="abgang-titel">
+      <form onSubmit={speichern} className="karte w-full max-w-md space-y-3 p-4">
+        <h2 id="abgang-titel" className="text-lg font-semibold">Nicht mehr in der Sammlung</h2>
+        <div className="flex gap-2">
+          {BESTAND.filter((b) => b.value !== 'besitz').map((b) => (
+            <button key={b.value} type="button" className={bestand === b.value ? 'chip-aktiv' : 'chip'} onClick={() => setBestand(b.value)}>{b.label}</button>
+          ))}
+        </div>
+        {artikel.anzahl > 1 && (
+          <label className="block">
+            <span className="beschriftung">Wie viele Stück?</span>
+            <span className="flex items-center gap-2">
+              <input type="number" min="1" max={artikel.anzahl} className="eingabe w-24" value={anzahl}
+                onChange={(e) => setAnzahl(Math.min(artikel.anzahl, Math.max(1, Number(e.target.value) || 1)))} />
+              <span className="text-sm text-leise">von {artikel.anzahl}</span>
+            </span>
+          </label>
+        )}
+        <label className="block">
+          <span className="beschriftung">Datum</span>
+          <input type="date" className="eingabe" value={datum} onChange={(e) => setDatum(e.target.value)} required />
+        </label>
+        {bestand === 'verkauft' && (
+          <label className="block">
+            <span className="beschriftung">Verkaufspreis gesamt (€, optional)</span>
+            <input className="eingabe" inputMode="decimal" value={preis} onChange={(e) => setPreis(e.target.value)} placeholder="z. B. 45,00" />
+            <span className="text-xs text-leise">Für Erlös und Gewinn/Verlust in der Statistik – bleibt privat.</span>
+          </label>
+        )}
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" className="knopf-sekundaer" onClick={() => onFertig(null)}>Abbrechen</button>
+          <button type="submit" className="knopf-primaer" disabled={laeuft}>{laeuft ? 'Wird gespeichert …' : 'Speichern'}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 /**
  * Detailansicht eines Artikels. Mit „sammlerName“ und „fremdLaden“ (von einem Zusatzmodul, z. B. Community)
@@ -27,6 +87,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
   const [sammler, setSammler] = useState(null);
   const [fehler, setFehler] = useState(null);
   const [laedtBild, setLaedtBild] = useState(false);
+  const [abgangOffen, setAbgangOffen] = useState(false);
 
   const [exemplare, setExemplare] = useState([]);
   const [katalogDaten, setKatalogDaten] = useState(null);
@@ -66,6 +127,15 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     }
   }
 
+  async function zurueckInSammlung() {
+    try {
+      setArtikel(await api.artikelZurueck(id));
+      zeigeHinweis('Wieder in der Sammlung.');
+    } catch (err) {
+      zeigeHinweis(err.message, 'fehler');
+    }
+  }
+
   async function bildEntfernen() {
     try {
       setArtikel(await api.bildEntfernen(id));
@@ -102,6 +172,11 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
       : eigener && artikel.herkunft ? 'unbekannt' : null],
     ['Marktwert', artikel.marktwert != null ? `${euro(artikel.marktwert)} (eigene Schätzung)` : null],
     ['Kaufdatum', artikel.kaufdatum ? datumDe(artikel.kaufdatum) : null],
+    ['Bestand', artikel.bestand && artikel.bestand !== 'besitz'
+      ? `${beschriftung(BESTAND, artikel.bestand)}${artikel.abgang_am ? ` am ${datumDe(artikel.abgang_am)}` : ''}` : null],
+    ['Verkaufspreis', artikel.verkaufspreis != null ? `${euro(artikel.verkaufspreis)}${artikel.anzahl > 1 ? ' je Stück' : ''}` : null],
+    ['Gewinn/Verlust', artikel.verkaufspreis != null && artikel.kaufpreis != null
+      ? euroMitVorzeichen((artikel.verkaufspreis - artikel.kaufpreis) * artikel.anzahl) : null],
     ['Erscheinungsjahr', artikel.erscheinungsjahr],
   ].filter(([, wert]) => wert);
 
@@ -172,7 +247,18 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
               )}
               {artikel.katalog_status && artikel.katalog_status !== 'freigegeben' && <StatusAbzeichen status={artikel.katalog_status} />}
               <Andockpunkt name="artikel.aktionen" artikel={artikel} katalogDaten={katalogDaten} />
+              {artikel.bestand === 'besitz'
+                ? <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setAbgangOffen(true)}>Verkauft / abgegeben …</button>
+                : <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={zurueckInSammlung}>Zurück in die Sammlung</button>}
             </div>
+          )}
+          {abgangOffen && (
+            <AbgangDialog artikel={artikel} onFertig={(r) => {
+              setAbgangOffen(false);
+              if (!r) return;
+              if (String(r.artikel.id) !== String(id)) navigiere(`/artikel/${r.artikel.id}`);
+              else setArtikel(r.artikel);
+            }} />
           )}
 
           <dl className="karte divide-y divide-rand">

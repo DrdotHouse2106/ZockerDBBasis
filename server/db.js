@@ -479,6 +479,14 @@ const MIGRATIONEN = [
   ALTER TABLE plattformen ADD COLUMN standard INTEGER NOT NULL DEFAULT 1;
   ALTER TABLE benutzer ADD COLUMN meine_systeme TEXT;
   `,
+  // 24: Verkaufte bzw. abgegebene Exemplare behalten (nicht mehr in Sammlung und Sammlungswert, aber mit Foto,
+  //     Kaufpreis und Herkunft sichtbar). Verkaufspreis je Stück wie der Kaufpreis.
+  `
+  ALTER TABLE artikel ADD COLUMN bestand TEXT NOT NULL DEFAULT 'besitz';   -- besitz, verkauft, abgegeben
+  ALTER TABLE artikel ADD COLUMN abgang_am TEXT;                          -- Verkaufs- bzw. Abgabedatum
+  ALTER TABLE artikel ADD COLUMN verkaufspreis REAL;                      -- je Stück
+  CREATE INDEX IF NOT EXISTS idx_artikel_bestand ON artikel (benutzer_id, bestand);
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

@@ -23,7 +23,7 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
       WHERE k.status = 'freigegeben'
       GROUP BY kp.plattform_id`).all();
     const meine = req.benutzer
-      ? db.prepare('SELECT plattform_id AS id, COALESCE(SUM(anzahl), 0) AS stueck FROM artikel WHERE benutzer_id = ? AND plattform_id IS NOT NULL GROUP BY plattform_id')
+      ? db.prepare("SELECT plattform_id AS id, COALESCE(SUM(anzahl), 0) AS stueck FROM artikel WHERE benutzer_id = ? AND bestand = 'besitz' AND plattform_id IS NOT NULL GROUP BY plattform_id")
         .all(req.benutzer.id)
       : [];
     const katalogZahl = new Map(zaehler.map((z) => [z.id, z.eintraege]));
@@ -61,7 +61,7 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
     const where = bedingungen.join(' AND ');
     const gesamt = db.prepare(`SELECT COUNT(*) AS n FROM katalog k WHERE ${where}`).get(parameter).n;
     const zeilen = db.prepare(`
-      SELECT k.*, (SELECT COUNT(DISTINCT a.benutzer_id) FROM artikel a WHERE a.katalog_id = k.id) AS besitzer
+      SELECT k.*, (SELECT COUNT(DISTINCT a.benutzer_id) FROM artikel a WHERE a.katalog_id = k.id AND a.bestand = 'besitz') AS besitzer
       FROM katalog k WHERE ${where}
       ORDER BY besitzer DESC, k.titel COLLATE NOCASE LIMIT ${SEITENGROESSE} OFFSET ${(seite - 1) * SEITENGROESSE}`).all(parameter);
     res.json({
@@ -87,7 +87,7 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
     const plattformListe = db.prepare(`SELECT p.id, p.name, p.kurz, p.hersteller FROM katalog_plattformen kp
       JOIN plattformen p ON p.id = kp.plattform_id WHERE kp.katalog_id = ? ORDER BY p.erscheinungsjahr`).all(eintrag.id);
     const varianten = db.prepare(`
-      SELECT v.*, (SELECT COUNT(*) FROM artikel a WHERE a.variante_id = v.id AND a.benutzer_id = @benutzer) AS meine
+      SELECT v.*, (SELECT COUNT(*) FROM artikel a WHERE a.variante_id = v.id AND a.benutzer_id = @benutzer AND a.bestand = 'besitz') AS meine
       FROM katalog_varianten v WHERE v.katalog_id = @katalog
         AND (v.status = 'freigegeben' OR v.erstellt_von = @benutzer OR @moderator = 1)
       ORDER BY v.erscheinungsjahr IS NULL, v.erscheinungsjahr, v.bezeichnung COLLATE NOCASE`)
@@ -95,8 +95,8 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
       .map((v) => ({ ...fuerBenutzer(v, b), eigene: v.erstellt_von === b?.id, erstellt_von: undefined, geprueft_von: undefined }));
 
     const meineExemplare = b
-      ? db.prepare(`SELECT a.id, a.titel, a.plattform, a.region, a.zustand, a.vollstaendigkeit, a.farbe, a.edition, a.modellnummer, a.variante_id, a.anzahl
-          FROM artikel a WHERE a.katalog_id = ? AND a.benutzer_id = ? ORDER BY a.id`).all(eintrag.id, b.id)
+      ? db.prepare(`SELECT a.id, a.titel, a.plattform, a.region, a.zustand, a.vollstaendigkeit, a.farbe, a.edition, a.modellnummer, a.variante_id, a.anzahl, a.bestand
+          FROM artikel a WHERE a.katalog_id = ? AND a.benutzer_id = ? ORDER BY a.bestand <> 'besitz', a.id`).all(eintrag.id, b.id)
       : [];
     // Nur Anzahl und Art der Dateien – die Dateien selbst sind erst nach Anmeldung sichtbar
     const medienUebersicht = db.prepare(`SELECT art, COUNT(*) AS anzahl FROM medien WHERE katalog_id = ? AND sichtbarkeit = 'freigegeben'

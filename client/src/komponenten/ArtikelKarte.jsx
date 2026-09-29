@@ -17,6 +17,11 @@ export default function ArtikelKarte({ artikel, href, exemplare }) {
             <span className="truncate">{artikel.plattform}</span>
           </p>
         )}
+        {artikel.bestand && artikel.bestand !== 'besitz' && (
+          <p className="text-xs font-semibold text-warnung">
+            {artikel.bestand === 'verkauft' ? 'Verkauft' : 'Abgegeben'}{artikel.abgang_am ? ` am ${artikel.abgang_am.split('-').reverse().join('.')}` : ''}
+          </p>
+        )}
         {exemplare > 1
           ? <p className="text-xs font-semibold text-akzent-hell">{exemplare} Exemplare / Varianten</p>
           : variante && <p className="truncate text-xs text-akzent-hell">{variante}</p>}

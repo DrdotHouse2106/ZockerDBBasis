@@ -106,7 +106,15 @@ export const KONVOLUT_AUFTEILUNG = [
   { value: 'wert', label: 'Nach geschätztem Wert' },
 ];
 
+/** Bestand eines Exemplars: nur „Im Besitz“ zählt zur Sammlung und zum Sammlungswert. */
+export const BESTAND = [
+  { value: 'besitz', label: 'Im Besitz', kurz: 'Im Besitz' },
+  { value: 'verkauft', label: 'Verkauft', kurz: 'Verkauft' },
+  { value: 'abgegeben', label: 'Verschenkt / getauscht', kurz: 'Abgegeben' },
+];
+
 export const ALLE_WERTE = {
+  bestand: BESTAND.map((e) => e.value),
   herkunft: HERKUNFT.map((e) => e.value),
   typ: ARTIKELTYPEN.map((e) => e.value),
   zustand: ZUSTAENDE.map((e) => e.value),

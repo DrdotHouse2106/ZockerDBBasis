@@ -9,6 +9,12 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 29.09.2026 – Verkaufte Exemplare behalten
+- Am Exemplar „Verkauft / abgegeben …“: verkauft oder verschenkt/getauscht, mit Datum und Verkaufspreis – bei mehreren Stück auch nur ein Teil (z. B. 2 von 3)
+- Verkaufte Stücke verschwinden aus Sammlung, Sammlungswert und Statistik, bleiben aber unter „Verkauft & abgegeben“ mit Foto, Kaufpreis und Herkunft sichtbar
+- Statistik: Verkäufe mit Erlös und Gewinn/Verlust (bei Konvoluten anteilig), je Jahr
+- „Zurück in die Sammlung“ macht es rückgängig; Export, Import und Sync nehmen den Status mit
+
 ## 29.09.2026 – Releasekalender „Erscheint demnächst“
 - Neue Seite „Erscheint demnächst“ (Mehr → Erscheint demnächst, am Desktop „Kalender“): Termine nach Monat, für deine Systeme, einzelne Plattform oder alle
 - Umschalter „Kürzlich erschienen“, Zeitraum 30 Tage / 4 Monate / 1 Jahr; europäische bzw. weltweite Termine werden bevorzugt

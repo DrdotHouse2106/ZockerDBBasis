@@ -83,6 +83,9 @@ export const api = {
   artikelAnlegen: (daten) => anfrage('/api/artikel', { methode: 'POST', daten }),
   artikelAendern: (id, daten) => anfrage(`/api/artikel/${id}`, { methode: 'PUT', daten }),
   artikelLoeschen: (id) => anfrage(`/api/artikel/${id}`, { methode: 'DELETE' }),
+  // Verkauft bzw. abgegeben ({ bestand, anzahl, datum, preis = Gesamterlös }) und zurück in die Sammlung
+  artikelAbgang: (id, daten) => anfrage(`/api/artikel/${id}/abgang`, { methode: 'POST', daten }),
+  artikelZurueck: (id) => anfrage(`/api/artikel/${id}/zurueck`, { methode: 'POST' }),
   bildHochladen: (id, datei) => {
     const formular = new FormData();
     formular.append('bild', datei);

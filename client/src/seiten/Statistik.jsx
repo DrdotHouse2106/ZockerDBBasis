@@ -3,7 +3,7 @@ import {
   ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, beschriftung,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
-import { euro, anzahl, datumDe } from '../format.js';
+import { euro, anzahl, datumDe, euroMitVorzeichen } from '../format.js';
 import Layout from '../komponenten/Layout.jsx';
 
 export default function Statistik({ route }) {
@@ -49,6 +49,35 @@ export default function Statistik({ route }) {
               <Balkenliste titel="Nach Herkunft" zeilen={daten.nachHerkunft} beschrifte={(w) => (w ? beschriftung(HERKUNFT, w) : 'Keine Angabe')} />
             )}
           </div>
+
+          {(daten.verkauf?.stueck > 0 || daten.verkauf?.abgegeben > 0) && (
+            <section className="karte space-y-3 p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="font-semibold">Verkäufe</h2>
+                <a href="#/?bestand=weg" className="text-sm text-akzent-hell hover:underline">Verkauft & abgegeben ansehen →</a>
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <Kachel titel="Verkauft" wert={`${anzahl(daten.verkauf.stueck)} Stück`} klein />
+                <Kachel titel="Erlös" wert={euro(daten.verkauf.erloes)} klein />
+                <Kachel titel="Gewinn/Verlust" wert={euroMitVorzeichen(daten.verkauf.gewinn)} klein />
+                <Kachel titel="Verschenkt/getauscht" wert={`${anzahl(daten.verkauf.abgegeben)} Stück`} klein />
+              </div>
+              <p className="text-xs text-leise">
+                Gewinn/Verlust = Verkaufspreis minus Kaufpreis (bei Konvoluten der anteilige Preis); nur Stücke, bei denen beides bekannt ist.
+                {daten.verkauf.ohne_kaufpreis > 0 && ` ${anzahl(daten.verkauf.ohne_kaufpreis)} verkaufte Stück ohne Kaufpreis zählen nur zum Erlös.`}
+              </p>
+              {daten.verkauf.jahre.length > 1 && (
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-leise"><th className="py-1 font-normal">Jahr</th><th className="font-normal">Stück</th><th className="font-normal">Erlös</th><th className="font-normal">Gewinn/Verlust</th></tr></thead>
+                  <tbody>
+                    {daten.verkauf.jahre.map((j) => (
+                      <tr key={j.jahr ?? '–'} className="border-t border-rand"><td className="py-1">{j.jahr ?? '–'}</td><td>{anzahl(j.stueck)}</td><td>{euro(j.erloes)}</td><td>{euroMitVorzeichen(j.gewinn)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          )}
 
           {daten.zuletzt.length > 0 && (
             <section className="karte p-4">

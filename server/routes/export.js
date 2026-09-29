@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, beschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, beschriftung,
 } from '../../shared/konstanten.js';
 import { pruefeArtikel, ValidierungsFehler } from '../services/validierung.js';
 
@@ -24,6 +24,9 @@ const CSV_SPALTEN = [
   ['herkunft', 'Herkunft', (w) => beschriftung(HERKUNFT, w)],
   ['konvolut_name', 'Konvolut'],
   ['marktwert', 'Marktwert (EUR)', (w) => (w == null ? '' : w.toFixed(2).replace('.', ','))],
+  ['bestand', 'Bestand', (w) => beschriftung(BESTAND, w)],
+  ['abgang_am', 'Verkauft/abgegeben am', (w) => (w ? w.split('-').reverse().join('.') : '')],
+  ['verkaufspreis', 'Verkaufspreis (EUR)', (w) => (w == null ? '' : w.toFixed(2).replace('.', ','))],
   ['notizen', 'Eigene Notizen'],
   ['erstellt_am', 'Erfasst am'],
 ];
@@ -105,7 +108,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
     const katalogVorhanden = db.prepare("SELECT id FROM katalog WHERE id = ? AND (status = 'freigegeben' OR erstellt_von = ?)");
     const felder = ['benutzer_id', 'typ', 'titel', 'plattform', 'katalog_id', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region',
       'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'plattform_id',
-      'herkunft', 'konvolut_id', 'kaufpreis_anteilig'];
+      'herkunft', 'konvolut_id', 'kaufpreis_anteilig', 'bestand', 'abgang_am', 'verkaufspreis'];
     const einfuegen = db.prepare(`INSERT INTO artikel (${felder.join(', ')}) VALUES (${felder.map((f) => `@${f}`).join(', ')})`);
 
     const fehlerhaft = [];

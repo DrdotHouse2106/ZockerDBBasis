@@ -26,7 +26,7 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
       mitZweiFaktor: zahl('SELECT COUNT(*) AS n FROM benutzer WHERE totp_aktiv = 1'),
       gesperrt: zahl('SELECT COUNT(*) AS n FROM benutzer WHERE gesperrt = 1'),
       neueBenutzer7Tage: zahl("SELECT COUNT(*) AS n FROM benutzer WHERE erstellt_am >= datetime('now', '-7 days')"),
-      artikel: zahl('SELECT COALESCE(SUM(anzahl), 0) AS n FROM artikel'),
+      artikel: zahl("SELECT COALESCE(SUM(anzahl), 0) AS n FROM artikel WHERE bestand = 'besitz'"),
       katalogFreigegeben: zahl("SELECT COUNT(*) AS n FROM katalog WHERE status = 'freigegeben'"),
       katalogPrivat: zahl("SELECT COUNT(*) AS n FROM katalog WHERE status IN ('privat', 'abgelehnt')"),
       offen: {
@@ -140,7 +140,7 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
     res.json(db.prepare(`
       SELECT b.id, b.benutzername, b.anzeigename, b.email, b.rolle, b.gesperrt, b.totp_aktiv, b.sammlung_oeffentlich,
              b.erstellt_am, b.letzte_anmeldung, COUNT(a.id) AS eintraege
-      FROM benutzer b LEFT JOIN artikel a ON a.benutzer_id = b.id
+      FROM benutzer b LEFT JOIN artikel a ON a.benutzer_id = b.id AND a.bestand = 'besitz'
       GROUP BY b.id ORDER BY b.erstellt_am`).all().map((b) => ({
         ...b, speicher: speicher.info(b.id),
         // Zusatzmodule (z. B. Händlerstatus und gebuchte Pakete)

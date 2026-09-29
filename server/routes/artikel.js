@@ -17,7 +17,7 @@ const ERLAUBTE_BILDTYPEN = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/w
 const FELDER = [
   'typ', 'titel', 'plattform', 'katalog_id', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region',
   'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert',
-  'plattform_id', 'variante_id', 'herkunft', 'konvolut_id',
+  'plattform_id', 'variante_id', 'herkunft', 'konvolut_id', 'bestand', 'abgang_am', 'verkaufspreis',
 ];
 
 export function artikelZuObjekt(zeile) {
@@ -92,6 +92,13 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
   router.get('/', (req, res) => {
     const bedingungen = ['a.benutzer_id = @benutzer_id'];
     const parameter = { benutzer_id: req.benutzer.id };
+    // Standard: nur, was man besitzt; „bestand=verkauft|abgegeben|weg|alle“ zeigt die übrigen
+    const bestand = String(req.query.bestand ?? 'besitz');
+    if (bestand === 'weg') bedingungen.push("a.bestand <> 'besitz'");
+    else if (bestand !== 'alle') {
+      bedingungen.push('a.bestand = @bestand');
+      parameter.bestand = ['besitz', 'verkauft', 'abgegeben'].includes(bestand) ? bestand : 'besitz';
+    }
     const { typ, q, plattform, region, zustand, vollstaendigkeit, herkunft } = req.query;
     if (req.query.ohne_preis === '1') bedingungen.push('a.kaufpreis IS NULL');
     const konvolutId = Number(req.query.konvolut_id);
@@ -126,7 +133,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     const zeilen = db.prepare(`
       SELECT a.plattform_id AS id, COALESCE(p.name, a.plattform) AS plattform, p.kurz, p.hersteller, COUNT(*) AS anzahl
       FROM artikel a LEFT JOIN plattformen p ON p.id = a.plattform_id
-      WHERE a.benutzer_id = ? AND (a.plattform IS NOT NULL OR a.plattform_id IS NOT NULL)
+      WHERE a.benutzer_id = ? AND a.bestand = 'besitz' AND (a.plattform IS NOT NULL OR a.plattform_id IS NOT NULL)
       GROUP BY COALESCE(a.plattform_id, a.plattform) ORDER BY p.hersteller, p.erscheinungsjahr, plattform COLLATE NOCASE`).all(req.benutzer.id);
     res.json(zeilen);
   });
@@ -202,6 +209,52 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
       })();
     }
     for (const k of new Set([vorhanden.konvolut_id, daten.konvolut_id].filter(Boolean))) konvolute.aufteilen(k);
+    res.json(artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)));
+  });
+
+  /**
+   * Exemplar(e) als verkauft bzw. abgegeben markieren. Bei Anzahl > 1 und `anzahl` kleiner als der Bestand wird aufgeteilt:
+   * die abgegebenen Stücke bekommen einen eigenen Eintrag (z. B. 2 von 3 verkauft). `preis` ist der Gesamterlös.
+   */
+  router.post('/:id/abgang', (req, res) => {
+    const vorhanden = holeOder404(req, res);
+    if (!vorhanden) return;
+    const neu = abgang(vorhanden, req.body ?? {});
+    erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
+    res.json({ artikel: artikelZuObjekt(perId.get(neu, req.benutzer.id)), rest: vorhanden.id !== neu ? artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)) : null });
+  });
+
+  function abgang(vorhanden, eingabe) {
+    const bestand = ['verkauft', 'abgegeben'].includes(eingabe.bestand) ? eingabe.bestand : null;
+    if (!bestand) throw new ValidierungsFehler({ bestand: 'Bitte „verkauft“ oder „verschenkt/getauscht“ wählen.' });
+    if (vorhanden.bestand !== 'besitz') throw new ValidierungsFehler({ bestand: 'Dieses Exemplar ist nicht mehr im Besitz.' });
+    const anzahl = eingabe.anzahl == null || eingabe.anzahl === '' ? vorhanden.anzahl : Number(eingabe.anzahl);
+    if (!Number.isInteger(anzahl) || anzahl < 1 || anzahl > vorhanden.anzahl) throw new ValidierungsFehler({ anzahl: `Bitte 1 bis ${vorhanden.anzahl} angeben.` });
+    const d = pruefeArtikel({ bestand, abgang_am: eingabe.datum || new Date().toISOString().slice(0, 10), verkaufspreis: eingabe.preis }, true);
+    const jeStueck = bestand === 'verkauft' && d.verkaufspreis != null ? Math.round((d.verkaufspreis / anzahl) * 100) / 100 : null;
+    return db.transaction(() => {
+      let id = vorhanden.id;
+      if (anzahl < vorhanden.anzahl) {
+        // Aufteilen: Kopie mit den abgegebenen Stücken (Foto wird nicht doppelt gespeichert – bleibt beim Rest)
+        db.prepare("UPDATE artikel SET anzahl = anzahl - ?, aktualisiert_am = datetime('now') WHERE id = ?").run(anzahl, vorhanden.id);
+        const felder = FELDER.filter((f) => !['anzahl', 'bestand', 'abgang_am', 'verkaufspreis'].includes(f));
+        id = db.prepare(`INSERT INTO artikel (benutzer_id, ${felder.join(', ')}, kaufpreis_anteilig, anzahl, bestand, abgang_am, verkaufspreis)
+          SELECT benutzer_id, ${felder.join(', ')}, kaufpreis_anteilig, ?, ?, ?, ? FROM artikel WHERE id = ? RETURNING id`)
+          .get(anzahl, bestand, d.abgang_am, jeStueck, vorhanden.id).id;
+      } else {
+        db.prepare("UPDATE artikel SET bestand = ?, abgang_am = ?, verkaufspreis = ?, aktualisiert_am = datetime('now') WHERE id = ?")
+          .run(bestand, d.abgang_am, jeStueck, vorhanden.id);
+      }
+      return id;
+    })();
+  }
+
+  // Wieder in die Sammlung zurückholen (versehentlich markiert, zurückgekauft)
+  router.post('/:id/zurueck', (req, res) => {
+    const vorhanden = holeOder404(req, res);
+    if (!vorhanden) return;
+    db.prepare("UPDATE artikel SET bestand = 'besitz', abgang_am = NULL, verkaufspreis = NULL, aktualisiert_am = datetime('now') WHERE id = ?").run(vorhanden.id);
+    erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
     res.json(artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)));
   });
 

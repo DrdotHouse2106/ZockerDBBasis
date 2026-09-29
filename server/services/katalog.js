@@ -75,7 +75,7 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
     WHERE z.code = @code AND (k.status = 'freigegeben' OR z.benutzer_id = @benutzer)
     GROUP BY k.id ORDER BY eigene DESC, (k.status = 'freigegeben') DESC, anzahl DESC LIMIT 5`);
   const zuordnungSchreiben = db.prepare('INSERT OR IGNORE INTO barcode_zuordnungen (code, katalog_id, benutzer_id) VALUES (?, ?, ?)');
-  const artikelMitBarcode = db.prepare('SELECT id, titel, plattform, typ FROM artikel WHERE barcode = ? AND benutzer_id = ?');
+  const artikelMitBarcode = db.prepare('SELECT id, titel, plattform, typ, bestand FROM artikel WHERE barcode = ? AND benutzer_id = ?');
 
   function speichere(eintrag) {
     const status = eintrag.status ?? (eintrag.quelle === 'igdb' ? 'freigegeben' : 'privat');

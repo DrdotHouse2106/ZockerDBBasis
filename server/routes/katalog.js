@@ -89,7 +89,7 @@ export function katalogRouter({ db, katalog, dateien, erweiterungen, zentrale })
 
   // ── Varianten / Revisionen ──────────────────────────────────
   const variantenSichtbar = db.prepare(`
-    SELECT v.*, (SELECT COUNT(*) FROM artikel a WHERE a.variante_id = v.id AND a.benutzer_id = @benutzer) AS meine
+    SELECT v.*, (SELECT COUNT(*) FROM artikel a WHERE a.variante_id = v.id AND a.benutzer_id = @benutzer AND a.bestand = 'besitz') AS meine
     FROM katalog_varianten v
     WHERE v.katalog_id = @katalog AND (v.status = 'freigegeben' OR v.erstellt_von = @benutzer OR @moderator = 1)
     ORDER BY v.erscheinungsjahr IS NULL, v.erscheinungsjahr, v.bezeichnung COLLATE NOCASE`);

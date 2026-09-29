@@ -78,7 +78,7 @@ export function kalenderRouter({ db, plattformen, zentrale, katalog, erweiterung
     const wunsch = new Set(markierungen.wunschliste ?? []);
     if (req.query.wunschliste === '1') liste = liste.filter((t) => wunsch.has(t.katalog.id));
     const besitz = ids.length
-      ? new Set(db.prepare(`SELECT DISTINCT katalog_id FROM artikel WHERE benutzer_id = ? AND katalog_id IN (SELECT value FROM json_each(?))`)
+      ? new Set(db.prepare(`SELECT DISTINCT katalog_id FROM artikel WHERE benutzer_id = ? AND bestand = 'besitz' AND katalog_id IN (SELECT value FROM json_each(?))`)
         .pluck().all(req.benutzer.id, JSON.stringify(ids)))
       : new Set();
     const grenze = Math.min(Math.max(Number(req.query.grenze) || 500, 1), 1000);
