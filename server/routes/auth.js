@@ -73,8 +73,11 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     // E-Mail vorab prüfen, damit bei einem Tippfehler kein halbes Konto entsteht
     const email = kontoMail.bereit() ? normalisiereEmail(req.body?.email) : null;
     if (emailPflicht() && !email) throw new ValidierungsFehler({ email: 'Bitte gib eine E-Mail-Adresse an.' });
+    const offen = registrierungOffen();
     const benutzer = await konten.registriere(req.body ?? {});
     if (einladung) konten.loeseEinladungEin(einladung.id, benutzer.id);
+    // Andockpunkt „konto.registriert“: z. B. Empfehlungsprogramm (Werber-Code nur bei offener Registrierung)
+    erweiterungen.melde('konto.registriert', benutzer, { werber: offen && !einladung ? req.body?.werber : null, ip: req.ip, email });
     registrierDrossel.fehlschlag(req.ip); // zählt jede Registrierung
     if (email) {
       try {

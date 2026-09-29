@@ -25,6 +25,15 @@ export default function Anmelden() {
   // Einladungslink (#/?einladung=…): Registrieren auch bei geschlossener Registrierung
   const [einladung] = useState(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('einladung'));
   const [einladungGueltig, setEinladungGueltig] = useState(null);
+  // Persönlicher Empfehlungslink (#/?werber=…) – wird bis zur Registrierung in diesem Tab gemerkt
+  const [werber] = useState(() => {
+    const code = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('werber');
+    try {
+      if (code) sessionStorage.setItem('zockerdb-werber', code);
+      return code || sessionStorage.getItem('zockerdb-werber');
+    } catch { return code; }
+  });
+  useEffect(() => { if (werber && auth?.registrierungOffen) setModus('registrieren'); }, [werber, auth?.registrierungOffen]);
   useEffect(() => {
     if (!einladung) return;
     api.einladungPruefen(einladung).then((r) => {
@@ -52,7 +61,7 @@ export default function Anmelden() {
         const mitEinladung = einladung && einladungGueltig;
         const captcha = auth?.ersteinrichtung || mitEinladung ? undefined : await captchaNachweis(auth?.captcha, 'registrieren', { zustimmung: captchaZustimmung });
         await api.registrieren({
-          captcha, einladung: mitEinladung ? einladung : undefined,
+          captcha, einladung: mitEinladung ? einladung : undefined, werber: !mitEinladung && werber ? werber : undefined,
           benutzername: werte.benutzername, passwort: werte.passwort, anzeigename: werte.anzeigename, email: werte.email, bedingungen_akzeptiert: akzeptiert,
         });
         await aktualisiere();
