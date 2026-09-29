@@ -13,7 +13,9 @@ test('Einladung: einmal nutzbar, gilt bei geschlossener Registrierung, nur Admin
 
     const e = await admin.api('/api/admin/einladungen', { methode: 'POST', daten: { notiz: 'Kumpel Max' } });
     assert.equal(e.status, 201);
-    const token = new URL(e.json.link.replace('/#/?', '/?')).searchParams.get('einladung');
+    // „?app=1“, sonst zeigt „/“ ohne Anmeldung die öffentliche Startseite statt der App
+    assert.match(e.json.link, /\/\?app=1#\/\?einladung=/);
+    const token = e.json.link.split('einladung=')[1];
     assert.ok(token);
     assert.ok(!JSON.stringify(server.db.prepare('SELECT * FROM einladungen').all()).includes(token), 'nur die Prüfsumme gespeichert');
 
@@ -32,6 +34,31 @@ test('Einladung: einmal nutzbar, gilt bei geschlossener Registrierung, nur Admin
 
     const max = gast;
     assert.equal((await max.api('/api/admin/einladungen', { methode: 'POST', daten: {} })).status, 403);
+  } finally {
+    await server.stoppe();
+  }
+});
+
+test('Einladung per E-Mail verschicken, Kopie aller E-Mails per BCC', async () => {
+  const mails = [];
+  const server = await starteTestServer({
+    env: { REGISTRATION_OPEN: 'false', SMTP_BCC: 'pruefung@example.de', PUBLIC_URL: 'https://zockerdb.example' },
+    mailFn: async (m) => { mails.push(m); },
+  });
+  try {
+    const admin = await server.registriere('chefin');
+    const falsch = await admin.api('/api/admin/einladungen', { methode: 'POST', daten: { email: 'keine-adresse' } });
+    assert.equal(falsch.status, 400);
+    const e = await admin.api('/api/admin/einladungen', { methode: 'POST', daten: { email: 'Max@Example.de' } });
+    assert.equal(e.status, 201, e.text);
+    assert.equal(e.json.versendet, true);
+    assert.equal(e.json.notiz, 'max@example.de', 'ohne Notiz wird die Adresse vermerkt');
+    const m = mails.at(-1);
+    assert.equal(m.to, 'max@example.de');
+    assert.equal(m.bcc, 'pruefung@example.de');
+    assert.match(m.subject, /Einladung/);
+    assert.ok(m.text.includes(e.json.link) && m.html.includes('Konto anlegen'));
+    assert.match(e.json.link, /^https:\/\/zockerdb\.example\/\?app=1#\/\?einladung=/);
   } finally {
     await server.stoppe();
   }

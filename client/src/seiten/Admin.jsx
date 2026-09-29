@@ -268,6 +268,7 @@ function Einladungen() {
   const zeigeHinweis = useHinweis();
   const [liste, setListe] = useState([]);
   const [notiz, setNotiz] = useState('');
+  const [email, setEmail] = useState('');
   const [neu, setNeu] = useState(null);
   const laden = () => api.adminEinladungen().then(setListe).catch(() => {});
   useEffect(() => { laden(); }, []);
@@ -275,8 +276,12 @@ function Einladungen() {
   async function erstellen(e) {
     e.preventDefault();
     try {
-      setNeu(await api.adminEinladungErstellen({ notiz, tage: 7 }));
+      const ergebnis = await api.adminEinladungErstellen({ notiz, email: email.trim() || undefined, tage: 7 });
+      setNeu(ergebnis);
+      if (ergebnis.versendet) zeigeHinweis(`Einladung an ${ergebnis.an} verschickt.`);
+      if (ergebnis.fehler) zeigeHinweis(ergebnis.fehler, 'fehler');
       setNotiz('');
+      setEmail('');
       laden();
     } catch (f) { zeigeHinweis(f.message, 'fehler'); }
   }
@@ -290,15 +295,17 @@ function Einladungen() {
       <h2 className="font-semibold">Jemanden einladen</h2>
       <p className="text-sm text-leise">
         Erstellt einen Link, mit dem sich eine Person ein Konto anlegen kann – auch wenn die Registrierung geschlossen ist.
-        Benutzername und Passwort wählt sie selbst. Der Link gilt 7 Tage und nur für ein Konto.
+        Benutzername und Passwort wählt sie selbst. Der Link gilt 7 Tage und nur für ein Konto. Mit E-Mail-Adresse wird die
+        Einladung direkt verschickt; kopieren lässt sich der Link trotzdem.
       </p>
       <form onSubmit={erstellen} className="flex flex-wrap gap-2">
+        <input className="eingabe min-w-0 flex-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200} placeholder="E-Mail-Adresse (optional – dann wird verschickt)" />
         <input className="eingabe min-w-0 flex-1" value={notiz} onChange={(e) => setNotiz(e.target.value)} maxLength={100} placeholder="Für wen? (nur als Notiz, z. B. „Kumpel Max“)" />
-        <button type="submit" className="knopf-primaer">Einladungslink erstellen</button>
+        <button type="submit" className="knopf-primaer">{email.trim() ? 'Einladung verschicken' : 'Einladungslink erstellen'}</button>
       </form>
       {neu && (
         <div className="space-y-2 rounded-lg border border-erfolg/50 p-3 text-sm" role="status">
-          <p>Link für {neu.notiz ?? 'die Einladung'} – wird nur jetzt angezeigt:</p>
+          <p>{neu.versendet ? `Per E-Mail an ${neu.an} verschickt. ` : ''}Link für {neu.notiz ?? 'die Einladung'} – wird nur jetzt angezeigt:</p>
           <input className="eingabe font-mono text-xs" readOnly value={neu.link} onFocus={(e) => e.target.select()} />
           <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={kopieren}>Link kopieren</button>
         </div>

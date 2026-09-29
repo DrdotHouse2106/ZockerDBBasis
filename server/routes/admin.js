@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { KontoFehler } from '../services/konten.js';
+import { mailHtml } from '../services/mail.js';
+import { MARKE } from '../../shared/marke.js';
 import { erstelleDrossel } from '../services/drossel.js';
 
 // Nur über die .env änderbar – zur Information in der Oberfläche
@@ -148,11 +150,36 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
 
   // ── Einladungen: Konto für Bekannte bei geschlossener Registrierung ──
   router.get('/einladungen', (_req, res) => res.json(konten.einladungen()));
-  router.post('/einladungen', (req, res) => {
-    const e = konten.erstelleEinladung(req.benutzer.id, { notiz: req.body?.notiz, tage: req.body?.tage });
-    // Der Link wird nur jetzt angezeigt – gespeichert ist nur eine Prüfsumme
+  router.post('/einladungen', async (req, res) => {
+    const email = String(req.body?.email ?? '').trim().toLowerCase();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new KontoFehler('Bitte eine gültige E-Mail-Adresse angeben.');
+    if (email && !mail.aktiv) throw new KontoFehler('Der E-Mail-Versand ist nicht eingerichtet (SMTP) – den Link bitte kopieren und selbst weitergeben.');
+    const e = konten.erstelleEinladung(req.benutzer.id, { notiz: req.body?.notiz || email, tage: req.body?.tage });
+    // Der Link wird nur jetzt angezeigt – gespeichert ist nur eine Prüfsumme.
+    // „?app=1“: Ohne Anmeldung zeigt „/“ sonst die öffentliche Startseite statt der App.
     const basis = konfiguration.oeffentlicheUrl || `${req.protocol}://${req.get('host')}`;
-    res.status(201).json({ ...e, link: `${basis}/#/?einladung=${e.token}` });
+    const link = `${basis}/?app=1#/?einladung=${e.token}`;
+    let versendet = false;
+    if (email) {
+      const von = req.benutzer.anzeigename || req.benutzer.benutzername;
+      const bis = new Date(`${e.laeuft_ab.replace(' ', 'T')}Z`).toLocaleDateString('de-DE');
+      try {
+        await mail.sende({
+          an: email,
+          betreff: `Einladung zu ${MARKE.name}`,
+          text: `Hallo,\n\n${von} lädt dich zu ${MARKE.name} ein – ${MARKE.untertitel}.\n\nMit diesem Link legst du dir dein Konto an (gültig bis ${bis}, nur einmal verwendbar):\n${link}\n\nBenutzername und Passwort wählst du selbst.`,
+          html: mailHtml({
+            titel: `Einladung zu ${MARKE.name}`,
+            absaetze: [`${von} lädt dich zu ${MARKE.name} ein – ${MARKE.untertitel}.`, `Mit dem Knopf legst du dir dein Konto an. Benutzername und Passwort wählst du selbst. Der Link gilt bis ${bis} und nur für ein Konto.`],
+            knopf: { url: link, text: 'Konto anlegen' },
+          }),
+        });
+        versendet = true;
+      } catch (fehler) {
+        return res.status(201).json({ ...e, link, versendet: false, fehler: `Die E-Mail konnte nicht versendet werden (${fehler.message}). Den Link kannst du kopieren.` });
+      }
+    }
+    res.status(201).json({ ...e, link, versendet, an: email || null });
   });
   router.delete('/einladungen/:id', (req, res) => {
     if (!konten.loescheEinladung(req.params.id)) throw new KontoFehler('Einladung nicht gefunden.', 404);

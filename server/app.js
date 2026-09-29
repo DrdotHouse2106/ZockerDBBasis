@@ -190,7 +190,9 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
     // security.txt (RFC 9116) – express.static liefert Punkt-Ordner sonst nicht aus
     app.get('/.well-known/security.txt', (_req, res) => res.type('text/plain; charset=utf-8')
       .sendFile(path.join(distVerzeichnis, '.well-known', 'security.txt'), { dotfiles: 'allow' }));
-    app.get('/{*pfad}', (_req, res) => res.sendFile(path.join(distVerzeichnis, 'index.html')));
+    // Die App nutzt nur „/“ (Seiten hinter #/…). Unbekannte Adressen – oft Bots auf der Suche nach Lücken wie /wp-login.php –
+    // bekommen die App trotzdem, aber mit Status 404: für Suchmaschinen keine Scheinseiten, in der Besucherstatistik nicht gezählt.
+    app.get('/{*pfad}', (req, res) => res.status(['/', '/index.html'].includes(req.path) ? 200 : 404).sendFile(path.join(distVerzeichnis, 'index.html')));
   }
 
   // Zentrale Fehlerbehandlung – alle Meldungen auf Deutsch.

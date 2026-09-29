@@ -61,6 +61,8 @@ export const EINSTELLUNGEN = [
   { schluessel: 'SMTP_USER', gruppe: 'E-Mail (SMTP)', titel: 'Benutzername', typ: 'text' },
   { schluessel: 'SMTP_PASSWORD', gruppe: 'E-Mail (SMTP)', titel: 'Passwort', typ: 'geheim', sicher: true },
   { schluessel: 'SMTP_FROM', gruppe: 'E-Mail (SMTP)', titel: 'Absender', typ: 'text', platzhalter: 'ZockerDB <noreply@zockerdb.de>' },
+  { schluessel: 'SMTP_BCC', gruppe: 'E-Mail (SMTP)', titel: 'Kopie aller E-Mails an (BCC)', typ: 'text', platzhalter: 'pruefung@example.de',
+    hinweis: 'Jede versendete E-Mail geht zusätzlich unsichtbar an diese Adresse – zum Prüfen der Texte. Leer = aus. Achtung: Die Kopien enthalten auch Links zum Zurücksetzen von Passwörtern; nach der Prüfphase wieder leeren.' },
   { schluessel: 'TWITCH_CLIENT_ID', gruppe: 'Spieledaten (IGDB) & Barcodes', titel: 'Twitch Client-ID (IGDB)', typ: 'text' },
   { schluessel: 'TWITCH_CLIENT_SECRET', gruppe: 'Spieledaten (IGDB) & Barcodes', titel: 'Twitch Client-Secret (IGDB)', typ: 'geheim', sicher: true },
   { schluessel: 'BARCODE_PROVIDERS', gruppe: 'Spieledaten (IGDB) & Barcodes', titel: 'Barcode-Dienste', typ: 'text', platzhalter: 'opengtindb,upcitemdb',

@@ -93,6 +93,7 @@ export function ladeKonfiguration(env = process.env) {
       benutzer: (env.SMTP_USER || '').trim(),
       passwort: env.SMTP_PASSWORD || '',
       absender: (env.SMTP_FROM || '').trim(), // z. B. "ZockerDB <noreply@zockerdb.de>"
+      bcc: (env.SMTP_BCC || '').trim(), // Kopie aller E-Mails an diese Adresse (zum Prüfen, danach leeren)
     },
     // Spam-Schutz für Registrierung und „Passwort vergessen“: altcha, recaptcha oder aus
     captcha: {

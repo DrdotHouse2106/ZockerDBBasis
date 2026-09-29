@@ -43,6 +43,8 @@ export function erstelleMailDienst(konfiguration, { transportFn } = {}) {
     if (!aktiv) throw new Error('Der E-Mail-Versand ist nicht eingerichtet (SMTP_HOST/SMTP_FROM).');
     // Zeilenumbrüche im Betreff entfernen (Titel stammen teils von Benutzern)
     const nachricht = { from: m.absender || `${MARKE.name} <noreply@localhost>`, to: an, subject: String(betreff).replace(/[\r\n]+/g, ' ').slice(0, 250), text, html };
+    // Kopie aller E-Mails zur Kontrolle (SMTP_BCC) – unsichtbar für den Empfänger
+    if (m.bcc && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m.bcc) && String(an).toLowerCase() !== m.bcc.toLowerCase()) nachricht.bcc = m.bcc;
     if (transportFn) return transportFn(nachricht);
     return transport.sendMail(nachricht);
   }
