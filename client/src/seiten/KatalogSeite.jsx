@@ -67,8 +67,10 @@ export default function KatalogSeite({ route, id }) {
         <div className="min-w-0 space-y-4">
           {bearbeiten && <KatalogBearbeiten eintrag={e} plattformIds={daten.plattformen.map((p) => p.id)} onFertig={(neu) => { setBearbeiten(false); if (neu) laden(); }} />}
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold">{e.titel}</h2>
-            {e.titel_original && <p className="text-sm text-leise">Originaltitel: <span lang="en">{e.titel_original}</span></p>}
+            <h2 className="text-2xl font-bold" lang={daten.titelSprache?.sprache}>{daten.titelSprache?.text ?? e.titel}</h2>
+            {daten.titelSprache
+              ? <p className="text-sm text-leise">Deutscher Titel: <span lang="de">{e.titel}</span></p>
+              : e.titel_original && <p className="text-sm text-leise">Originaltitel: <span lang="en">{e.titel_original}</span></p>}
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="abzeichen">{beschriftung(ARTIKELTYPEN, e.typ)}</span>
               {daten.plattformen.map((p) => (
