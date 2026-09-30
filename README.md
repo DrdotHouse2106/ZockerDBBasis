@@ -38,6 +38,8 @@ sich sauber erfassen – per Titelsuche, **Barcode-Scan mit der Handykamera** od
   mehrere Exemplare je Spiel
 - **Scans & Handbücher deiner eigenen Originale** privat archivieren (auch TIFF und PDF) – mit Druckansicht in
   Originalgröße für den privaten Gebrauch
+- **Fotos: So sieht es aus** – Modul, Disc oder Diskette, Verpackung vorne und hinten, komplett mit Inhalt, Gerät und
+  Details direkt mit der Handykamera; eine Checkliste zeigt, welche Fotos noch fehlen
 - **Ohne Kaufpreis kein Problem:** Herkunft (Konvolut, Geschenk, „schon immer“ …), ungefähres Kaufdatum (nur Jahr) und
   **Konvolute** mit Gesamtpreis, der automatisch auf die Artikel verteilt wird
 - **Private Kommentare**, **Statistik**, **Filter & Suche**

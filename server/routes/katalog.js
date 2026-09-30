@@ -5,6 +5,7 @@ import {
   pruefeKatalogEintrag, pruefeVariante, pruefeKommentar, ValidierungsFehler,
 } from '../services/validierung.js';
 import { normalisiereBarcode } from '../services/titel.js';
+import { medienDateien } from '../services/medien.js';
 
 const nichtGefunden = (res, was = 'Katalogeintrag') => res.status(404).json({ fehler: `${was} nicht gefunden.` });
 
@@ -83,7 +84,7 @@ export function katalogRouter({ db, katalog, dateien, erweiterungen, zentrale, w
     }
     const medien = db.prepare('SELECT datei, anzeige_datei, vorschau_datei FROM medien WHERE katalog_id = ?').all(vorhanden.id);
     db.prepare('DELETE FROM katalog WHERE id = ?').run(vorhanden.id);
-    dateien.loesche(medien.flatMap((m) => [m.datei, m.anzeige_datei, m.vorschau_datei]));
+    dateien.loesche(medien.flatMap(medienDateien));
     res.status(204).end();
   });
 

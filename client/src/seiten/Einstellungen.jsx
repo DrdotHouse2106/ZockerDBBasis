@@ -55,7 +55,7 @@ export default function Einstellungen({ route }) {
             ['#/verliehen', 'community', 'Leihliste', 'Verliehen und ausgeliehen von anderen'],
             ...(benutzer?.funktionen?.lagerort ? [['#/lagerorte', 'dokument', 'Lagerorte', 'Wo steht was? Übersicht und Zuordnung']] : []),
             // Einträge von Zusatzmodulen
-            ...(MODUL.menue ?? []).filter((m) => !m.sichtbar || m.sichtbar({ auth, benutzer })).map((m) => [m.href, m.symbol, m.titel, m.text]),
+            ...(MODUL.menue ?? []).filter((m) => !m.sichtbar || m.sichtbar({ auth, benutzer, status })).map((m) => [m.href, m.symbol, m.titel, m.text]),
             ['#/statistik', 'statistik', 'Statistik', 'Verteilung nach Plattform, Region, Zustand'],
             ['#/konvolute', 'dokument', 'Konvolute', 'Pakete zu einem Gesamtpreis – automatisch verteilt'],
             ...(status?.ideen ? [['#/ideen', 'info', 'Ideen & Wünsche', status.ideen === 'brett' ? 'Was fehlt dir? Vorschlagen und abstimmen' : 'Was fehlt dir? Idee an zockerdb.de schicken']] : []),

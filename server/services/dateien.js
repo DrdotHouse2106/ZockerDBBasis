@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { istModerator } from '../../shared/konstanten.js';
+import { medienDateien } from './medien.js';
 
 export function erstelleDateiDienst(db, { uploadVerzeichnis, erweiterungen }) {
   fs.mkdirSync(uploadVerzeichnis, { recursive: true });
@@ -45,7 +46,7 @@ export function erstelleDateiDienst(db, { uploadVerzeichnis, erweiterungen }) {
     // Weitere Dateien des Benutzers aus Zusatzmodulen („dateien.benutzer“ → Liste von Dateinamen)
     const weitere = erweiterungen?.alle('dateien.benutzer').flatMap((fn) => fn(benutzerId)) ?? [];
     db.prepare('DELETE FROM benutzer WHERE id = ?').run(benutzerId);
-    loesche(bilder.map((b) => b.bild_datei), medien.flatMap((m) => [m.datei, m.anzeige_datei, m.vorschau_datei]), weitere);
+    loesche(bilder.map((b) => b.bild_datei), medien.flatMap(medienDateien), weitere);
   }
 
   return { zugriff, loesche, pfadVon, loescheBenutzerdaten, verzeichnis: uploadVerzeichnis };

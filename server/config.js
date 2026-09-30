@@ -33,6 +33,9 @@ export function ladeKonfiguration(env = process.env) {
     maxMedienMb: zahl(env.MEDIA_MAX_MB, 200),
     // Scans mit anderen Benutzern teilen (braucht die Moderation eines Zusatzmoduls)
     medienTeilenErlaubt: jaNein(env.MEDIA_SHARING, false),
+    // Eigene Fotos (Modul, Disc, Verpackung, Gerät) mit anderen teilen – ebenfalls mit Moderation; getrennt von Scans,
+    // weil ein Foto des Gegenstands keine 1:1-Kopie eines geschützten Covers oder einer Anleitung ist
+    fotosTeilenErlaubt: jaNein(env.PHOTO_SHARING, false),
     // Speicherplatz je Benutzer für eigene Fotos und Scans in MB (0 = unbegrenzt)
     speicherKontingentMb: Math.max(0, zahl(env.STORAGE_QUOTA_MB, 1024)),
     // Katalog auch ohne Anmeldung zeigen (öffentliche Seiten liefert ein Zusatzmodul)

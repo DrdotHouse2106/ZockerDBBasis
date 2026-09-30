@@ -112,8 +112,9 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
           FROM artikel a WHERE a.katalog_id = ? AND a.benutzer_id = ? ORDER BY a.bestand <> 'besitz', a.id`).all(eintrag.id, b.id)
       : [];
     // Nur Anzahl und Art der Dateien – die Dateien selbst sind erst nach Anmeldung sichtbar
+    // (öffentlich gezeigte Fotos liefert ein Zusatzmodul direkt mit)
     const medienUebersicht = db.prepare(`SELECT art, COUNT(*) AS anzahl FROM medien WHERE katalog_id = ? AND sichtbarkeit = 'freigegeben'
-      GROUP BY art`).all(eintrag.id);
+      AND oeffentlich = 0 GROUP BY art`).all(eintrag.id);
     const medienAnzahl = medienUebersicht.reduce((s, m) => s + m.anzahl, 0);
 
     res.json({

@@ -258,6 +258,8 @@ export function beschriftung(liste, wert, feld = 'label') {
 }
 
 // Arten von Scans und Dokumenten, die an einen Katalogeintrag (z. B. ein Spiel) angehängt werden können.
+// Scans (Cover, Handbuch …) sind 1:1-Abbildungen geschützter Werke – nie öffentlich. Fotos (foto: true) zeigen den Gegenstand
+// selbst; mit Einwilligung des Fotografen dürfen sie nach Prüfung öffentlich gezeigt werden. `slug` erscheint im Dateinamen.
 export const MEDIENARTEN = [
   { value: 'cover_vorne', label: 'Cover vorne' },
   { value: 'cover_hinten', label: 'Cover hinten' },
@@ -265,7 +267,42 @@ export const MEDIENARTEN = [
   { value: 'handbuch', label: 'Handbuch / Anleitung' },
   { value: 'label', label: 'Modul-/Disc-Label' },
   { value: 'sonstiges', label: 'Sonstiges' },
+  { value: 'foto_modul', label: 'Foto: Modul / Spielkarte', kurz: 'Modul', slug: 'modul', foto: true },
+  { value: 'foto_disc', label: 'Foto: Disc', kurz: 'Disc', slug: 'disc', foto: true },
+  { value: 'foto_diskette', label: 'Foto: Diskette / Kassette', kurz: 'Diskette', slug: 'diskette', foto: true },
+  { value: 'foto_vorne', label: 'Foto: Verpackung vorne', kurz: 'Verpackung vorne', slug: 'verpackung-vorne', foto: true },
+  { value: 'foto_hinten', label: 'Foto: Verpackung hinten', kurz: 'Verpackung hinten', slug: 'verpackung-hinten', foto: true },
+  { value: 'foto_komplett', label: 'Foto: Komplett mit Inhalt', kurz: 'Komplett (CIB)', slug: 'komplett-cib', foto: true },
+  { value: 'foto_geraet', label: 'Foto: Gerät', kurz: 'Gerät', slug: 'geraet', foto: true },
+  { value: 'foto_detail', label: 'Foto: Detail (Typenschild, Anschlüsse …)', kurz: 'Detail', slug: 'detail', foto: true },
 ];
+export const istFotoArt = (art) => Boolean(MEDIENARTEN.find((a) => a.value === art)?.foto);
+
+// Datenträger der Spiele je Plattform (Kurzname) – bestimmt, welches Foto gesucht wird (Modul bei N64, Disc bei der PlayStation)
+const DATENTRAEGER = {
+  modul: ['NES', 'SNES', 'N64', 'Switch', 'Switch 2', 'GB', 'GBC', 'GBA', 'DS', '3DS', 'VB', 'Vita', 'SMS', 'MD', '32X', 'GG', '2600', '7800', 'Jaguar', 'Lynx', 'NeoGeo', 'PCE'],
+  disc: ['GC', 'Wii', 'Wii U', 'PS1', 'PS2', 'PS3', 'PS4', 'PS5', 'PSP', 'Xbox', 'X360', 'XOne', 'XSX', 'MCD', 'Saturn', 'DC', 'PC'],
+  diskette: ['C64', 'Amiga'],
+};
+/** 'modul' | 'disc' | 'diskette' | null – aus dem Kurznamen, für unbekannte Plattformen aus dem Namen geraten. */
+export function datentraegerVon(plattform) {
+  const kurz = typeof plattform === 'string' ? plattform : plattform?.kurz;
+  const name = typeof plattform === 'string' ? plattform : plattform?.name ?? '';
+  for (const [art, liste] of Object.entries(DATENTRAEGER)) if (kurz && liste.includes(kurz)) return art;
+  if (/playstation|xbox|saturn|dreamcast|gamecube|wii|mega-?cd|sega cd|\bcd\b/i.test(name)) return 'disc';
+  if (/game ?boy|nintendo (64|ds|3ds|switch)|nes\b|famicom|mega drive|genesis|master system|game gear|atari|lynx|jaguar|wonderswan|neo ?geo pocket/i.test(name)) return 'modul';
+  return null;
+}
+
+/** Welche Fotos wünschen wir uns zu einem Eintrag? (Reihenfolge = Wichtigkeit) */
+export function gesuchteFotos(typ, plattform = null) {
+  if (typ === 'spiel') {
+    const traeger = datentraegerVon(plattform);
+    return [...(traeger ? [`foto_${traeger}`] : []), 'foto_vorne', 'foto_hinten', 'foto_komplett'];
+  }
+  if (typ === 'konsole') return ['foto_geraet', 'foto_vorne', 'foto_detail'];
+  return ['foto_geraet', 'foto_vorne'];
+}
 
 // Freigabe-Status für Katalogeinträge, Varianten und Scans (Moderation)
 export const PRUEFSTATUS = [

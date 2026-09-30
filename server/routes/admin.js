@@ -47,6 +47,7 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
         zweiFaktorPflicht: konfiguration.konten.zweiFaktorPflicht,
         oeffentlicherKatalog: konfiguration.oeffentlicherKatalog,
         medienTeilen: konfiguration.medienTeilenErlaubt,
+        fotosTeilen: konfiguration.fotosTeilenErlaubt,
       },
     };
     // Zusatzmodule ergänzen die Übersicht (z. B. Preisimport, KI-Vorprüfung, externe Sicherung)

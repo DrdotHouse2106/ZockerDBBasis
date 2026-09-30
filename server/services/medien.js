@@ -146,6 +146,11 @@ export async function verarbeiteMedium({ verzeichnis, datei, mime }) {
 
 export const neuerDateiname = (mime) => `m-${crypto.randomUUID()}${MEDIEN_TYPEN[mime]}`;
 
+/** Web-Version eines öffentlichen Fotos (wird bei Bedarf erzeugt, siehe öffentliche Bildadressen). */
+export const webDateiVon = (datei) => `${String(datei).replace(/\.[^.]+$/, '')}-web.webp`;
+/** Alle Dateien eines Mediums – zum Löschen. */
+export const medienDateien = (m) => [m.datei, m.anzeige_datei, m.vorschau_datei, m.datei ? webDateiVon(m.datei) : null].filter(Boolean);
+
 const MIME_NACH_ENDUNG = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif', '.tif': 'image/tiff' };
 
 /**

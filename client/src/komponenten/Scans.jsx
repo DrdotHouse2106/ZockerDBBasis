@@ -11,6 +11,8 @@ import SpeicherAnzeige from './SpeicherAnzeige.jsx';
 import { useHinweis } from './Hinweise.jsx';
 
 const mm = (px, dpi) => Math.round((px / dpi) * 25.4);
+// Fotos des Gegenstands (Modul, Verpackung …) zeigt die Foto-Komponente
+const SCANARTEN = MEDIENARTEN.filter((a) => !a.foto);
 
 export default function Scans({ katalogId, artikelId, nurLesen = false, onKatalogVerknuepft }) {
   const zeigeHinweis = useHinweis();
@@ -18,7 +20,8 @@ export default function Scans({ katalogId, artikelId, nurLesen = false, onKatalo
   const [medien, setMedien] = useState(katalogId ? null : []);
   const [formularOffen, setFormularOffen] = useState(false);
 
-  const laden = (id = katalogId) => id && api.medien(id).then(setMedien).catch((e) => zeigeHinweis(e.message, 'fehler'));
+  const laden = (id = katalogId) => id && api.medien(id).then((liste) => setMedien(liste.filter((m) => !m.ist_foto)))
+    .catch((e) => zeigeHinweis(e.message, 'fehler'));
   useEffect(() => { laden(); }, [katalogId]);
 
   async function sichtbarkeitUmschalten(m) {
@@ -75,7 +78,7 @@ export default function Scans({ katalogId, artikelId, nurLesen = false, onKatalo
         <p className="text-sm text-leise">
           {nurLesen
             ? 'Keine freigegebenen Scans vorhanden.'
-            : 'Noch keine Scans. Archiviere Scans deiner eigenen Originale (Cover, Anleitung als PDF) – nur für dich, z. B. als Sicherung, falls das Original beschädigt wird.'}
+            : 'Noch keine Scans. Archiviere Scans deiner eigenen Originale (Cover, Anleitung als PDF) – nur für dich, z. B. als Sicherung, falls das Original beschädigt wird. Fotos von Modul, Disc oder Verpackung gehören zu „Fotos“.'}
         </p>
       )}
 
@@ -177,7 +180,7 @@ function HochladeFormular({ artikelId, teilenErlaubt, moderator, maxMb, onFertig
         <label>
           <span className="beschriftung">Art</span>
           <select className="eingabe" value={werte.art} onChange={setze('art')}>
-            {MEDIENARTEN.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+            {SCANARTEN.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
           </select>
         </label>
         <label>

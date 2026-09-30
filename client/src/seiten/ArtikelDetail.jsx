@@ -12,6 +12,7 @@ import { digitalBand } from '../komponenten/ArtikelKarte.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import Scans from '../komponenten/Scans.jsx';
+import Fotos from '../komponenten/Fotos.jsx';
 import Kommentare from '../komponenten/Kommentare.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import { Andockpunkt } from '../erweiterungen.jsx';
@@ -374,6 +375,13 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
               <h3 className="mb-1 text-sm font-semibold text-leise">Eigene Notizen</h3>
               <p className="text-sm whitespace-pre-wrap">{artikel.notizen}</p>
             </section>
+          )}
+
+          {artikel.bestand !== 'digital' && (eigener || (benutzer && artikel.katalog_id)) && (
+            <Fotos katalogId={artikel.katalog_id} typ={artikel.typ} plattform={{ kurz: artikel.plattform_kurz, name: artikel.plattform }}
+              artikelId={eigener && artikel.bestand === 'besitz' ? artikel.id : null} vorauswahl={route.parameter?.foto ?? null}
+              hinscrollen={Boolean(route.parameter?.foto)}
+              onKatalogVerknuepft={() => laden()} />
           )}
 
           {eigener && benutzer?.funktionen?.wartung && artikel.bestand !== 'digital' && <Wartung artikel={artikel} />}

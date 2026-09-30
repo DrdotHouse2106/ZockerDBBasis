@@ -586,6 +586,17 @@ const MIGRATIONEN = [
   `
   ALTER TABLE benutzer ADD COLUMN touren TEXT;
   `,
+  // 33: Fotos für die öffentliche Katalogseite – Einwilligung des Fotografen (mit Zeitpunkt als Nachweis), Namensnennung
+  //     und die Entscheidung der Moderation (öffentlich oder nur für angemeldete Benutzer). „oeffentlich_offen“: Einwilligung
+  //     für ein schon freigegebenes Foto, über deren öffentliche Anzeige die Moderation noch entscheiden muss
+  `
+  ALTER TABLE medien ADD COLUMN oeffentlich_erlaubt INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE medien ADD COLUMN oeffentlich_erlaubt_am TEXT;
+  ALTER TABLE medien ADD COLUMN name_nennen INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE medien ADD COLUMN oeffentlich INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE medien ADD COLUMN oeffentlich_offen INTEGER NOT NULL DEFAULT 0;
+  CREATE INDEX IF NOT EXISTS idx_medien_oeffentlich ON medien (katalog_id) WHERE oeffentlich = 1;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

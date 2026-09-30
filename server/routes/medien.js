@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { MEDIENARTEN, istModerator } from '../../shared/konstanten.js';
-import { MEDIEN_TYPEN, verarbeiteMedium, neuerDateiname } from '../services/medien.js';
+import { MEDIENARTEN, istModerator, istFotoArt } from '../../shared/konstanten.js';
+import { MEDIEN_TYPEN, verarbeiteMedium, neuerDateiname, medienDateien } from '../services/medien.js';
 import { ValidierungsFehler } from '../services/validierung.js';
 import { KontoFehler } from '../services/konten.js';
 
@@ -24,6 +24,11 @@ export function medienZuObjekt(m, benutzer) {
     originalname: m.originalname,
     erstellt_am: m.erstellt_am,
     hochgeladen_von: m.hochgeladen_von ?? null,
+    ist_foto: istFotoArt(m.art),
+    // Öffentlich (auch Suchmaschinen) nur mit Einwilligung des Fotografen und nach Prüfung durch die Moderation
+    oeffentlich: Boolean(m.oeffentlich),
+    oeffentlich_erlaubt: m.benutzer_id === benutzer.id || istModerator(benutzer) ? Boolean(m.oeffentlich_erlaubt) : undefined,
+    name_nennen: m.benutzer_id === benutzer.id ? Boolean(m.name_nennen) : undefined,
     geprueft_am: m.geprueft_am ?? null,
     pruefung_notiz: m.benutzer_id === benutzer.id || istModerator(benutzer) ? m.pruefung_notiz ?? null : null,
     eigenes: m.benutzer_id === benutzer.id,
@@ -34,10 +39,19 @@ export function medienZuObjekt(m, benutzer) {
   };
 }
 
-function pruefeMetadaten(eingabe, { teilweise = false, teilenErlaubt, moderator = false, bisher = null }) {
+const ja = (w) => w === true || w === 1 || ['true', '1', 'on', 'ja'].includes(String(w ?? '').toLowerCase());
+// Zeitpunkt im Format von datetime('now') in SQLite
+const jetzt = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+/**
+ * `vorher`: bisheriger Stand (beim Ändern). `eigenes`: Nur der Fotograf selbst kann die öffentliche Anzeige erlauben –
+ * die Moderation entscheidet nur, ob ein erlaubtes Foto tatsächlich öffentlich erscheint.
+ */
+function pruefeMetadaten(eingabe, { teilweise = false, teilenErlaubt, moderator = false, vorher = null, eigenes = true }) {
   const fehler = {};
   const daten = {};
   const hat = (f) => Object.hasOwn(eingabe, f);
+  const bisher = vorher?.sichtbarkeit ?? null;
   if (!teilweise || hat('art')) {
     if (!ARTEN.includes(eingabe.art)) fehler.art = 'Bitte die Art des Scans wählen.';
     else daten.art = eingabe.art;
@@ -49,7 +63,9 @@ function pruefeMetadaten(eingabe, { teilweise = false, teilenErlaubt, moderator 
     const erlaubt = moderator ? ['privat', 'eingereicht', 'freigegeben'] : ['privat', 'eingereicht'];
     if (bisher === 'freigegeben' && s === 'eingereicht') s = 'freigegeben'; // bleibt freigegeben
     else if (!erlaubt.includes(s)) fehler.sichtbarkeit = 'Ungültige Auswahl.';
-    if (s !== 'privat' && !teilenErlaubt) fehler.sichtbarkeit = 'Das Teilen von Scans ist auf diesem Server deaktiviert.';
+    if (s !== 'privat' && !teilenErlaubt) {
+      fehler.sichtbarkeit = `Das Teilen von ${istFotoArt(eingabe.art ?? vorher?.art) ? 'Fotos' : 'Scans'} ist auf diesem Server deaktiviert.`;
+    }
     if (!fehler.sichtbarkeit) daten.sichtbarkeit = s;
   }
   if (hat('titel')) daten.titel = String(eingabe.titel ?? '').trim().slice(0, 200) || null;
@@ -62,13 +78,26 @@ function pruefeMetadaten(eingabe, { teilweise = false, teilenErlaubt, moderator 
       else daten.dpi = Math.round(dpi);
     }
   }
+  // Fotos: Einwilligung zur öffentlichen Anzeige (Nutzungsrecht) und Namensnennung – nie für Scans von Cover oder Anleitung
+  const art = daten.art ?? vorher?.art;
+  if (eigenes && hat('oeffentlich_erlaubt')) {
+    const erlaubt = ja(eingabe.oeffentlich_erlaubt);
+    if (erlaubt && !istFotoArt(art)) fehler.oeffentlich_erlaubt = 'Öffentlich gezeigt werden nur Fotos des Gegenstands – keine Scans von Cover oder Anleitung.';
+    else if (erlaubt && !teilenErlaubt) fehler.oeffentlich_erlaubt = 'Das Teilen ist auf diesem Server deaktiviert.';
+    else daten.oeffentlich_erlaubt = erlaubt ? 1 : 0;
+  }
+  if (eigenes && hat('name_nennen')) daten.name_nennen = ja(eingabe.name_nennen) ? 1 : 0;
+  if (daten.art && !istFotoArt(daten.art)) daten.oeffentlich_erlaubt = 0; // Scan statt Foto: keine öffentliche Anzeige
+  // Wer die öffentliche Anzeige erlaubt, reicht das Foto damit zur Prüfung ein
+  if (daten.oeffentlich_erlaubt === 1 && (daten.sichtbarkeit ?? bisher ?? 'privat') === 'privat') daten.sichtbarkeit = 'eingereicht';
   if (Object.keys(fehler).length) throw new ValidierungsFehler(fehler);
   return daten;
 }
 
 export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) {
   const router = Router();
-  const teilen = () => konfiguration.medienTeilenErlaubt;
+  // Fotos und Scans getrennt teilbar (Fotos des Gegenstands sind keine Kopien geschützter Werke)
+  const teilen = (art) => (istFotoArt(art) ? konfiguration.fotosTeilenErlaubt : konfiguration.medienTeilenErlaubt);
   // Multer je Anfrage erzeugen, damit die Größengrenze live änderbar ist
   const upload = () => multer({
     storage: multer.diskStorage({
@@ -115,7 +144,15 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
     }
     let verarbeitet;
     try {
-      const meta = pruefeMetadaten(req.body ?? {}, { teilenErlaubt: teilen(), moderator: istModerator(req.benutzer) });
+      const meta = pruefeMetadaten(req.body ?? {}, { teilenErlaubt: teilen(req.body?.art), moderator: istModerator(req.benutzer) });
+      // Fotos des Gegenstands sind Bilder – PDFs nur als Scan (z. B. Anleitung)
+      if (istFotoArt(meta.art) && !req.file.mimetype.startsWith('image/')) throw new ValidierungsFehler({ art: 'Fotos bitte als JPG, PNG oder WebP hochladen.' });
+      meta.oeffentlich_erlaubt ??= 0;
+      meta.name_nennen ??= 0;
+      meta.oeffentlich_erlaubt_am = meta.oeffentlich_erlaubt ? jetzt() : null;
+      // Moderatoren können eigene Fotos direkt freigeben – mit ihrer Einwilligung dann auch öffentlich
+      meta.oeffentlich = meta.sichtbarkeit === 'freigegeben' && meta.oeffentlich_erlaubt ? 1 : 0;
+      meta.oeffentlich_offen = meta.oeffentlich_erlaubt && !meta.oeffentlich ? 1 : 0;
       verarbeitet = await verarbeiteMedium({ verzeichnis: dateien.verzeichnis, datei: req.file.filename, mime: req.file.mimetype });
       const groesseGesamt = speicher.summe(verarbeitet.datei, verarbeitet.anzeige_datei, verarbeitet.vorschau_datei);
       // Freigegebene Scans zählen nicht zum Kontingent – Moderatoren können direkt freigeben
@@ -123,9 +160,11 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
       const katalogId = katalog.stelleSicherFuerArtikel(artikel, req.benutzer);
       const { id } = db.prepare(`
         INSERT INTO medien (katalog_id, benutzer_id, art, titel, sichtbarkeit, datei, anzeige_datei, vorschau_datei,
-                            originalname, mime, groesse, groesse_gesamt, breite, hoehe, dpi, seiten)
+                            originalname, mime, groesse, groesse_gesamt, breite, hoehe, dpi, seiten,
+                            oeffentlich_erlaubt, oeffentlich_erlaubt_am, name_nennen, oeffentlich, oeffentlich_offen)
         VALUES (@katalog_id, @benutzer_id, @art, @titel, @sichtbarkeit, @datei, @anzeige_datei, @vorschau_datei,
-                @originalname, @mime, @groesse, @groesse_gesamt, @breite, @hoehe, @dpi, @seiten) RETURNING id`).get({
+                @originalname, @mime, @groesse, @groesse_gesamt, @breite, @hoehe, @dpi, @seiten,
+                @oeffentlich_erlaubt, @oeffentlich_erlaubt_am, @name_nennen, @oeffentlich, @oeffentlich_offen) RETURNING id`).get({
         ...verarbeitet,
         groesse_gesamt: groesseGesamt,
         ...meta,
@@ -155,9 +194,26 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
     if (!m || (m.benutzer_id !== req.benutzer.id && !istModerator(req.benutzer))) {
       return res.status(404).json({ fehler: 'Scan nicht gefunden.' });
     }
+    const moderator = istModerator(req.benutzer);
+    const eigenes = m.benutzer_id === req.benutzer.id;
     const daten = pruefeMetadaten(req.body ?? {}, {
-      teilweise: true, teilenErlaubt: teilen(), moderator: istModerator(req.benutzer), bisher: m.sichtbarkeit,
+      teilweise: true, teilenErlaubt: teilen(req.body?.art ?? m.art), moderator, vorher: m, eigenes,
     });
+    if (istFotoArt(daten.art) && !String(m.mime).startsWith('image/')) throw new ValidierungsFehler({ art: 'Eine PDF-Datei kann nicht als Foto eingeordnet werden.' });
+    // Neu erlaubte öffentliche Anzeige: ein freigegebenes Foto bleibt für Mitglieder sichtbar – die Moderation entscheidet
+    // nur noch über die öffentliche Anzeige (oeffentlich_offen, siehe Warteschlange)
+    if (daten.oeffentlich_erlaubt === 1 && !m.oeffentlich_erlaubt) Object.assign(daten, { oeffentlich_erlaubt_am: jetzt(), oeffentlich_offen: 1 });
+    if (daten.oeffentlich_erlaubt === 0) daten.oeffentlich_offen = 0;
+    // Freigegebenes geändert (Art, Bezeichnung) → erneut prüfen lassen (außer durch die Moderation)
+    const geaendert = (daten.art !== undefined && daten.art !== m.art) || (daten.titel !== undefined && daten.titel !== m.titel);
+    if (!moderator && m.sichtbarkeit === 'freigegeben' && geaendert) daten.sichtbarkeit = 'eingereicht';
+    // Wechsel zwischen Foto und Scan: Ist das Teilen der neuen Art ausgeschaltet, wird die Datei privat
+    if (daten.art && daten.art !== m.art && !teilen(daten.art) && (daten.sichtbarkeit ?? m.sichtbarkeit) !== 'privat') daten.sichtbarkeit = 'privat';
+    // Öffentlich nur, solange freigegeben und erlaubt; Moderatoren machen erlaubte Fotos mit der Freigabe öffentlich
+    const sichtbarkeit = daten.sichtbarkeit ?? m.sichtbarkeit;
+    const erlaubt = daten.oeffentlich_erlaubt ?? m.oeffentlich_erlaubt;
+    if (sichtbarkeit !== 'freigegeben' || !erlaubt || !istFotoArt(daten.art ?? m.art)) daten.oeffentlich = 0;
+    else if (moderator && daten.sichtbarkeit === 'freigegeben' && m.sichtbarkeit !== 'freigegeben') Object.assign(daten, { oeffentlich: 1, oeffentlich_offen: 0 });
     const felder = Object.keys(daten);
     if (felder.length) db.prepare(`UPDATE medien SET ${felder.map((f) => `${f} = @${f}`).join(', ')} WHERE id = @id`).run({ ...daten, id: m.id });
     res.json(medienZuObjekt(perId.get(m.id), req.benutzer));
@@ -169,7 +225,7 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
       return res.status(404).json({ fehler: 'Scan nicht gefunden.' });
     }
     db.prepare('DELETE FROM medien WHERE id = ?').run(m.id);
-    dateien.loesche(m.datei, m.anzeige_datei, m.vorschau_datei);
+    dateien.loesche(medienDateien(m));
     res.status(204).end();
   });
 

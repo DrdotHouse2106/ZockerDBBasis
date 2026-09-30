@@ -61,7 +61,7 @@ function Kachel({ titel, wert, hinweis, href }) {
 function Uebersicht({ d }) {
   const dienste = [
     ['IGDB (Spieldaten)', d.dienste.igdb], ['Öffentlicher Katalog', d.dienste.oeffentlicherKatalog],
-    ['Registrierung offen', d.dienste.registrierungOffen], ['2FA-Pflicht', d.dienste.zweiFaktorPflicht], ['Scans teilen erlaubt', d.dienste.medienTeilen],
+    ['Registrierung offen', d.dienste.registrierungOffen], ['2FA-Pflicht', d.dienste.zweiFaktorPflicht], ['Scans teilen erlaubt', d.dienste.medienTeilen], ['Fotos teilen erlaubt', d.dienste.fotosTeilen],
     // Dienste von Zusatzmodulen (Bezeichnungen in d.dienstNamen)
     ...Object.entries(d.dienstNamen ?? {}).map(([schluessel, label]) => [label, d.dienste[schluessel]]),
   ];

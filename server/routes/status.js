@@ -15,6 +15,7 @@ export function statusRouter({ igdb, barcode, plattformen, konfiguration, versio
       registrierungOffen: konfiguration.konten.registrierungOffen,
       zweiFaktorPflicht: konfiguration.konten.zweiFaktorPflicht,
       medienTeilenErlaubt: konfiguration.medienTeilenErlaubt,
+      fotosTeilenErlaubt: konfiguration.fotosTeilenErlaubt,
       oeffentlicherKatalog: konfiguration.oeffentlicherKatalog,
       maxUploadMb: konfiguration.maxUploadMb,
       maxMedienMb: konfiguration.maxMedienMb,

@@ -9,6 +9,15 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Fotos: So sieht es aus (Modul, Disc, Verpackung)
+- Neuer Bereich „Fotos“ auf der Seite eines Spiels oder Geräts und beim eigenen Exemplar: Fotos von Modul, Disc oder Diskette, Verpackung vorne und hinten, alles zusammen (komplett) sowie bei Geräten Gerät und Details wie Typenschild – ergänzend zum Cover
+- Eine Checkliste zeigt, welche Fotos es schon gibt (✓), welche gerade geprüft werden (⏳) und welche noch fehlen (＋) – ein Tipp auf „＋“ öffnet das Hochladen mit der passenden Fotoart; welcher Datenträger gesucht wird, richtet sich nach der Plattform (N64: Modul, PlayStation: Disc, Amiga: Diskette)
+- Hochladen direkt mit der Handykamera oder aus der Galerie, mit Vorschau und Tipps für gute Fotos; Standort und Kameradaten werden entfernt
+- Fotos lassen sich getrennt von Scans mit anderen teilen (neue Einstellung `PHOTO_SHARING`, in der Basis-Version standardmäßig aus) – ein Foto des eigenen Moduls ist keine Kopie eines geschützten Covers
+- Wer die öffentliche Anzeige erlaubt, kann das beim Foto jederzeit wieder zurücknehmen; die Einwilligung wird mit Zeitpunkt gespeichert und ist in der Datenauskunft enthalten
+- „Scans & Dokumente“ enthält nur noch Scans (Cover, Anleitung, Label); PDF-Dateien können keine Fotos sein. Wird ein geteiltes Foto nachträglich zum Scan erklärt und ist das Teilen von Scans aus, wird es privat
+- Die Tour „Erste Schritte“ zeigt den neuen Fotobereich am Beispielspiel
+
 ## 30.09.2026 – Sicherheitsprüfung: Fotos ohne GPS, Schutz der Ersteinrichtung, bessere Anmelde-Drosselung
 - Fotos und Scans werden ohne Metadaten gespeichert – Handyfotos enthalten sonst oft die GPS-Position (z. B. der eigenen Wohnung), die andere bei öffentlichen Sammlungen oder freigegebenen Scans sehen könnten. JPEG-Scans bleiben dabei verlustfrei; bereits hochgeladene Fotos und Scans werden nach dem Update einmalig im Hintergrund bereinigt
 - Ersteinrichtung über das Internet oder einen Reverse-Proxy: Für das erste Konto (Administrator) braucht es einen Einrichtungscode aus dem Server-Protokoll – so kann niemand eine frisch gestartete Installation übernehmen

@@ -23,6 +23,7 @@ special colours, editions and model revisions).
   donation** (only counts per title, with a preview for admins)
 - Fixed platform taxonomy, known variants as a collecting checklist, multiple copies per item
 - Scans & manuals per game (incl. TIFF and PDF), **print covers at original size**
+- Photos of cartridge, disc, box and console taken with the phone camera, with a checklist of missing shots
 - Multiple users, roles, **two-factor authentication (TOTP)**, scrypt password hashing
 - Share your collection via a secret link, optional e-mail (password reset, notifications)
 - JSON/CSV export, JSON import, **CSV import from CLZ Games/Excel**, automatic database backups

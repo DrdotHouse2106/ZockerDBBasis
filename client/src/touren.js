@@ -65,6 +65,13 @@ export const TOUREN = [
       { id: 'bearbeiten', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'artikel-bearbeiten', titel: 'Bearbeiten', text: 'Mit dem Stift änderst du alle Angaben – Zustand, Vollständigkeit, Kaufpreis, Notizen und mehr.' },
       { id: 'angaben', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'artikel-angaben', titel: 'Alle Angaben auf einen Blick', text: 'Zustand, Region, Kaufpreis, Barcode … Was du nicht ausfüllst, bleibt einfach weg.' },
       {
+        id: 'fotos', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'fotos', titel: 'Fotos: So sieht es aus 📷',
+        text: (k) => ['Fotografiere Modul oder Disc, die Verpackung vorne und hinten und alles zusammen – die Checkliste zeigt, was noch fehlt.',
+          k.status?.fotosTeilenErlaubt
+            ? 'Teilst du deine Fotos, sehen andere Sammler, wie das Spiel wirklich aussieht. Das Moderationsteam prüft sie vorher.'
+            : 'So ist deine Sammlung auch fürs Archiv oder die Versicherung dokumentiert.'],
+      },
+      {
         id: 'mehr-details', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'artikel-mehr', titel: 'Kommentare, Handbücher, Scans',
         text: 'Seltener Gebrauchtes ist eingeklappt: Kommentare anderer Sammler, Links zu Handbüchern und deine eigenen Scans.',
       },

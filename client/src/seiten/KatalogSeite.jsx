@@ -18,12 +18,13 @@ import VariantenListe from '../komponenten/VariantenListe.jsx';
 import Kommentare from '../komponenten/Kommentare.jsx';
 import Erfahrungsberichte from '../komponenten/Erfahrungsberichte.jsx';
 import Scans from '../komponenten/Scans.jsx';
+import Fotos from '../komponenten/Fotos.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { Andockpunkt } from '../erweiterungen.jsx';
 import { KatalogZockerdb } from '../komponenten/Zockerdb.jsx';
 
 export default function KatalogSeite({ route, id }) {
-  const { benutzer } = useSitzung();
+  const { benutzer, status, auth } = useSitzung();
   const zeigeHinweis = useHinweis();
   const [daten, setDaten] = useState(null);
   const [fehler, setFehler] = useState(null);
@@ -44,6 +45,9 @@ export default function KatalogSeite({ route, id }) {
   // Gemeinsame Angaben für die Andockpunkte der Zusatzmodule
   const erweiterung = { daten, eintrag: e, benutzer, laden };
   const darfBearbeiten = istModerator(benutzer) || (e.eigener && e.status !== 'freigegeben');
+  // Fotos hängen am eigenen Exemplar (nur, was man wirklich besitzt, kann man fotografieren)
+  const fotoExemplar = daten.meineExemplare.find((a) => a.bestand === 'besitz');
+  const oeffentlicheFotos = daten.oeffentlicheFotos ?? [];
 
   return (
     <Layout route={route} titel={e.titel} titelImInhalt={false} zurueck="/katalog"
@@ -130,6 +134,12 @@ export default function KatalogSeite({ route, id }) {
                 ))}
               </ul>
             </section>
+          )}
+
+          {(benutzer || oeffentlicheFotos.length > 0 || ((status ?? auth)?.oeffentlicheFotos && e.status === 'freigegeben')) && (
+            <Fotos katalogId={e.id} typ={e.typ} plattform={daten.plattformen[0] ?? null} artikelId={fotoExemplar?.id ?? null}
+              oeffentliche={oeffentlicheFotos} vorauswahl={route.parameter.foto ?? null}
+              hinscrollen={route.parameter.fotos === '1' || Boolean(route.parameter.foto)} />
           )}
 
           <Andockpunkt name="katalog.vorVarianten" {...erweiterung} />
