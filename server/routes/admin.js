@@ -198,7 +198,7 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
         const name = { admin: 'Administrator', moderator: 'Moderator', nutzer: 'Nutzer' }[rolle];
         benachrichtigungen.sende(b.id, {
           art: 'rolle', titel: `Deine Rolle: ${name}`,
-          text: rolle === 'moderator' ? 'Du kannst jetzt Einreichungen prüfen und Katalogeinträge bearbeiten – unter „Mehr → Moderation“. Danke für deine Hilfe!' : null,
+          text: rolle === 'moderator' ? 'Du kannst jetzt Einreichungen prüfen und Katalogeinträge bearbeiten – unter „Mehr → Moderation“, dort zeigt dir eine kurze Tour alles. Danke für deine Hilfe!' : null,
           link: rolle === 'nutzer' ? null : rolle === 'moderator' ? '#/moderation' : '#/admin',
         });
       }

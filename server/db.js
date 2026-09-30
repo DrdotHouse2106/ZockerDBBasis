@@ -582,6 +582,10 @@ const MIGRATIONEN = [
   `
   ALTER TABLE katalog ADD COLUMN spieltyp TEXT;
   `,
+  // 32: Geführte Touren – je Tour „fertig“ oder „abgelehnt“ (JSON), damit das Angebot nicht auf jedem Gerät neu erscheint
+  `
+  ALTER TABLE benutzer ADD COLUMN touren TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

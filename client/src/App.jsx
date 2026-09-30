@@ -9,6 +9,7 @@ import Anmelden from './seiten/Anmelden.jsx';
 import Sammlung from './seiten/Sammlung.jsx';
 import { spaeter } from './spaeter.js';
 import { MODUL } from './erweiterungen.jsx';
+import { TourAnbieter } from './tour.jsx';
 
 // ── Code-Splitting ─────────────────────────────────────────────
 // Die Sammlung und die Anmeldung stecken im Start-Bundle, alle anderen Seiten werden erst bei Bedarf geladen.
@@ -199,8 +200,10 @@ export default function App() {
   return (
     <SitzungKontext.Provider value={kontext}>
       <HinweisAnbieter>
-        <OfflineLeiste offline={offline} />
-        <Suspense fallback={<Laden />}>{inhalt}</Suspense>
+        <TourAnbieter>
+          <OfflineLeiste offline={offline} />
+          <Suspense fallback={<Laden />}>{inhalt}</Suspense>
+        </TourAnbieter>
       </HinweisAnbieter>
     </SitzungKontext.Provider>
   );

@@ -9,6 +9,7 @@ import Symbol from '../komponenten/Symbole.jsx';
 import { spaeter } from '../spaeter.js';
 import { Andockpunkt } from '../erweiterungen.jsx';
 import { useSitzung } from '../sitzung.js';
+import { TourAngebot } from '../tour.jsx';
 import { lagerortText } from '../komponenten/ZusatzFelder.jsx';
 
 const DemnaechstVorschau = spaeter(() => import('./Kalender.jsx'), 'DemnaechstVorschau');
@@ -77,11 +78,12 @@ export default function Sammlung({ route }) {
   return (
     <Layout route={route} titel="Meine Sammlung">
       <div className="space-y-3">
+        <TourAngebot tour="erste-schritte" titel="Neu hier? Wir zeigen dir alles." />
         <SpendeFrage />
         <DemnaechstVorschau />
         <Andockpunkt name="sammlung.oben" />
         <div className="flex gap-2">
-          <label className="relative flex-1">
+          <label className="relative flex-1" data-tour="sammlung-suche">
             <span className="sr-only">Sammlung durchsuchen</span>
             <Symbol name="suche" className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-leise" />
             <input
@@ -96,6 +98,7 @@ export default function Sammlung({ route }) {
             type="button"
             onClick={() => setFilterOffen((o) => !o)}
             className={`knopf-sekundaer relative px-3 ${filterOffen ? 'border-akzent' : ''}`}
+            data-tour="sammlung-filter"
             aria-expanded={filterOffen}
             aria-label="Filter anzeigen"
           >
@@ -109,7 +112,7 @@ export default function Sammlung({ route }) {
           </button>
         </div>
 
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Nach Artikeltyp filtern">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Nach Artikeltyp filtern" data-tour="sammlung-typen">
           <button type="button" className={!filter.typ ? 'chip-aktiv' : 'chip'} onClick={() => setzeFilter({ typ: undefined })}>
             Alle
           </button>

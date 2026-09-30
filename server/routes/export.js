@@ -67,13 +67,15 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
     const b = req.benutzer.id;
     const alle = (sql) => db.prepare(sql).all(b);
     const konto = db.prepare(`SELECT id, benutzername, anzeigename, email, rolle, gesperrt, totp_aktiv, sammlung_oeffentlich, benachrichtigung_email, steam_id,
-        freigabe_token IS NOT NULL AS freigabe_link_aktiv, freigabe_wert, speicher_limit_mb, bedingungen_akzeptiert_am, erstellt_am, letzte_anmeldung
+        freigabe_token IS NOT NULL AS freigabe_link_aktiv, freigabe_wert, speicher_limit_mb, bedingungen_akzeptiert_am, erstellt_am, letzte_anmeldung,
+        funktionen, meine_systeme, touren
       FROM benutzer WHERE id = ?`).get(b);
+    const json = (w) => { try { return w ? JSON.parse(w) : null; } catch { return null; } };
     res.attachment(`zockerdb-datenauskunft-${datumHeute()}.json`);
     res.json({
       hinweis: 'Datenauskunft nach Art. 15 DSGVO. Nicht enthalten sind Geheimnisse wie Passwort-Hash, 2FA-Schlüssel, Sitzungs-Tokens und Zugangsdaten.',
       erstellt_am: new Date().toISOString(),
-      konto: { ...konto, totp_aktiv: Boolean(konto.totp_aktiv) },
+      konto: { ...konto, totp_aktiv: Boolean(konto.totp_aktiv), funktionen: json(konto.funktionen), meine_systeme: json(konto.meine_systeme), touren: json(konto.touren) },
       angemeldete_geraete: alle('SELECT geraet, erstellt_am, laeuft_ab FROM sitzungen WHERE benutzer_id = ? AND stufe = \'voll\' ORDER BY erstellt_am'),
       sammlung: alle('SELECT * FROM artikel WHERE benutzer_id = ? ORDER BY id').map(({ benutzer_id: _b, ...rest }) => rest),
       konvolute: alle('SELECT * FROM konvolute WHERE benutzer_id = ? ORDER BY id').map(({ benutzer_id: _b, ...rest }) => rest),

@@ -52,7 +52,7 @@ export default function Katalog({ route }) {
         <label className="relative block">
           <span className="sr-only">Katalog durchsuchen</span>
           <Symbol name="suche" className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-leise" />
-          <input type="search" value={suchtext} onChange={(e) => setSuchtext(e.target.value)} placeholder="Spiele, Konsolen, Zubehör suchen …" className="eingabe pl-10" />
+          <input type="search" value={suchtext} onChange={(e) => setSuchtext(e.target.value)} placeholder="Spiele, Konsolen, Zubehör suchen …" className="eingabe pl-10" data-tour="katalog-suche" />
         </label>
 
         {zeigeListe && (

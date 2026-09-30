@@ -14,6 +14,7 @@ import { MODUL, Andockpunkt } from '../erweiterungen.jsx';
 import { MerkmalVorschlaege } from '../komponenten/Wartung.jsx';
 import { AdminZockerdb } from '../komponenten/Zockerdb.jsx';
 import AdminUpdate from '../komponenten/AdminUpdate.jsx';
+import { TourAngebot } from '../tour.jsx';
 
 const REITER = [['uebersicht', 'Übersicht'], ['benutzer', 'Benutzer & Rollen'], ['einstellungen', 'Einstellungen'], ['rechtliches', 'Rechtliches'], ['sicherungen', 'Sicherungen']];
 const MODUL_REITER = MODUL.adminReiter ?? [];
@@ -28,9 +29,10 @@ export default function Admin({ route }) {
   return (
     <Layout route={route} titel="Administration" zurueck="/einstellungen">
       <div className="mx-auto max-w-5xl space-y-4">
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4" role="tablist">
+        <TourAngebot tour="administration" titel="Neu in der Administration?" />
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4" role="tablist" data-tour="admin-reiter">
           {[...REITER, ...MODUL_REITER.map((r) => [r.id, r.titel])].map(([wert, label]) => (
-            <a key={wert} href={`#/admin?reiter=${wert}`} role="tab" aria-selected={reiter === wert} className={reiter === wert ? 'chip-aktiv' : 'chip'}>{label}</a>
+            <a key={wert} href={`#/admin?reiter=${wert}`} data-tour={`admin-reiter-${wert}`} role="tab" aria-selected={reiter === wert} className={reiter === wert ? 'chip-aktiv' : 'chip'}>{label}</a>
           ))}
         </div>
         {fehler && <p className="text-gefahr" role="alert">{fehler}</p>}

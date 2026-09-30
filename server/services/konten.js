@@ -26,6 +26,14 @@ export function leseFunktionen(json) {
   return Object.fromEntries(FUNKTIONEN.map((f) => [f.value, roh?.[f.value] === true]));
 }
 
+/** Stand der geführten Touren: { tourId: 'fertig' | 'abgelehnt' } – Unbekanntes wird verworfen. */
+export const TOUR_STAENDE = ['fertig', 'abgelehnt'];
+export function leseTouren(json) {
+  let roh = {};
+  try { roh = json ? JSON.parse(json) : {}; } catch { /* ungültig – leer */ }
+  return Object.fromEntries(Object.entries(roh ?? {}).filter(([id, w]) => /^[a-z0-9-]{1,40}$/.test(id) && TOUR_STAENDE.includes(w)).slice(0, 50));
+}
+
 export function oeffentlichesProfil(b) {
   if (!b) return null;
   return {
@@ -36,6 +44,7 @@ export function oeffentlichesProfil(b) {
     totp_aktiv: Boolean(b.totp_aktiv),
     sammlung_oeffentlich: Boolean(b.sammlung_oeffentlich),
     funktionen: leseFunktionen(b.funktionen),
+    touren: leseTouren(b.touren),
     erstellt_am: b.erstellt_am,
     letzte_anmeldung: b.letzte_anmeldung,
   };

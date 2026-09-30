@@ -64,7 +64,7 @@ export default function Kalender({ route }) {
   return (
     <Layout route={route} titel={vergangen ? 'Kürzlich erschienen' : 'Erscheint demnächst'}>
       <div className="space-y-4">
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" data-tour="kalender-auswahl">
           <button type="button" className={!vergangen ? 'chip-aktiv' : 'chip'} onClick={() => setze({ ansicht: null })}>Demnächst</button>
           <button type="button" className={vergangen ? 'chip-aktiv' : 'chip'} onClick={() => setze({ ansicht: 'erschienen' })}>Kürzlich erschienen</button>
           <button type="button" className={!alleTitel ? 'chip-aktiv' : 'chip'} onClick={() => setze({ auswahl: null })}

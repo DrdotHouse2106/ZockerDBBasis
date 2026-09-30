@@ -271,7 +271,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
       titelImInhalt={false}
       zurueck={zurueckPfad}
       aktionen={eigener && (
-        <a href={`#/artikel/${id}/bearbeiten`} className="rounded-lg p-2 text-leise hover:bg-karte hover:text-text" aria-label="Bearbeiten">
+        <a href={`#/artikel/${id}/bearbeiten`} className="rounded-lg p-2 text-leise hover:bg-karte hover:text-text" aria-label="Bearbeiten" data-tour="artikel-bearbeiten">
           <Symbol name="stift" />
         </a>
       )}
@@ -283,7 +283,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
         </div>
 
         <div className="min-w-0 space-y-4">
-          <div className="space-y-1.5">
+          <div className="space-y-1.5" data-tour="artikel-kopf">
             {sammler && (
               <p className="text-sm text-leise">
                 Aus der Sammlung von <a className="text-akzent-hell underline" href={`#${zurueckPfad}`}>{sammler.anzeigename}</a>
@@ -313,7 +313,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
           {eigener && (
             <div className="flex flex-wrap items-center gap-2 text-sm">
               {artikel.typ === 'spiel' && ['besitz', 'digital'].includes(artikel.bestand) && (
-                <label className="flex items-center gap-1.5">
+                <label className="flex items-center gap-1.5" data-tour="artikel-spielstatus">
                   <span className="sr-only">Spielstatus</span>
                   <select className="eingabe w-auto py-1.5 text-sm" value={artikel.spielstatus ?? ''} onChange={(e) => setzeSpielstatus(e.target.value || null)} aria-label="Spielstatus">
                     <option value="">🎮 Spielstatus …</option>
@@ -360,7 +360,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
             }} />
           )}
 
-          <dl className="karte divide-y divide-rand">
+          <dl className="karte divide-y divide-rand" data-tour="artikel-angaben">
             {angaben.map(([label, wert]) => (
               <div key={label} className="grid grid-cols-[8rem_1fr] gap-2 px-4 py-2 text-sm">
                 <dt className="text-leise">{label}</dt>
@@ -382,7 +382,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
           <Andockpunkt name="artikel.wert" artikel={artikel} eigenerArtikel={eigener} />
 
           {/* Seltener Gebrauchtes zusammengeklappt */}
-          <details className="group space-y-3">
+          <details className="group space-y-3" data-tour="artikel-mehr">
             <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl border border-rand px-4 py-3 text-sm font-semibold hover:bg-karte-hover">
               <span>Kommentare, Cover & Handbücher, Scans</span>
               <span className="text-leise transition group-open:rotate-90" aria-hidden="true">›</span>
@@ -427,7 +427,7 @@ function AktionenMenue({ children }) {
   const [offen, setOffen] = useState(false);
   return (
     <div className="relative">
-      <button type="button" className="knopf-sekundaer px-3 py-1.5" aria-haspopup="menu" aria-expanded={offen} onClick={() => setOffen(!offen)}>
+      <button type="button" className="knopf-sekundaer px-3 py-1.5" aria-haspopup="menu" aria-expanded={offen} onClick={() => setOffen(!offen)} data-tour="artikel-aktionen">
         Weitere Aktionen <span aria-hidden="true">▾</span>
       </button>
       {offen && (

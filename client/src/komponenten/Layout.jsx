@@ -87,6 +87,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
                 href={`#${eintrag.pfad}`}
                 title={eintrag.label}
                 aria-label={eintrag.label}
+                data-tour={`nav-${eintrag.symbol}`}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ${
                   istAktiv(eintrag, route) ? 'bg-karte text-text' : 'text-leise hover:text-text'
                 }`}
@@ -116,6 +117,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
               <a
                 key={eintrag.pfad}
                 href={`#${eintrag.pfad}`}
+                data-tour={`nav-${eintrag.symbol}`}
                 className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${aktiv ? 'text-akzent-hell' : 'text-leise'}`}
                 aria-current={aktiv ? 'page' : undefined}
               >

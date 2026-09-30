@@ -8,6 +8,7 @@ import { useSitzung } from '../sitzung.js';
 import Symbol from '../komponenten/Symbole.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { MODUL, Andockpunkt } from '../erweiterungen.jsx';
+import { TourListe } from '../tour.jsx';
 
 export default function Einstellungen({ route }) {
   const zeigeHinweis = useHinweis();
@@ -46,7 +47,7 @@ export default function Einstellungen({ route }) {
   return (
     <Layout route={route} titel="Mehr">
       <div className="mx-auto max-w-3xl space-y-4">
-        <nav className="karte divide-y divide-rand overflow-hidden" aria-label="Weitere Seiten">
+        <nav className="karte divide-y divide-rand overflow-hidden" aria-label="Weitere Seiten" data-tour="mehr-liste">
           {[
             ['#/konto', 'benutzer', 'Konto & Sicherheit', benutzer?.totp_aktiv ? 'Passwort, 2FA aktiv, Sichtbarkeit' : 'Passwort, Zwei-Faktor-Anmeldung, Sichtbarkeit'],
             ['#/katalog', 'suche', 'Katalog', 'Alle Spiele, Konsolen & Zubehör nach Plattform'],
@@ -74,6 +75,8 @@ export default function Einstellungen({ route }) {
             <span className="flex-1 font-semibold">Abmelden <span className="font-normal text-leise">({benutzer?.benutzername})</span></span>
           </button>
         </nav>
+
+        <TourListe />
 
         {/* Serverstatus nur für die Administration – andere sehen nur Hinweise, die sie selbst betreffen */}
         {benutzer?.rolle !== 'admin' && !window.isSecureContext && (

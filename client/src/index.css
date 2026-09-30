@@ -111,3 +111,18 @@ body {
   border-radius: 1rem;
   object-fit: cover;
 }
+
+/* Geführte Touren: pulsierender Rahmen und hüpfender Finger bei „Hier tippen“ */
+@keyframes tour-puls {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-akzent) 60%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-akzent) 0%, transparent); }
+}
+@keyframes tour-zeiger {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.tour-puls { animation: tour-puls 1.4s ease-in-out infinite; }
+.tour-zeiger { animation: tour-zeiger 0.9s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .tour-puls, .tour-zeiger { animation: none; }
+}

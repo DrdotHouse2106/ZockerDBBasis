@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  oeffentlichesProfil, KontoFehler, pruefeNeuesPasswort, leseFunktionen,
+  oeffentlichesProfil, KontoFehler, pruefeNeuesPasswort, leseFunktionen, leseTouren, TOUR_STAENDE,
 } from '../services/konten.js';
 import { erstelleDrossel } from '../services/drossel.js';
 import { setzeSitzungsCookie, loescheSitzungsCookie, erfordereAnmeldung } from '../middleware/auth.js';
@@ -240,6 +240,16 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
       const neu = { ...leseFunktionen(konten.holeBenutzer(req.benutzer.id).funktionen) };
       for (const f of FUNKTIONEN) if (typeof req.body.funktionen[f.value] === 'boolean') neu[f.value] = req.body.funktionen[f.value];
       db.prepare('UPDATE benutzer SET funktionen = ? WHERE id = ?').run(JSON.stringify(neu), req.benutzer.id);
+    }
+    // Geführte Touren: { tourId: 'fertig' | 'abgelehnt' | null } – null setzt die Tour zurück
+    if (req.body?.touren && typeof req.body.touren === 'object' && !Array.isArray(req.body.touren)) {
+      const neu = leseTouren(konten.holeBenutzer(req.benutzer.id).touren);
+      for (const [id, wert] of Object.entries(req.body.touren).slice(0, 50)) {
+        if (!/^[a-z0-9-]{1,40}$/.test(id)) continue;
+        if (wert === null) delete neu[id];
+        else if (TOUR_STAENDE.includes(wert)) neu[id] = wert;
+      }
+      db.prepare('UPDATE benutzer SET touren = ? WHERE id = ?').run(JSON.stringify(leseTouren(JSON.stringify(neu))), req.benutzer.id);
     }
     // „Meine Systeme“: Liste von Plattform-IDs oder null (= Standardsysteme)
     if (req.body?.meine_systeme !== undefined) {

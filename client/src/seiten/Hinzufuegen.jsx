@@ -114,7 +114,7 @@ export default function Hinzufuegen({ route }) {
             <a href={`#/konvolut/${konvolut.id}`} className="underline">Fertig – zum Konvolut</a>
           </p>
         )}
-        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Artikeltyp">
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Artikeltyp" data-tour="neu-typ">
           {ARTIKELTYPEN.map((t) => (
             <button
               key={t.value}
@@ -131,7 +131,7 @@ export default function Hinzufuegen({ route }) {
         </div>
 
         <div className="flex gap-2">
-          <label className="relative flex-1">
+          <label className="relative flex-1" data-tour="neu-suche">
             <span className="sr-only">Titel suchen</span>
             <Symbol name="suche" className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-leise" />
             <input
@@ -143,7 +143,7 @@ export default function Hinzufuegen({ route }) {
               autoFocus={p.scan !== '1'}
             />
           </label>
-          <button type="button" onClick={() => setzeParameter({ scan: '1' })} className="knopf-primaer px-3" aria-label="Barcode scannen">
+          <button type="button" onClick={() => setzeParameter({ scan: '1' })} className="knopf-primaer px-3" aria-label="Barcode scannen" data-tour="neu-scan">
             <Symbol name="scan" />
             <span className="hidden sm:inline">Scannen</span>
           </button>
@@ -239,7 +239,7 @@ export default function Hinzufuegen({ route }) {
           </>
         )}
 
-        <section className="karte flex flex-col items-start gap-3 p-4 sm:flex-row sm:items-center">
+        <section className="karte flex flex-col items-start gap-3 p-4 sm:flex-row sm:items-center" data-tour="neu-eigen">
           <div className="flex-1">
             <p className="font-semibold">Nicht gefunden?</p>
             <p className="text-sm text-leise">

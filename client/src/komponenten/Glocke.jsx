@@ -23,7 +23,7 @@ export default function Glocke() {
     };
   }, []);
   return (
-    <a href="#/benachrichtigungen" className="relative rounded-lg p-2 text-leise hover:bg-karte hover:text-text"
+    <a href="#/benachrichtigungen" data-tour="glocke" className="relative rounded-lg p-2 text-leise hover:bg-karte hover:text-text"
       aria-label={anzahl ? `Benachrichtigungen, ${anzahl} ungelesen` : 'Benachrichtigungen'}>
       <Symbol name="glocke" className="size-5" />
       {anzahl > 0 && (

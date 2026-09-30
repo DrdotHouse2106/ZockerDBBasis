@@ -7,6 +7,8 @@
 //   andockpunkte  – Komponenten je Name, z. B. { 'katalog.ende': [Komponente] }
 //   adminReiter   – zusätzliche Reiter der Administration
 //   vorladen      – Ladefunktionen der Seiten, die im Leerlauf vorgeladen werden
+//   touren        – weitere geführte Touren (Aufbau wie client/src/touren.js)
+//   tourSchritte  – zusätzliche Schritte bestehender Touren: { tourId: [{ nach: schrittId, schritte: […] }] }
 import { Suspense } from 'react';
 import modul from '@zockerdb/modul';
 

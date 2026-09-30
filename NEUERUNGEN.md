@@ -9,6 +9,14 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Geführte Touren
+- Neu hier? Auf der Sammlungsseite startest du die Tour „Erste Schritte“: Die App zeigt dir mit Markierung und Pfeil, wo was ist – Suchen, Filtern, Hinzufügen, Barcode scannen, Einträge pflegen, Katalog, Kalender und „Mehr“
+- Wo du selbst tippen sollst, zeigt ein Finger auf die Stelle
+- Die Tour legt ein Beispielspiel an, damit du alles ausprobieren kannst – am Ende wird es wieder gelöscht (oder du behältst es)
+- Für Administratoren gibt es eine Tour durch die Administration
+- Alle Touren findest du unter „Mehr → Hilfe & Touren“; erledigte oder abgelehnte Touren werden nicht erneut angeboten – auch nicht auf anderen Geräten
+- Die Datenauskunft enthält jetzt auch deine Einstellungen zu Zusatzfeldern, „Meine Systeme“ und Touren
+
 ## 30.09.2026 – Releasekalender: Highlights statt Unbekanntem
 - „Erscheint demnächst“ zeigt jetzt kuratiert die gefragtesten Titel – nach Vorfreude bei IGDB und Wunschlisten der Sammler auf zockerdb.de (Sammler aus Deutschland zählen doppelt, Bundles und Zusatzinhalte nur halb)
 - Im Kalender wählst du zwischen „Highlights“ (Standard) und „Alle Titel“; Spiele auf deiner Wunschliste sind immer dabei
