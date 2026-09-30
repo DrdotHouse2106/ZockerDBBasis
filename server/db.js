@@ -597,6 +597,10 @@ const MIGRATIONEN = [
   ALTER TABLE medien ADD COLUMN oeffentlich_offen INTEGER NOT NULL DEFAULT 0;
   CREATE INDEX IF NOT EXISTS idx_medien_oeffentlich ON medien (katalog_id) WHERE oeffentlich = 1;
   `,
+  // 34: Fotos einer Variante zuordnen (z. B. PAL- oder NTSC-Modul)
+  `
+  ALTER TABLE medien ADD COLUMN variante_id INTEGER REFERENCES katalog_varianten (id) ON DELETE SET NULL;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

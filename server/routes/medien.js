@@ -25,6 +25,9 @@ export function medienZuObjekt(m, benutzer) {
     erstellt_am: m.erstellt_am,
     hochgeladen_von: m.hochgeladen_von ?? null,
     ist_foto: istFotoArt(m.art),
+    // Variante (z. B. PAL-Modul) – eigene, noch nicht freigegebene Varianten nur für den Ersteller
+    variante_id: m.variante_id ?? null,
+    variante: m.variante_bezeichnung ?? null,
     // Öffentlich (auch Suchmaschinen) nur mit Einwilligung des Fotografen und nach Prüfung durch die Moderation
     oeffentlich: Boolean(m.oeffentlich),
     oeffentlich_erlaubt: m.benutzer_id === benutzer.id || istModerator(benutzer) ? Boolean(m.oeffentlich_erlaubt) : undefined,
@@ -109,20 +112,38 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
   });
   const einzeldatei = (feld) => (req, res, next) => upload().single(feld)(req, res, next);
 
+  // Bezeichnung der Variante nur, wenn sie für diesen Benutzer sichtbar ist
+  const VARIANTE = `LEFT JOIN katalog_varianten v ON v.id = m.variante_id AND (v.status = 'freigegeben' OR v.erstellt_von = @benutzer)`;
   const sichtbareMedien = db.prepare(`
-    SELECT m.*, COALESCE(b.anzeigename, b.benutzername) AS hochgeladen_von
-    FROM medien m LEFT JOIN benutzer b ON b.id = m.benutzer_id
+    SELECT m.*, COALESCE(b.anzeigename, b.benutzername) AS hochgeladen_von, v.bezeichnung AS variante_bezeichnung
+    FROM medien m LEFT JOIN benutzer b ON b.id = m.benutzer_id ${VARIANTE}
     WHERE m.katalog_id = @katalog
       AND (m.benutzer_id = @benutzer OR m.sichtbarkeit = 'freigegeben' OR (@moderator = 1 AND m.sichtbarkeit = 'eingereicht'))
     ORDER BY CASE m.art WHEN 'cover_vorne' THEN 0 WHEN 'cover_hinten' THEN 1 WHEN 'cover_komplett' THEN 2
              WHEN 'handbuch' THEN 3 WHEN 'label' THEN 4 ELSE 5 END, m.erstellt_am`);
-  const perId = db.prepare(`
-    SELECT m.*, COALESCE(b.anzeigename, b.benutzername) AS hochgeladen_von
-    FROM medien m LEFT JOIN benutzer b ON b.id = m.benutzer_id WHERE m.id = ?`);
+  const perIdMit = db.prepare(`
+    SELECT m.*, COALESCE(b.anzeigename, b.benutzername) AS hochgeladen_von, v.bezeichnung AS variante_bezeichnung
+    FROM medien m LEFT JOIN benutzer b ON b.id = m.benutzer_id ${VARIANTE} WHERE m.id = @id`);
+  const perId = (id, benutzer = null) => perIdMit.get({ id: Number(id), benutzer: benutzer?.id ?? -1 });
+  // Variante muss zum Katalogeintrag gehören und für den Benutzer sichtbar sein
+  function pruefeVariante(varianteId, katalogId, benutzer) {
+    const v = db.prepare('SELECT katalog_id, status, erstellt_von FROM katalog_varianten WHERE id = ?').get(varianteId);
+    if (!v || v.katalog_id !== katalogId || (v.status !== 'freigegeben' && v.erstellt_von !== benutzer.id)) {
+      throw new ValidierungsFehler({ variante_id: 'Diese Variante passt nicht zum Spiel.' });
+    }
+    return varianteId;
+  }
+  const varianteAus = (eingabe) => {
+    const roh = String(eingabe ?? '').trim();
+    if (!roh) return null;
+    const id = Number(roh);
+    if (!Number.isInteger(id) || id <= 0) throw new ValidierungsFehler({ variante_id: 'Ungültige Variante.' });
+    return id;
+  };
   const eigenerArtikel = db.prepare('SELECT * FROM artikel WHERE id = ? AND benutzer_id = ?');
 
   function sichtbar(req, id) {
-    const m = perId.get(Number(id));
+    const m = perId(id, req.benutzer);
     const darf = m && (m.benutzer_id === req.benutzer.id || m.sichtbarkeit === 'freigegeben'
       || (istModerator(req.benutzer) && m.sichtbarkeit === 'eingereicht'));
     return darf ? m : null;
@@ -158,13 +179,16 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
       // Freigegebene Scans zählen nicht zum Kontingent – Moderatoren können direkt freigeben
       if (meta.sichtbarkeit !== 'freigegeben') speicher.pruefe(req.benutzer.id, groesseGesamt);
       const katalogId = katalog.stelleSicherFuerArtikel(artikel, req.benutzer);
+      const varianteId = varianteAus(req.body?.variante_id);
+      if (varianteId) pruefeVariante(varianteId, katalogId, req.benutzer);
       const { id } = db.prepare(`
         INSERT INTO medien (katalog_id, benutzer_id, art, titel, sichtbarkeit, datei, anzeige_datei, vorschau_datei,
                             originalname, mime, groesse, groesse_gesamt, breite, hoehe, dpi, seiten,
-                            oeffentlich_erlaubt, oeffentlich_erlaubt_am, name_nennen, oeffentlich, oeffentlich_offen)
+                            oeffentlich_erlaubt, oeffentlich_erlaubt_am, name_nennen, oeffentlich, oeffentlich_offen, variante_id)
         VALUES (@katalog_id, @benutzer_id, @art, @titel, @sichtbarkeit, @datei, @anzeige_datei, @vorschau_datei,
                 @originalname, @mime, @groesse, @groesse_gesamt, @breite, @hoehe, @dpi, @seiten,
-                @oeffentlich_erlaubt, @oeffentlich_erlaubt_am, @name_nennen, @oeffentlich, @oeffentlich_offen) RETURNING id`).get({
+                @oeffentlich_erlaubt, @oeffentlich_erlaubt_am, @name_nennen, @oeffentlich, @oeffentlich_offen, @variante_id) RETURNING id`).get({
+        variante_id: varianteId,
         ...verarbeitet,
         groesse_gesamt: groesseGesamt,
         ...meta,
@@ -174,7 +198,7 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
         benutzer_id: req.benutzer.id,
         originalname: Buffer.from(req.file.originalname, 'latin1').toString('utf8').slice(0, 200),
       });
-      res.status(201).json(medienZuObjekt(perId.get(id), req.benutzer));
+      res.status(201).json(medienZuObjekt(perId(id, req.benutzer), req.benutzer));
     } catch (fehler) {
       dateien.loesche(req.file.filename, verarbeitet?.anzeige_datei, verarbeitet?.vorschau_datei);
       if (fehler instanceof ValidierungsFehler || fehler instanceof KontoFehler) throw fehler;
@@ -190,7 +214,7 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
   });
 
   router.put('/medien/:id', (req, res) => {
-    const m = perId.get(Number(req.params.id));
+    const m = perId(req.params.id, req.benutzer);
     if (!m || (m.benutzer_id !== req.benutzer.id && !istModerator(req.benutzer))) {
       return res.status(404).json({ fehler: 'Scan nicht gefunden.' });
     }
@@ -200,12 +224,17 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
       teilweise: true, teilenErlaubt: teilen(req.body?.art ?? m.art), moderator, vorher: m, eigenes,
     });
     if (istFotoArt(daten.art) && !String(m.mime).startsWith('image/')) throw new ValidierungsFehler({ art: 'Eine PDF-Datei kann nicht als Foto eingeordnet werden.' });
+    if (Object.hasOwn(req.body ?? {}, 'variante_id')) {
+      const varianteId = varianteAus(req.body.variante_id);
+      daten.variante_id = varianteId ? pruefeVariante(varianteId, m.katalog_id, req.benutzer) : null;
+    }
     // Neu erlaubte öffentliche Anzeige: ein freigegebenes Foto bleibt für Mitglieder sichtbar – die Moderation entscheidet
     // nur noch über die öffentliche Anzeige (oeffentlich_offen, siehe Warteschlange)
     if (daten.oeffentlich_erlaubt === 1 && !m.oeffentlich_erlaubt) Object.assign(daten, { oeffentlich_erlaubt_am: jetzt(), oeffentlich_offen: 1 });
     if (daten.oeffentlich_erlaubt === 0) daten.oeffentlich_offen = 0;
     // Freigegebenes geändert (Art, Bezeichnung) → erneut prüfen lassen (außer durch die Moderation)
-    const geaendert = (daten.art !== undefined && daten.art !== m.art) || (daten.titel !== undefined && daten.titel !== m.titel);
+    const geaendert = (daten.art !== undefined && daten.art !== m.art) || (daten.titel !== undefined && daten.titel !== m.titel)
+      || (daten.variante_id !== undefined && daten.variante_id !== m.variante_id);
     if (!moderator && m.sichtbarkeit === 'freigegeben' && geaendert) daten.sichtbarkeit = 'eingereicht';
     // Wechsel zwischen Foto und Scan: Ist das Teilen der neuen Art ausgeschaltet, wird die Datei privat
     if (daten.art && daten.art !== m.art && !teilen(daten.art) && (daten.sichtbarkeit ?? m.sichtbarkeit) !== 'privat') daten.sichtbarkeit = 'privat';
@@ -216,11 +245,11 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
     else if (moderator && daten.sichtbarkeit === 'freigegeben' && m.sichtbarkeit !== 'freigegeben') Object.assign(daten, { oeffentlich: 1, oeffentlich_offen: 0 });
     const felder = Object.keys(daten);
     if (felder.length) db.prepare(`UPDATE medien SET ${felder.map((f) => `${f} = @${f}`).join(', ')} WHERE id = @id`).run({ ...daten, id: m.id });
-    res.json(medienZuObjekt(perId.get(m.id), req.benutzer));
+    res.json(medienZuObjekt(perId(m.id, req.benutzer), req.benutzer));
   });
 
   router.delete('/medien/:id', (req, res) => {
-    const m = perId.get(Number(req.params.id));
+    const m = perId(req.params.id, req.benutzer);
     if (!m || (m.benutzer_id !== req.benutzer.id && !istModerator(req.benutzer))) {
       return res.status(404).json({ fehler: 'Scan nicht gefunden.' });
     }

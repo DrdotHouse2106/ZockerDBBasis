@@ -9,6 +9,11 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Fotos: Varianten und Nachfrage nach dem Hinzufügen
+- Fotos lassen sich einer Variante zuordnen (z. B. PAL oder NTSC, Platinum) – beim Hochladen ist die Variante deines Exemplars vorausgewählt, Fotos zeigen sie an
+- Hat dein Exemplar eine Variante, zählt die Checkliste nur Fotos genau dieser Variante – so sieht man, dass z. B. das NTSC-Modul noch fehlt
+- Nach dem Hinzufügen eines Spiels fragt die App einmal, ob du ein fehlendes Foto gleich machen möchtest (nur wenn Fotos geteilt werden können, je Spiel nur einmal, mit „Nicht mehr fragen“)
+
 ## 30.09.2026 – Fotos: So sieht es aus (Modul, Disc, Verpackung)
 - Neuer Bereich „Fotos“ auf der Seite eines Spiels oder Geräts und beim eigenen Exemplar: Fotos von Modul, Disc oder Diskette, Verpackung vorne und hinten, alles zusammen (komplett) sowie bei Geräten Gerät und Details wie Typenschild – ergänzend zum Cover
 - Eine Checkliste zeigt, welche Fotos es schon gibt (✓), welche gerade geprüft werden (⏳) und welche noch fehlen (＋) – ein Tipp auf „＋“ öffnet das Hochladen mit der passenden Fotoart; welcher Datenträger gesucht wird, richtet sich nach der Plattform (N64: Modul, PlayStation: Disc, Amiga: Diskette)

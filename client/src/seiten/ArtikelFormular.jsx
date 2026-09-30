@@ -200,7 +200,8 @@ export default function ArtikelFormular({ route, artikelId }) {
       zeigeHinweis(bearbeiten ? 'Änderungen gespeichert.' : artikel.bestand === 'digital' ? `„${artikel.titel}“ als digitales Spiel gespeichert.` : `„${artikel.titel}“ wurde zur Sammlung hinzugefügt.`);
       // Konvolut erfassen: gleich mit dem nächsten Artikel aus dem Paket weitermachen
       if (!bearbeiten && p.konvolut && artikel.konvolut_id) navigiere('/neu', { konvolut: artikel.konvolut_id });
-      else navigiere(`/artikel/${artikel.id}`);
+      // Neu hinzugefügt: die Artikelseite fragt einmal nach einem fehlenden Foto
+      else navigiere(`/artikel/${artikel.id}`, bearbeiten ? undefined : { neu: 1 });
     } catch (fehlerObjekt) {
       if (fehlerObjekt instanceof ApiFehler && Object.keys(fehlerObjekt.felder).length) setFehler(fehlerObjekt.felder);
       setAllgemeinerFehler(fehlerObjekt.message);

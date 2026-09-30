@@ -21,13 +21,30 @@ function gemerkt() {
 function merke(werte) {
   try { localStorage.setItem(SPEICHER, JSON.stringify(werte)); } catch { /* egal */ }
 }
+// Nach dem Hinzufügen schon nach Fotos gefragt (je Spiel einmal) bzw. „Nicht mehr fragen“
+const GEFRAGT = 'fotos-gefragt';
+function gefragteSpiele() {
+  try {
+    const w = JSON.parse(localStorage.getItem(GEFRAGT) ?? '{}') ?? {};
+    return { aus: Boolean(w.aus), ids: Array.isArray(w.ids) ? w.ids : [] };
+  } catch { return { aus: false, ids: [] }; }
+}
+function merkeGefragt(werte) {
+  try { localStorage.setItem(GEFRAGT, JSON.stringify(werte)); } catch { /* egal */ }
+}
 
 /**
  * `artikelId`: eigenes Exemplar, an dem neue Fotos hängen (ohne → nur ansehen).
  * `oeffentliche`: öffentlich freigegebene Fotos für Besucher ohne Anmeldung (vom Zusatzmodul).
  * `vorauswahl`: Fotoart, die beim Öffnen gleich zum Hochladen vorgeschlagen wird (z. B. aus „Fotos gesucht“).
+ * `varianten`: bekannte Varianten des Eintrags (Auswahl beim Hochladen). `variante`: Variante des eigenen Exemplars –
+ * die Checkliste zählt dann nur Fotos dieser Variante (z. B. „PAL-Modul fehlt“). `standardVariante`: Vorauswahl im Formular.
+ * `neu`: gerade hinzugefügt – einmal je Spiel fragen, ob ein fehlendes Foto gemacht werden soll.
  */
-export default function Fotos({ katalogId, typ, plattform, artikelId = null, oeffentliche = [], vorauswahl = null, hinscrollen = false, onKatalogVerknuepft }) {
+export default function Fotos({
+  katalogId, typ, plattform, artikelId = null, oeffentliche = [], vorauswahl = null, hinscrollen = false, onKatalogVerknuepft,
+  varianten = [], variante = null, standardVariante = null, neu = false,
+}) {
   const { status, benutzer } = useSitzung();
   const zeigeHinweis = useHinweis();
   const abschnitt = useRef(null);
@@ -44,8 +61,9 @@ export default function Fotos({ katalogId, typ, plattform, artikelId = null, oef
   // Angemeldet: alle sichtbaren Fotos (eigene, freigegebene); sonst nur die öffentlichen
   const liste = benutzer ? fotos : oeffentliche.map((f) => ({ ...f, darf_bearbeiten: false, eigenes: false, sichtbarkeit: 'freigegeben', oeffentlich: true }));
   const gesucht = gesuchteFotos(typ, plattform);
+  const varianteName = variante ? varianten.find((v) => v.id === variante)?.bezeichnung ?? null : null;
   const stand = (art) => {
-    const passend = (liste ?? []).filter((f) => f.art === art);
+    const passend = (liste ?? []).filter((f) => f.art === art && (!varianteName || f.variante_id === variante));
     if (passend.some((f) => f.sichtbarkeit === 'freigegeben')) return 'vorhanden';
     if (passend.some((f) => f.eigenes && f.sichtbarkeit === 'eingereicht')) return 'pruefung';
     if (passend.some((f) => f.eigenes)) return 'privat';
@@ -56,6 +74,16 @@ export default function Fotos({ katalogId, typ, plattform, artikelId = null, oef
   const geladen = liste !== null;
   useEffect(() => { if (hinscrollen && geladen) abschnitt.current?.scrollIntoView({ block: 'start' }); }, [hinscrollen, geladen]);
   const fehlt = gesucht.some((art) => stand(art) === 'fehlt');
+  const ersteFehlende = gesucht.find((art) => stand(art) === 'fehlt') ?? null;
+  // Nach dem Hinzufügen: einmal je Spiel fragen (abschaltbar)
+  const [frage, setFrage] = useState(null);
+  useEffect(() => {
+    if (!neu || !artikelId || !katalogId || !geladen || !ersteFehlende || !status?.fotosTeilenErlaubt) return;
+    const gefragt = gefragteSpiele();
+    if (gefragt.aus || gefragt.ids.includes(katalogId)) return;
+    merkeGefragt({ ...gefragt, ids: [...gefragt.ids, katalogId].slice(-500) });
+    setFrage(ersteFehlende);
+  }, [neu, artikelId, katalogId, geladen, Boolean(status?.fotosTeilenErlaubt)]);
 
   async function aendern(f, daten, text) {
     try {
@@ -77,6 +105,12 @@ export default function Fotos({ katalogId, typ, plattform, artikelId = null, oef
     }
   }
 
+  const fotografieren = (art) => {
+    setFrage(null);
+    setFormular(art);
+    abschnitt.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+
   return (
     <section id="fotos" ref={abschnitt} className="karte scroll-mt-20 space-y-3 p-4" data-tour="fotos">
       <div className="flex items-center justify-between gap-2">
@@ -88,6 +122,23 @@ export default function Fotos({ katalogId, typ, plattform, artikelId = null, oef
         )}
       </div>
 
+      {frage && (
+        <div className="fixed inset-x-4 bottom-24 z-30 mx-auto max-w-md rounded-2xl border border-akzent/50 bg-karte p-4 shadow-xl" role="dialog" aria-label="Foto gesucht">
+          <p className="flex items-start gap-2 text-sm">
+            <Symbol name="kamera" className="mt-0.5 size-5 shrink-0 text-akzent-hell" />
+            <span>Zu diesem Spiel fehlt noch ein Foto: <strong>{fotoKurz(frage)}{varianteName ? ` (${varianteName})` : ''}</strong>. Jetzt fotografieren? So sehen andere Sammler, wie es wirklich aussieht.</span>
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" className="knopf-primaer px-3 py-1.5" onClick={() => fotografieren(frage)}>Jetzt fotografieren</button>
+            <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setFrage(null)}>Später</button>
+            <button type="button" className="text-xs text-leise underline" onClick={() => { merkeGefragt({ ...gefragteSpiele(), aus: true }); setFrage(null); }}>
+              Nicht mehr fragen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {varianteName && liste && <p className="text-xs text-leise">Checkliste für deine Variante <strong className="text-text">{varianteName}</strong></p>}
       {/* Checkliste: was gibt es schon, was fehlt noch? */}
       {gesucht.length > 0 && liste && (
         <ul className="flex flex-wrap gap-1.5 text-xs" aria-label="Gesuchte Fotos">
@@ -116,6 +167,8 @@ export default function Fotos({ katalogId, typ, plattform, artikelId = null, oef
         <FotoFormular
           artikelId={artikelId}
           art={formular}
+          varianten={varianten}
+          variante={variante ?? standardVariante}
           teilenErlaubt={teilenErlaubt}
           oeffentlichMoeglich={teilenErlaubt && Boolean(status?.oeffentlicheFotos)}
           moderator={istModerator(benutzer)}
@@ -155,6 +208,7 @@ export default function Fotos({ katalogId, typ, plattform, artikelId = null, oef
               </a>
               <div className="flex flex-1 flex-col gap-1 p-2 text-xs">
                 <p className="font-semibold text-text">{fotoKurz(f.art)}</p>
+                {f.variante && <p className="truncate text-leise">Variante: {f.variante}</p>}
                 {f.titel && <p className="truncate text-leise">{f.titel}</p>}
                 {!f.eigenes && (f.hochgeladen_von || f.quelle) && <p className="text-leise">Foto: {f.hochgeladen_von ?? f.quelle}</p>}
                 <div className="flex flex-wrap gap-1">
@@ -206,7 +260,7 @@ const OEFFENTLICH_TEXT = 'Foto öffentlich zeigen?\n\nNach der Prüfung erschein
   + 'und in Suchmaschinen wie der Google-Bildersuche. Du bestätigst, dass du das Foto selbst gemacht hast und keine Personen darauf zu erkennen sind. '
   + 'Du kannst die Erlaubnis jederzeit zurücknehmen.';
 
-function FotoFormular({ artikelId, art, teilenErlaubt, oeffentlichMoeglich, moderator, maxMb, onFertig }) {
+function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeffentlichMoeglich, moderator, maxMb, onFertig }) {
   const vorher = gemerkt();
   const [datei, setDatei] = useState(null);
   const [vorschau, setVorschau] = useState(null);
@@ -217,7 +271,7 @@ function FotoFormular({ artikelId, art, teilenErlaubt, oeffentlichMoeglich, mode
     return () => URL.revokeObjectURL(url);
   }, [datei]);
   const [werte, setWerte] = useState({
-    art, titel: '',
+    art, titel: '', variante_id: variante ? String(variante) : '',
     teilen: teilenErlaubt && vorher.teilen !== false,
     oeffentlich: oeffentlichMoeglich && vorher.oeffentlich === true,
     name: vorher.name === true,
@@ -239,6 +293,7 @@ function FotoFormular({ artikelId, art, teilenErlaubt, oeffentlichMoeglich, mode
       onFertig(await api.mediumHochladen(artikelId, {
         art: werte.art,
         titel: werte.titel.trim(),
+        variante_id: werte.variante_id,
         sichtbarkeit: teilen ? 'eingereicht' : 'privat',
         oeffentlich_erlaubt: oeffentlich ? 'true' : 'false',
         name_nennen: oeffentlich && werte.name ? 'true' : 'false',
@@ -267,6 +322,15 @@ function FotoFormular({ artikelId, art, teilenErlaubt, oeffentlichMoeglich, mode
         </label>
       </div>
       <p className="-mt-2 text-xs text-leise">JPG, PNG oder WebP{maxMb ? `, max. ${maxMb} MB` : ''}. Standort und Kameradaten werden beim Hochladen entfernt.</p>
+      {varianten.length > 0 && (
+        <label className="block">
+          <span className="beschriftung">Variante (optional)</span>
+          <select className="eingabe" value={werte.variante_id} onChange={(e) => setWerte((w) => ({ ...w, variante_id: e.target.value }))}>
+            <option value="">– keine bestimmte –</option>
+            {varianten.map((v) => <option key={v.id} value={v.id}>{v.bezeichnung}{v.region ? ` (${v.region})` : ''}</option>)}
+          </select>
+        </label>
+      )}
       <label className="block">
         <span className="beschriftung">Bezeichnung (optional)</span>
         <input className="eingabe" value={werte.titel} onChange={(e) => setWerte((w) => ({ ...w, titel: e.target.value }))}

@@ -381,6 +381,8 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
             <Fotos katalogId={artikel.katalog_id} typ={artikel.typ} plattform={{ kurz: artikel.plattform_kurz, name: artikel.plattform }}
               artikelId={eigener && artikel.bestand === 'besitz' ? artikel.id : null} vorauswahl={route.parameter?.foto ?? null}
               hinscrollen={Boolean(route.parameter?.foto)}
+              varianten={katalogDaten?.varianten ?? []} variante={artikel.variante_id ?? null}
+              neu={eigener && route.parameter?.neu === '1'}
               onKatalogVerknuepft={() => laden()} />
           )}
 

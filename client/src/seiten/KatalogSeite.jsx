@@ -139,7 +139,8 @@ export default function KatalogSeite({ route, id }) {
           {(benutzer || oeffentlicheFotos.length > 0 || ((status ?? auth)?.oeffentlicheFotos && e.status === 'freigegeben')) && (
             <Fotos katalogId={e.id} typ={e.typ} plattform={daten.plattformen[0] ?? null} artikelId={fotoExemplar?.id ?? null}
               oeffentliche={oeffentlicheFotos} vorauswahl={route.parameter.foto ?? null}
-              hinscrollen={route.parameter.fotos === '1' || Boolean(route.parameter.foto)} />
+              hinscrollen={route.parameter.fotos === '1' || Boolean(route.parameter.foto)}
+              varianten={daten.varianten ?? []} standardVariante={fotoExemplar?.variante_id ?? null} />
           )}
 
           <Andockpunkt name="katalog.vorVarianten" {...erweiterung} />

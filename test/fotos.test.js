@@ -123,3 +123,39 @@ test('Fotos: getrennt von Scans teilbar, Einwilligung nur für Fotos und nur dur
     await s2.stoppe();
   }
 });
+
+test('Fotos einer Variante zuordnen: nur passende, sichtbare Varianten', async () => {
+  const server = await starteTestServer({ env: { PHOTO_SHARING: 'true' } });
+  try {
+    const admin = await server.registriere('admin');
+    const anna = await server.registriere('anna');
+    const bernd = await server.registriere('bernd');
+    const artikel = (await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Mario Kart 64', plattform: 'Nintendo 64' } })).json;
+    const foto = (await hochladen(anna, artikel.id, { puffer: await jpeg(), felder: { art: 'foto_modul' } })).json;
+    const katalogId = foto.katalog_id;
+    server.db.prepare("UPDATE katalog SET status = 'freigegeben' WHERE id = ?").run(katalogId); // gemeinsamer Katalog (ohne Moderationsoberfläche)
+    const pal = (await admin.api(`/api/katalog/${katalogId}/varianten`, { methode: 'POST', daten: { bezeichnung: 'PAL', region: 'pal_eu', veroeffentlichen: true } })).json;
+    const fremd = (await bernd.api(`/api/katalog/${katalogId}/varianten`, { methode: 'POST', daten: { bezeichnung: 'Bernds Privatvariante' } })).json;
+    const anderesSpiel = (await bernd.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'F-Zero X', plattform: 'Nintendo 64' } })).json;
+    const f2 = (await hochladen(bernd, anderesSpiel.id, { puffer: await jpeg(), felder: { art: 'foto_modul' } })).json;
+    const andereVariante = (await bernd.api(`/api/katalog/${f2.katalog_id}/varianten`, { methode: 'POST', daten: { bezeichnung: 'NTSC' } })).json;
+    assert.ok(andereVariante.id && fremd.id && pal.id);
+
+    // Beim Hochladen und nachträglich
+    let r = await hochladen(anna, artikel.id, { puffer: await jpeg(), felder: { art: 'foto_vorne', variante_id: String(pal.id) } });
+    assert.equal(r.status, 201, r.text);
+    assert.deepEqual([r.json.variante_id, r.json.variante], [pal.id, 'PAL']);
+    r = await anna.api(`/api/medien/${foto.id}`, { methode: 'PUT', daten: { variante_id: pal.id } });
+    assert.equal(r.json.variante, 'PAL');
+    // Variante eines anderen Spiels oder die private Variante eines anderen Benutzers: abgelehnt
+    for (const v of [andereVariante.id, fremd.id, 999999]) {
+      assert.equal((await anna.api(`/api/medien/${foto.id}`, { methode: 'PUT', daten: { variante_id: v } })).status, 400, String(v));
+    }
+    assert.equal((await hochladen(anna, artikel.id, { puffer: await jpeg(), felder: { art: 'foto_hinten', variante_id: String(andereVariante.id) } })).status, 400);
+    // Entfernen
+    r = await anna.api(`/api/medien/${foto.id}`, { methode: 'PUT', daten: { variante_id: null } });
+    assert.deepEqual([r.json.variante_id, r.json.variante], [null, null]);
+  } finally {
+    await server.stoppe();
+  }
+});
