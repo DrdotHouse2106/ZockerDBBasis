@@ -62,7 +62,7 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
     if (region?.codes) {
       bedingungen.push(`(k.regionen IS NULL OR EXISTS (SELECT 1 FROM json_each(k.regionen) WHERE value IN (${region.codes.map((c) => `'${c}'`).join(', ')})))`);
     }
-    const seite = Math.max(1, Number.parseInt(req.query.seite, 10) || 1);
+    const seite = Math.min(10_000, Math.max(1, Number.parseInt(req.query.seite, 10) || 1));
     const where = bedingungen.join(' AND ');
     const gesamt = db.prepare(`SELECT COUNT(*) AS n FROM katalog k WHERE ${where}`).get(parameter).n;
     const zeilen = db.prepare(`

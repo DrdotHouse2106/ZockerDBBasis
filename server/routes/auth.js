@@ -6,7 +6,8 @@ import { erstelleDrossel } from '../services/drossel.js';
 import { setzeSitzungsCookie, loescheSitzungsCookie, erfordereAnmeldung } from '../middleware/auth.js';
 import { ValidierungsFehler } from '../services/validierung.js';
 import { normalisiereEmail } from '../services/kontomail.js';
-import { zufallsToken } from '../services/sicherheit.js';
+import { zufallsToken, erzeugeWiederherstellungscodes, normalisiereWiederherstellungscode, sha256 } from '../services/sicherheit.js';
+import { istInterneAdresse } from '../services/netz.js';
 import { FUNKTIONEN } from '../../shared/konstanten.js';
 
 const ZU_VIELE = 'Zu viele Fehlversuche. Bitte warte 15 Minuten und versuche es dann erneut.';
@@ -18,10 +19,31 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
   const registrierungOffen = () => konfiguration.konten.registrierungOffen;
   const zweiFaktorPflicht = () => konfiguration.konten.zweiFaktorPflicht;
   const drossel = erstelleDrossel({ maxVersuche: 10 });
+  // Zusätzlich je IP-Adresse (viele Benutzernamen mit gängigen Passwörtern – „Password-Spraying“) und je Konto
+  // über alle IP-Adressen hinweg (verteiltes Durchprobieren). Großzügiger, damit niemand fremde Konten einfach sperren kann.
+  // Die IP-Sperre gilt nur für öffentliche Adressen: Hinter einem Reverse-Proxy ohne TRUST_PROXY hätten sonst alle Besucher
+  // dieselbe (interne) Adresse und 30 Fehlversuche irgendwelcher Nutzer würden die Anmeldung für alle sperren.
+  const ipDrossel = erstelleDrossel({ maxVersuche: 30 });
+  const kontoDrossel = erstelleDrossel({ maxVersuche: 100 });
   const mailDrossel = erstelleDrossel({ maxVersuche: 5, fensterMs: 60 * 60 * 1000 });
   const emailPflicht = () => Boolean(konfiguration.emailPflicht && kontoMail.bereit());
   const registrierDrossel = erstelleDrossel({ maxVersuche: konfiguration.konten.registrierungenProStunde, fensterMs: 60 * 60 * 1000 });
   const geraet = (req) => req.headers['user-agent'];
+
+  // ── Ersteinrichtung: Das erste Konto wird Administrator. Kommt die Anfrage aus dem Internet (öffentliche IP) oder über einen
+  // Reverse-Proxy, braucht es einen einmaligen Code aus dem Server-Protokoll – sonst könnte sich ein Fremder, der eine frisch
+  // gestartete Installation zuerst findet, zum Administrator machen. Im eigenen Netz (z. B. http://192.168.…:3000) entfällt er.
+  let einrichtungscode = null;
+  const ueberProxy = (req) => Boolean(req.get('x-forwarded-for') || req.get('forwarded') || req.get('x-real-ip'));
+  const brauchtEinrichtungscode = (req) => konten.istErsteinrichtung() && (!istInterneAdresse(req.ip) || ueberProxy(req));
+  function aktuellerEinrichtungscode() {
+    if (!einrichtungscode) {
+      einrichtungscode = erzeugeWiederherstellungscodes(2).join('-');
+      console.log(`\n🔑 Ersteinrichtung über das Internet bzw. einen Reverse-Proxy: Code für das erste Konto (Administrator): ${einrichtungscode}\n`);
+    }
+    return einrichtungscode;
+  }
+  const passtEinrichtungscode = (eingabe) => sha256(normalisiereWiederherstellungscode(eingabe)) === sha256(normalisiereWiederherstellungscode(aktuellerEinrichtungscode()));
 
   function anmeldenUndAntworten(req, res, benutzer, status = 200) {
     setzeSitzungsCookie(req, res, konten.erstelleSitzung(benutzer.id, { geraet: geraet(req) }), cookieSicher);
@@ -35,6 +57,8 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
       benutzer: oeffentlichesProfil(req.benutzer),
       registrierungOffen: registrierungOffen() || ersteinrichtung,
       ersteinrichtung,
+      // Code aus dem Server-Protokoll nötig? (Der Code selbst wird dabei nur ins Protokoll geschrieben.)
+      einrichtungscode: ersteinrichtung && brauchtEinrichtungscode(req) ? Boolean(aktuellerEinrichtungscode()) : false,
       zweiFaktorPflicht: zweiFaktorPflicht(),
       oeffentlicherKatalog: konfiguration.oeffentlicherKatalog,
       emailAktiv: kontoMail.bereit(),
@@ -67,6 +91,15 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
       return res.status(403).json({ fehler: 'Die Registrierung ist auf diesem Server geschlossen.' });
     }
     if (registrierDrossel.gesperrt(req.ip)) return res.status(429).json({ fehler: 'Zu viele Registrierungen. Bitte später erneut versuchen.' });
+    if (!einladung && brauchtEinrichtungscode(req)) {
+      if (drossel.gesperrt(`einrichtung:${req.ip}`)) return res.status(429).json({ fehler: ZU_VIELE });
+      if (!passtEinrichtungscode(req.body?.einrichtungscode)) {
+        drossel.fehlschlag(`einrichtung:${req.ip}`);
+        return res.status(403).json({
+          fehler: 'Bitte gib den Einrichtungscode ein. Er steht im Server-Protokoll (z. B. „docker compose logs zockerdb“).', code: 'einrichtungscode',
+        });
+      }
+    }
     // Das allererste Konto (Administrator) ohne Spam-Prüfung, damit eine Fehlkonfiguration nicht aussperrt
     // Mit Einladung ohne Spam-Prüfung – der Link selbst ist der Nachweis
     if (!konten.istErsteinrichtung() && !einladung) await captcha.pruefe(req.body?.captcha, { aktion: 'registrieren', ip: req.ip });
@@ -91,11 +124,15 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
 
   router.post('/auth/anmelden', async (req, res) => {
     const { benutzername, passwort } = req.body ?? {};
-    const schluessel = `${req.ip}|${String(benutzername ?? '').toLowerCase()}`;
-    if (drossel.gesperrt(schluessel) || drossel.gesperrt(req.ip)) return res.status(429).json({ fehler: ZU_VIELE });
+    const name = String(benutzername ?? '').trim().toLowerCase().slice(0, 64);
+    const schluessel = `${req.ip}|${name}`;
+    const ipZaehlt = !istInterneAdresse(req.ip);
+    if (drossel.gesperrt(schluessel) || (ipZaehlt && ipDrossel.gesperrt(req.ip)) || kontoDrossel.gesperrt(name)) return res.status(429).json({ fehler: ZU_VIELE });
     const benutzer = await konten.pruefeZugangsdaten(benutzername, passwort);
     if (!benutzer) {
       drossel.fehlschlag(schluessel);
+      if (ipZaehlt) ipDrossel.fehlschlag(req.ip);
+      kontoDrossel.fehlschlag(name);
       return res.status(401).json({ fehler: 'Benutzername oder Passwort ist falsch.' });
     }
     if (benutzer.gesperrt) return res.status(403).json({ fehler: 'Dieses Konto ist gesperrt. Bitte wende dich an den Administrator.' });
@@ -268,8 +305,15 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
   });
 
   router.post('/konto/passwort', angemeldet, async (req, res) => {
+    // Wie jede Passwortbestätigung gedrosselt – sonst ließe sich mit einer übernommenen Sitzung das Passwort durchprobieren
+    const drosselSchluessel = `bestaetigen:${req.benutzer.id}`;
+    if (drossel.gesperrt(drosselSchluessel)) throw new KontoFehler(ZU_VIELE, 429);
     const benutzer = await konten.pruefeZugangsdaten(req.benutzer.benutzername, req.body?.altesPasswort);
-    if (!benutzer) throw new ValidierungsFehler({ altesPasswort: 'Das bisherige Passwort ist falsch.' });
+    if (!benutzer) {
+      drossel.fehlschlag(drosselSchluessel);
+      throw new ValidierungsFehler({ altesPasswort: 'Das bisherige Passwort ist falsch.' });
+    }
+    drossel.zuruecksetzen(drosselSchluessel);
     pruefeNeuesPasswort(req.body?.neuesPasswort, 'neuesPasswort');
     await konten.aenderePasswort(req.benutzer.id, req.body.neuesPasswort);
     konten.beendeAndereSitzungen(req.benutzer.id, req.sitzungHash);

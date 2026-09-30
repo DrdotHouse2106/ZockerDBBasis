@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Router } from 'express';
 import multer from 'multer';
 import { pruefeArtikel, ValidierungsFehler } from '../services/validierung.js';
+import { bereinigeBild } from '../services/medien.js';
 
 const SORTIERUNGEN = {
   neueste: 'a.erstellt_am DESC, a.id DESC',
@@ -354,7 +355,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     res.status(204).end();
   });
 
-  router.post('/:id/bild', einzeldatei('bild'), (req, res) => {
+  router.post('/:id/bild', einzeldatei('bild'), async (req, res) => {
     const vorhanden = holeOder404(req, res);
     if (!vorhanden) {
       if (req.file) bildEntfernen(req.file.filename);
@@ -363,15 +364,23 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     if (!req.file) {
       return res.status(400).json({ fehler: 'Bitte ein Bild im Format JPG, PNG, WebP oder GIF hochladen.' });
     }
+    // Ohne Metadaten speichern: Handyfotos enthalten sonst oft die GPS-Position (z. B. der Wohnung)
+    let groesse;
+    try {
+      groesse = await bereinigeBild(req.file.path, req.file.mimetype);
+    } catch {
+      bildEntfernen(req.file.filename);
+      return res.status(400).json({ fehler: 'Das Bild konnte nicht gelesen werden. Bitte JPG, PNG, WebP oder GIF verwenden.' });
+    }
     try {
       // Das bisherige Foto wird ersetzt und zählt daher nicht mit
-      speicher.pruefe(req.benutzer.id, req.file.size, { abzueglich: vorhanden.bild_datei ? vorhanden.bild_groesse ?? 0 : 0 });
+      speicher.pruefe(req.benutzer.id, groesse, { abzueglich: vorhanden.bild_datei ? vorhanden.bild_groesse ?? 0 : 0 });
     } catch (fehler) {
       bildEntfernen(req.file.filename);
       throw fehler;
     }
     db.prepare("UPDATE artikel SET bild_datei = ?, bild_groesse = ?, sync_bild_hash = NULL, aktualisiert_am = datetime('now') WHERE id = ?")
-      .run(req.file.filename, req.file.size, vorhanden.id);
+      .run(req.file.filename, groesse, vorhanden.id);
     bildEntfernen(vorhanden.bild_datei);
     res.json(artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)));
   });

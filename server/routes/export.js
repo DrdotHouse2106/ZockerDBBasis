@@ -3,7 +3,7 @@ import { Router } from 'express';
 import {
   ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, WARTUNGSARTEN, beschriftung,
 } from '../../shared/konstanten.js';
-import { pruefeArtikel, ValidierungsFehler } from '../services/validierung.js';
+import { pruefeArtikel, pruefeKatalogEintrag, ValidierungsFehler } from '../services/validierung.js';
 
 const CSV_SPALTEN = [
   ['id', 'ID'],
@@ -151,11 +151,20 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
           katalogIds.set(eintrag.id, vorhanden.id);
           continue;
         }
+        // Wie beim Anlegen prüfen (Typ, Längen, nur http(s)-Bildadressen); Ungültiges wird übersprungen
+        let geprueft;
+        try {
+          let plattformenRoh = eintrag.plattformen;
+          if (typeof plattformenRoh === 'string') { try { plattformenRoh = JSON.parse(plattformenRoh); } catch { plattformenRoh = []; } }
+          geprueft = pruefeKatalogEintrag({ ...eintrag, typ: eintrag.typ ?? 'spiel', plattformen: Array.isArray(plattformenRoh) ? plattformenRoh : [] });
+        } catch (fehler) {
+          if (fehler instanceof ValidierungsFehler) continue;
+          throw fehler;
+        }
         const { id } = katalogEinfuegen.get({
-          externe_id: vorhanden ? crypto.randomUUID() : String(eintrag.externe_id), typ: eintrag.typ ?? 'spiel', titel: String(eintrag.titel),
-          plattformen: typeof eintrag.plattformen === 'string' ? eintrag.plattformen : JSON.stringify(eintrag.plattformen ?? []),
-          erscheinungsjahr: eintrag.erscheinungsjahr ?? null, hersteller: eintrag.hersteller ?? null,
-          cover_url: eintrag.cover_url ?? null, beschreibung: eintrag.beschreibung ?? null, erstellt_von: req.benutzer.id,
+          externe_id: vorhanden ? crypto.randomUUID() : String(eintrag.externe_id).slice(0, 100), typ: geprueft.typ, titel: geprueft.titel,
+          plattformen: JSON.stringify(geprueft.plattformen), erscheinungsjahr: geprueft.erscheinungsjahr, hersteller: geprueft.hersteller,
+          cover_url: geprueft.cover_url, beschreibung: geprueft.beschreibung, erstellt_von: req.benutzer.id,
         });
         katalogIds.set(eintrag.id, id);
       }

@@ -41,6 +41,17 @@ Sicherheitskorrekturen erfolgen für den aktuellen Stand des `main`-Branches. Bi
 Wenn du die Software selbst betreibst, trage auf der Seite **„Sicherheit“** (Administration → Rechtliches) zusätzlich
 eine Kontaktadresse für deine Installation ein und passe `client/public/.well-known/security.txt` an.
 
+Empfehlungen für den Betrieb:
+
+- **Erstes Konto zügig anlegen.** Das erste Konto wird Administrator. Erfolgt die Einrichtung über das Internet oder einen
+  Reverse-Proxy, verlangt die App einen Einrichtungscode aus dem Server-Protokoll – trotzdem das Konto direkt nach dem Start anlegen.
+- **Hinter einem Reverse-Proxy `TRUST_PROXY` setzen** (z. B. `1`), damit Anmeldeversuche, Sperren und Statistik die echte
+  Besucher-IP sehen und Cookies als „secure“ gesetzt werden.
+- **Port nur lokal freigeben**, wenn ein Reverse-Proxy davor sitzt (`127.0.0.1:3000:3000`), und HTTPS verwenden.
+- **Zwei-Faktor-Anmeldung** für Administratoren nutzen (bei öffentlichem Betrieb für alle: `REQUIRE_2FA`).
+- **`geheimnis.key` bzw. `APP_SECRET` sichern und geheim halten** – damit sind 2FA-Geheimnisse und API-Schlüssel verschlüsselt.
+- **Aktuell bleiben** (`docker compose pull && docker compose up -d`). Der Container läuft ohne Root-Rechte (Benutzer `node`).
+
 ---
 
 <sub>🇬🇧 Security is taken very seriously. Please report vulnerabilities privately via

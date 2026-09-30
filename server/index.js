@@ -2,6 +2,7 @@ import { MARKE } from '../shared/marke.js';
 import { ladeKonfiguration } from './config.js';
 import { erstelleApp } from './app.js';
 import { MODULE } from './module.js';
+import { bereinigeBestand } from './services/medien.js';
 
 const konfiguration = ladeKonfiguration();
 const { app, db, kontext } = erstelleApp(konfiguration);
@@ -51,6 +52,13 @@ const zentraleLauf = async () => {
 setTimeout(zentraleLauf, 2 * 60_000).unref();
 setInterval(zentraleLauf, 15 * 60 * 1000).unref();
 if (kontext.zentrale.aktiv) console.log(`   Zentraler Katalog: ${kontext.zentrale.url}`);
+
+// Datenschutz: ältere Fotos und Scans einmalig ohne Metadaten (GPS-Position, Kameradaten) neu ablegen
+setTimeout(() => {
+  bereinigeBestand(kontext.db, kontext.dateien.verzeichnis)
+    .then((n) => { if (n) console.log(`   ${n} ältere Fotos/Scans ohne Metadaten neu gespeichert.`); })
+    .catch((e) => console.warn('[metadaten]', e.message));
+}, 30_000).unref();
 
 // Zeitgesteuerte Aufgaben der Zusatzmodule
 for (const modul of MODULE) modul.zeitplan?.(kontext);

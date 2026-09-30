@@ -10,7 +10,7 @@ import { MODUL } from '../erweiterungen.jsx';
 export default function Anmelden() {
   const { auth, aktualisiere } = useSitzung();
   const [modus, setModus] = useState(auth?.ersteinrichtung || (auth?.registrierungOffen && window.location.hash.includes('registrieren=1')) ? 'registrieren' : 'anmelden');
-  const [werte, setWerte] = useState({ benutzername: '', passwort: '', passwort2: '', anzeigename: '', email: '' });
+  const [werte, setWerte] = useState({ benutzername: '', passwort: '', passwort2: '', anzeigename: '', email: '', einrichtungscode: '' });
   const [akzeptiert, setAkzeptiert] = useState(false);
   const [captchaZustimmung, setCaptchaZustimmung] = useState(false);
   const [zweiFaktor, setZweiFaktor] = useState(null); // { token }
@@ -63,6 +63,7 @@ export default function Anmelden() {
         await api.registrieren({
           captcha, einladung: mitEinladung ? einladung : undefined, werber: !mitEinladung && werber ? werber : undefined,
           benutzername: werte.benutzername, passwort: werte.passwort, anzeigename: werte.anzeigename, email: werte.email, bedingungen_akzeptiert: akzeptiert,
+          einrichtungscode: auth?.einrichtungscode ? werte.einrichtungscode : undefined,
         });
         await aktualisiere();
       } else {
@@ -111,6 +112,7 @@ export default function Anmelden() {
         {auth?.ersteinrichtung && (
           <p className="rounded-xl border border-akzent/40 bg-akzent/10 p-3 text-sm">
             <strong>Willkommen!</strong> Es gibt noch kein Konto. Das erste Konto wird automatisch Administrator.
+            {auth.einrichtungscode && ' Weil du über das Internet bzw. einen Reverse-Proxy zugreifst, brauchst du dafür den Einrichtungscode aus dem Server-Protokoll – so kann sich kein Fremder zuerst anmelden.'}
           </p>
         )}
 
@@ -159,6 +161,13 @@ export default function Anmelden() {
               <Feld label="Benutzername" fehler={felder.benutzername}>
                 <input className="eingabe" value={werte.benutzername} onChange={setze('benutzername')} autoComplete="username" autoCapitalize="none" required autoFocus />
               </Feld>
+              {modus === 'registrieren' && auth?.ersteinrichtung && auth?.einrichtungscode && (
+                <Feld label="Einrichtungscode (steht im Server-Protokoll)" fehler={felder.einrichtungscode}>
+                  <input className="eingabe font-mono" value={werte.einrichtungscode} onChange={setze('einrichtungscode')} autoComplete="off" autoCapitalize="characters"
+                    placeholder="XXXX-XXXX-XXXX-XXXX" required />
+                  <span className="mt-1 block text-xs text-leise">Anzeigen z. B. mit <code>docker compose logs zockerdb</code> – Zeile „Ersteinrichtung …“.</span>
+                </Feld>
+              )}
               {modus === 'registrieren' && (
                 <Feld label="Anzeigename (optional)" fehler={felder.anzeigename}>
                   <input className="eingabe" value={werte.anzeigename} onChange={setze('anzeigename')} autoComplete="nickname" maxLength={60} />

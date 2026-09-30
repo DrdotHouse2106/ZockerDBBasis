@@ -9,6 +9,13 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Sicherheitsprüfung: Fotos ohne GPS, Schutz der Ersteinrichtung, bessere Anmelde-Drosselung
+- Fotos und Scans werden ohne Metadaten gespeichert – Handyfotos enthalten sonst oft die GPS-Position (z. B. der eigenen Wohnung), die andere bei öffentlichen Sammlungen oder freigegebenen Scans sehen könnten. JPEG-Scans bleiben dabei verlustfrei; bereits hochgeladene Fotos und Scans werden nach dem Update einmalig im Hintergrund bereinigt
+- Ersteinrichtung über das Internet oder einen Reverse-Proxy: Für das erste Konto (Administrator) braucht es einen Einrichtungscode aus dem Server-Protokoll – so kann niemand eine frisch gestartete Installation übernehmen
+- Anmeldung: Fehlversuche werden jetzt auch je öffentlicher IP-Adresse (viele Benutzernamen durchprobieren) und je Konto über alle IP-Adressen gedrosselt; ebenso das bisherige Passwort beim Passwortwechsel
+- Schutz vor Anfragen ins interne Netz erkennt jetzt auch seltene IPv6-Schreibweisen (NAT64, 6to4, IPv4-kompatibel, Site-Local)
+- JSON-Import: eigene Katalogeinträge werden wie beim Anlegen geprüft (Typ, Längen, nur http(s)-Bildadressen)
+
 ## 30.09.2026 – Geführte Touren
 - Neu hier? Auf der Sammlungsseite startest du die Tour „Erste Schritte“: Die App zeigt dir mit Markierung und Pfeil, wo was ist – Suchen, Filtern, Hinzufügen, Barcode scannen, Einträge pflegen, Katalog, Kalender und „Mehr“
 - Wo du selbst tippen sollst, zeigt ein Finger auf die Stelle
