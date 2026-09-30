@@ -1,5 +1,5 @@
 // Releasekalender „Erscheint demnächst“: Termine nach Monat, Filter Plattform / nur Wunschliste,
-// standardmäßig für „Meine Systeme“ (bzw. die Standardsysteme).
+// standardmäßig für „Meine Systeme“ (bzw. die Standardsysteme) und kuratiert („Highlights“: die gefragtesten Titel).
 import { useEffect, useState } from 'react';
 import { zusammenfassen } from '../../../shared/kalender.js';
 import { KATALOG_REGIONEN } from '../../../shared/konstanten.js';
@@ -43,9 +43,14 @@ export default function Kalender({ route }) {
   const von = vergangen ? plusTage(heute(), -60) : heute();
   const bis = vergangen ? plusTage(heute(), -1) : plusTage(heute(), Number(p.tage) || 120);
 
-  const laden = () => api.kalender({ von, bis, plattform: p.plattform, alle: p.alle, wunschliste: p.wunschliste, region: p.region })
+  const alleTitel = p.auswahl === 'alle';
+  const tage = vergangen ? 60 : Number(p.tage) || 120;
+  const laden = () => api.kalender({
+    von, bis, plattform: p.plattform, alle: p.alle, wunschliste: p.wunschliste, region: p.region,
+    ...(alleTitel ? {} : { auswahl: 'beliebt', anzahl: Math.max(30, Math.round(tage / 2)) }),
+  })
     .then((d) => { setDaten(d); setFehler(null); }).catch((e) => setFehler(e.message));
-  useEffect(() => { setDaten(null); laden(); }, [p.plattform, p.alle, p.wunschliste, p.ansicht, p.tage, p.region]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setDaten(null); laden(); }, [p.plattform, p.alle, p.wunschliste, p.ansicht, p.tage, p.region, p.auswahl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setze = (neu) => navigiere('/kalender', Object.fromEntries(Object.entries({ ...p, ...neu }).filter(([, w]) => w)));
   const termine = daten ? zusammenfassen(vergangen ? [...daten.termine].reverse() : daten.termine) : [];
@@ -62,6 +67,9 @@ export default function Kalender({ route }) {
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
           <button type="button" className={!vergangen ? 'chip-aktiv' : 'chip'} onClick={() => setze({ ansicht: null })}>Demnächst</button>
           <button type="button" className={vergangen ? 'chip-aktiv' : 'chip'} onClick={() => setze({ ansicht: 'erschienen' })}>Kürzlich erschienen</button>
+          <button type="button" className={!alleTitel ? 'chip-aktiv' : 'chip'} onClick={() => setze({ auswahl: null })}
+            title="Die gefragtesten Titel – nach Vorfreude bei IGDB und Wunschlisten der Sammler">Highlights</button>
+          <button type="button" className={alleTitel ? 'chip-aktiv' : 'chip'} onClick={() => setze({ auswahl: 'alle' })}>Alle Titel</button>
           {daten?.wunschlisteVerfuegbar && (
             <button type="button" className={p.wunschliste ? 'chip-aktiv' : 'chip'} onClick={() => setze({ wunschliste: p.wunschliste ? null : '1' })}>Nur Wunschliste</button>
           )}
@@ -101,7 +109,7 @@ export default function Kalender({ route }) {
         )}
         {daten?.quelle && termine.length === 0 && (
           <p className="karte p-4 text-sm text-leise">
-            Keine Termine gefunden{daten.gefiltert ? ' – probiere „Alle Plattformen“ oder wähle unter Katalog → „Systeme auswählen“ weitere Systeme aus' : ''}.
+            Keine Termine gefunden{daten.kuratiert ? ' – „Alle Titel“ zeigt auch weniger gefragte' : ''}{daten.gefiltert ? ' – probiere „Alle Plattformen“ oder wähle unter Katalog → „Systeme auswählen“ weitere Systeme aus' : ''}.
           </p>
         )}
         {monate.map((m) => (
@@ -113,7 +121,12 @@ export default function Kalender({ route }) {
           </section>
         ))}
         {daten?.mehr && <p className="text-center text-sm text-leise">Es gibt weitere Termine – wähle eine Plattform oder einen kürzeren Zeitraum.</p>}
-        {daten?.quelle && <p className="text-xs text-leise">Termine: IGDB.com (europäische bzw. weltweite Termine bevorzugt). Angaben ohne Gewähr.</p>}
+        {daten?.quelle && (
+          <p className="text-xs text-leise">
+            Termine: IGDB.com (europäische bzw. weltweite Termine bevorzugt). Angaben ohne Gewähr.
+            {daten.kuratiert && ' „Highlights“ zeigt die gefragtesten Titel – nach Vorfreude bei IGDB und Wunschlisten der Sammler (aus Deutschland doppelt gewichtet); Titel auf deiner Wunschliste sind immer dabei. „Alle Titel“ zeigt alles.'}
+          </p>
+        )}
       </div>
     </Layout>
   );
@@ -124,7 +137,8 @@ export function DemnaechstVorschau() {
   const [daten, setDaten] = useState(null);
   const [zu, setZu] = useState(() => { try { return localStorage.getItem('demnaechst-zu') === '1'; } catch { return false; } });
   useEffect(() => {
-    api.kalender({ von: heute(), bis: plusTage(heute(), 60), grenze: 80 })
+    // Kuratiert: die 20 gefragtesten Titel der nächsten 60 Tage, nach Datum
+    api.kalender({ von: heute(), bis: plusTage(heute(), 60), auswahl: 'beliebt', anzahl: 20, grenze: 200 })
       .then((d) => setDaten({ ...d, termine: zusammenfassen(d.termine ?? []).slice(0, 20) })).catch(() => {});
   }, []);
   if (!daten?.termine?.length) return null;

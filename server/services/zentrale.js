@@ -141,7 +141,8 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
       const eintrag = zentralZuEintrag(t.eintrag);
       if (!eintrag || !TAG.test(String(t.datum ?? ''))) return null;
       const kurz = (w, n) => (typeof w === 'string' && w.trim() ? w.trim().slice(0, n) : null);
-      return { eintrag, datum: t.datum, plattform: kurz(t.plattform, 100), region: kurz(t.region, 40), text: kurz(t.text, 60) };
+      const beliebtheit = Number.isFinite(Number(t.beliebtheit)) ? Math.min(Math.max(Math.round(Number(t.beliebtheit)), 0), 1e7) : 0;
+      return { eintrag, datum: t.datum, plattform: kurz(t.plattform, 100), region: kurz(t.region, 40), text: kurz(t.text, 60), beliebtheit };
     }).filter(Boolean);
   }
 

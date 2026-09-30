@@ -16,3 +16,17 @@ export function zusammenfassen(termine) {
   }
   return [...gruppen.values()].map(({ regionen, ...g }) => ({ ...g, region: regionen.size === 1 ? [...regionen][0] : null }));
 }
+
+/**
+ * Kuratiert: nur Termine der `anzahl` gefragtesten Titel („beliebtheit“: Vorfreude bei IGDB + Wunschlisten), Reihenfolge bleibt.
+ * Titel ohne Nachfrage fallen weg – außer `immer(t)` (z. B. eigene Wunschliste). Hat kein Termin Nachfragewerte
+ * (ältere Datenquelle), bleibt die Liste unverändert.
+ */
+export function hoechsteNachfrage(termine, anzahl, { immer = () => false } = {}) {
+  const punkte = new Map();
+  for (const t of termine) punkte.set(t.katalog.id, Math.max(punkte.get(t.katalog.id) ?? 0, t.beliebtheit ?? 0));
+  const bewertet = [...punkte].filter(([, p]) => p > 0).sort((a, b) => b[1] - a[1]);
+  if (!bewertet.length) return [...termine];
+  const auswahl = new Set(bewertet.slice(0, anzahl).map(([id]) => id));
+  return termine.filter((t) => auswahl.has(t.katalog.id) || immer(t));
+}

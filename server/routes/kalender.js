@@ -5,6 +5,7 @@
 //  3. sonst gibt es keinen Kalender (eigene Katalogeinträge kennen nur das Erscheinungsjahr).
 import { Router } from 'express';
 import { meineSysteme } from '../services/plattformen.js';
+import { hoechsteNachfrage } from '../../shared/kalender.js';
 
 const TAG = /^\d{4}-\d{2}-\d{2}$/;
 const REGION_TERMINE = {
@@ -44,7 +45,7 @@ export function kalenderRouter({ db, plattformen, zentrale, katalog, erweiterung
       return {
         katalog: { id: eintrag.id, typ: eintrag.typ, titel: eintrag.titel, cover_url: eintrag.cover_url, erscheinungsjahr: eintrag.erscheinungsjahr },
         plattform_id: p?.id ?? null, plattform: p?.name ?? t.plattform ?? null, plattform_kurz: p?.kurz ?? null,
-        datum: t.datum, region: t.region ?? null, text: t.text ?? null,
+        datum: t.datum, region: t.region ?? null, text: t.text ?? null, beliebtheit: t.beliebtheit ?? 0,
       };
     }).filter(Boolean))();
     zentralCache.set(schluessel, { zeit: Date.now(), liste });
@@ -85,13 +86,16 @@ export function kalenderRouter({ db, plattformen, zentrale, katalog, erweiterung
     const markierungen = Object.assign({}, ...erweiterungen.alle('kalender.markieren').map((fn) => fn({ ids, benutzer: req.benutzer }) ?? {}));
     const wunsch = new Set(markierungen.wunschliste ?? []);
     if (req.query.wunschliste === '1') liste = liste.filter((t) => wunsch.has(t.katalog.id));
+    // „Highlights“: nur die gefragtesten Titel (Vorfreude + Wunschlisten); eigene Wunschliste bleibt immer drin
+    const kuratiert = req.query.auswahl === 'beliebt';
+    if (kuratiert) liste = hoechsteNachfrage(liste, Math.min(Math.max(Number(req.query.anzahl) || 50, 1), 500), { immer: (t) => wunsch.has(t.katalog.id) });
     const besitz = ids.length
       ? new Set(db.prepare(`SELECT DISTINCT katalog_id FROM artikel WHERE benutzer_id = ? AND bestand = 'besitz' AND katalog_id IN (SELECT value FROM json_each(?))`)
         .pluck().all(req.benutzer.id, JSON.stringify(ids)))
       : new Set();
     const grenze = Math.min(Math.max(Number(req.query.grenze) || 500, 1), 1000);
     res.json({
-      von, bis, quelle: ergebnis.quelle, gefiltert: Boolean(erlaubt), wunschlisteVerfuegbar: 'wunschliste' in markierungen,
+      von, bis, quelle: ergebnis.quelle, gefiltert: Boolean(erlaubt), kuratiert, wunschlisteVerfuegbar: 'wunschliste' in markierungen,
       termine: liste.slice(0, grenze).map((t) => ({ ...t, auf_wunschliste: wunsch.has(t.katalog.id), im_besitz: besitz.has(t.katalog.id) })),
       mehr: liste.length > grenze,
     });

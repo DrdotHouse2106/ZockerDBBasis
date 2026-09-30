@@ -9,6 +9,11 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 30.09.2026 – Releasekalender: Highlights statt Unbekanntem
+- „Erscheint demnächst“ zeigt jetzt kuratiert die gefragtesten Titel – nach Vorfreude bei IGDB und Wunschlisten der Sammler auf zockerdb.de (Sammler aus Deutschland zählen doppelt, Bundles und Zusatzinhalte nur halb)
+- Im Kalender wählst du zwischen „Highlights“ (Standard) und „Alle Titel“; Spiele auf deiner Wunschliste sind immer dabei
+- Die Vorschau auf der Sammlungsseite zeigt die 20 gefragtesten Titel der nächsten 60 Tage, weiter nach Datum sortiert
+
 ## 30.09.2026 – Hinweis: Barcodes lernt ZockerDB von der Community
 - Bei einem noch unbekannten Barcode erklärt ein Hinweis, dass Spieldatenbanken keine Barcodes führen und die Zuordnung durch die Auswahl der Sammler entsteht – danach erkennen alle das Spiel sofort
 - Auch unter „Nicht gefunden?“ ein kurzer Hinweis, dass der Katalog von der Mithilfe der Community lebt
