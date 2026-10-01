@@ -302,9 +302,9 @@ function Einladungen() {
         Benutzername und Passwort wählt sie selbst. Der Link gilt 7 Tage und nur für ein Konto. Mit E-Mail-Adresse wird die
         Einladung direkt verschickt; kopieren lässt sich der Link trotzdem.
       </p>
-      <form onSubmit={erstellen} className="flex flex-wrap gap-2">
-        <input className="eingabe min-w-0 flex-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200} placeholder="E-Mail-Adresse (optional – dann wird verschickt)" />
-        <input className="eingabe min-w-0 flex-1" value={notiz} onChange={(e) => setNotiz(e.target.value)} maxLength={100} placeholder="Für wen? (nur als Notiz, z. B. „Kumpel Max“)" />
+      <form onSubmit={erstellen} className="flex flex-col gap-2 sm:flex-row">
+        <input className="eingabe min-w-0 sm:flex-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200} placeholder="E-Mail-Adresse (optional – dann wird verschickt)" />
+        <input className="eingabe min-w-0 sm:flex-1" value={notiz} onChange={(e) => setNotiz(e.target.value)} maxLength={100} placeholder="Für wen? (nur als Notiz, z. B. „Kumpel Max“)" />
         <button type="submit" className="knopf-primaer">{email.trim() ? 'Einladung verschicken' : 'Einladungslink erstellen'}</button>
       </form>
       {neu && (
@@ -322,11 +322,9 @@ function Einladungen() {
               <span className="text-xs text-leise">
                 {e.benutzt_am ? `angenommen von @${e.benutzt_von ?? '–'}` : offen.includes(e) ? `gültig bis ${datumDe(e.laeuft_ab.slice(0, 10))}` : 'abgelaufen'}
               </span>
-              {!e.benutzt_am && (
-                <button type="button" className="text-xs text-gefahr underline" onClick={async () => { await api.adminEinladungLoeschen(e.id).catch(() => {}); laden(); }}>
-                  {offen.includes(e) ? 'zurückziehen' : 'entfernen'}
-                </button>
-              )}
+              <button type="button" className="text-xs text-gefahr underline" onClick={async () => { await api.adminEinladungLoeschen(e.id).catch(() => {}); laden(); }}>
+                {offen.includes(e) ? 'zurückziehen' : 'entfernen'}
+              </button>
             </li>
           ))}
         </ul>

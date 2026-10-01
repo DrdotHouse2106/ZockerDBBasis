@@ -155,7 +155,9 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
     return { ...zeile, token };
   }
   const einladungen = () => db.prepare(`SELECT e.id, e.notiz, e.laeuft_ab, e.benutzt_am, e.erstellt_am, b.benutzername AS benutzt_von
-    FROM einladungen e LEFT JOIN benutzer b ON b.id = e.benutzer_id ORDER BY e.id DESC LIMIT 100`).all();
+    FROM einladungen e LEFT JOIN benutzer b ON b.id = e.benutzer_id
+    -- Angenommene Einladungen, deren Konto inzwischen gelöscht ist, nicht mehr anzeigen
+    WHERE NOT (e.benutzt_am IS NOT NULL AND b.id IS NULL) ORDER BY e.id DESC LIMIT 100`).all();
   const gueltigeEinladung = (token) => (token ? db.prepare(`SELECT * FROM einladungen WHERE token_hash = ?
     AND benutzt_am IS NULL AND laeuft_ab > datetime('now')`).get(sha256(String(token))) ?? null : null);
   const loeseEinladungEin = (id, benutzerId) => db.prepare("UPDATE einladungen SET benutzt_am = datetime('now'), benutzer_id = ? WHERE id = ? AND benutzt_am IS NULL")

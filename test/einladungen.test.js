@@ -34,6 +34,10 @@ test('Einladung: einmal nutzbar, gilt bei geschlossener Registrierung, nur Admin
 
     const max = gast;
     assert.equal((await max.api('/api/admin/einladungen', { methode: 'POST', daten: {} })).status, 403);
+
+    // Konto des Eingeladenen gelöscht → Einladung verschwindet aus der Liste
+    server.db.prepare("DELETE FROM benutzer WHERE benutzername = 'max'").run();
+    assert.equal((await admin.api('/api/admin/einladungen')).json.some((e) => e.notiz === 'Kumpel Max'), false);
   } finally {
     await server.stoppe();
   }

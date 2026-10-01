@@ -9,6 +9,11 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 01.10.2026 – Einladungen: gelöschte Konten verschwinden aus der Liste
+- Wurde das Konto einer eingeladenen Person gelöscht, steht die Einladung nicht mehr als „angenommen von @–“ in der Liste
+- Auch angenommene Einladungen lassen sich jetzt aus der Liste entfernen
+- Die Felder zum Einladen stehen auf dem Handy untereinander statt gequetscht nebeneinander
+
 ## 01.10.2026 – Touren und Fußleiste auf dem iPhone
 - Tour „Erste Schritte“: Der Spielstatus lässt sich beim entsprechenden Schritt jetzt wirklich ausprobieren
 - Die Markierung der Tour wackelt und verrutscht nicht mehr: Während eines Schritts bleibt die Seite stehen, die Abdunkelung reicht immer bis an den Bildschirmrand
