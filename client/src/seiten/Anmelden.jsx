@@ -232,6 +232,18 @@ export default function Anmelden() {
   );
 }
 
+/** Kurz vorstellen, was es gibt – sonst weiß niemand, wofür er einen Zugang anfragt. */
+const MERKMALE = [
+  { bild: '📷', titel: 'Barcode-Scanner', text: 'Spiel mit der Handykamera scannen, Titel, Plattform und Cover kommen automatisch.' },
+  { bild: '🧩', titel: 'Varianten & Zustand', text: 'PAL/NTSC, Editionen, mit oder ohne Anleitung – jedes Exemplar genau erfasst.' },
+  { bild: '🖼️', titel: 'Fotos & Scans', text: 'Eigene Fotos, Cover und Anleitungen in voller Auflösung zu jedem Spiel.' },
+  // Zusatzmodule ergänzen ihre Funktionen
+  ...(MODUL.anmeldungMerkmale ?? []),
+  { bild: '🎮', titel: 'Spielstatus & Leihliste', text: 'Durchgespielt, angefangen, verliehen an … – nichts geht verloren.' },
+  { bild: '🏆', titel: 'Erfolge & Sammlungsziele', text: 'Komplettiere Reihen und Plattformen und sieh, was noch fehlt.' },
+  { bild: '📱', titel: 'Überall dabei', text: 'Als App aufs Handy, auch offline, und deine Sammlung per Link teilen.' },
+];
+
 /** Bei geschlossener Registrierung: Interessierte bitten um einen Zugang, ein Administrator lädt sie dann ein. */
 function ZugangAnfragen({ auth }) {
   const [offen, setOffen] = useState(() => /[?&]zugang=1/.test(window.location.hash));
@@ -271,10 +283,22 @@ function ZugangAnfragen({ auth }) {
   }
   if (!offen) {
     return (
-      <div className="space-y-2 text-center text-sm">
-        <p className="text-xs text-leise">Die Registrierung neuer Konten ist auf diesem Server gerade geschlossen.</p>
-        <button type="button" className="knopf-sekundaer w-full" onClick={() => setOffen(true)}>Interesse? Zugang anfragen</button>
-      </div>
+      <section className="karte space-y-3 p-5" aria-labelledby="erwartet-titel">
+        <h2 id="erwartet-titel" className="text-lg font-semibold">Was dich erwartet</h2>
+        <ul className="space-y-2 text-sm">
+          {MERKMALE.filter((m) => !m.nur || m.nur(auth)).map((m) => (
+            <li key={m.titel} className="flex gap-2">
+              <span aria-hidden="true">{m.bild}</span>
+              <span><strong>{m.titel}</strong> <span className="text-leise">– {m.text}</span></span>
+            </li>
+          ))}
+        </ul>
+        {auth?.nichtkommerziell && <p className="text-sm text-leise">Kostenlos, ohne Werbung und ohne Abo.</p>}
+        <p className="text-xs text-leise">
+          Neue Konten gibt es gerade nur auf Einladung. Frag einfach an – du bekommst dann einen Link per E-Mail und legst dir dein Konto selbst an.
+        </p>
+        <button type="button" className="knopf-primaer w-full" onClick={() => setOffen(true)}>Zugang anfragen</button>
+      </section>
     );
   }
   return (

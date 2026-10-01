@@ -10,7 +10,7 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 -->
 
 ## 01.10.2026 – Zugang anfragen bei geschlossener Registrierung
-- Ist die Registrierung geschlossen, zeigt die Anmeldeseite „Interesse? Zugang anfragen“: E-Mail-Adresse, optional Name und Nachricht – mit Spam-Schutz
+- Ist die Registrierung geschlossen, zeigt die Anmeldeseite kurz, was dich erwartet (Barcode-Scanner, Varianten, Fotos & Scans, Erfolge …), und darunter „Zugang anfragen“: E-Mail-Adresse, optional Name und Nachricht – mit Spam-Schutz
 - Administratoren bekommen eine Benachrichtigung und finden die Anfragen unter Administration → Benutzer; „Einladen“ verschickt einen Einladungslink an die Adresse (ohne E-Mail-Versand gibt es den Link zum Weitergeben)
 - Anfragen werden nach 90 Tagen automatisch gelöscht; die Datenschutz-Vorlage erklärt das
 - Abschaltbar unter Einstellungen → Konten & Sicherheit („Zugang anfragen bei geschlossener Registrierung“)
