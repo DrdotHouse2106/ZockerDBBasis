@@ -9,6 +9,17 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 01.10.2026 – Fotos als WebP, Scans in voller Auflösung
+- Fotos (Artikelfoto, Modul, Disc, Verpackung …) werden als WebP gespeichert und auf höchstens 2.560 Pixel an der langen Seite verkleinert – ein Handyfoto braucht meist unter 1 MB statt 4–8 MB, am Bildschirm ohne sichtbaren Unterschied
+- Scans von Cover und Anleitung bleiben unverändert in Originalformat und voller Auflösung (nur ohne Metadaten) – zum Drucken und Archivieren
+- Neue Einstellung unter Uploads & Speicher: „Fotos verkleinern auf (Pixel, lange Seite)“ – 0 = Originalgröße (trotzdem WebP)
+- Beim Herunterladen passt die Dateiendung zum gespeicherten Format
+
+## 01.10.2026 – Fassungen der Nutzungsbedingungen
+- Jede gespeicherte Änderung der rechtlichen Seiten wird als eigene Fassung aufbewahrt
+- Eingereichte Katalogeinträge, Varianten und zur Freigabe eingereichte oder öffentlich erlaubte Dateien merken sich, unter welcher Fassung der Nutzungsbedingungen sie eingereicht wurden
+- Kurze Hinweise beim Einreichen: Scans nur teilen, wenn du darfst – es bleibt deine Datei; Fotos bleiben deine Fotos
+
 ## 01.10.2026 – E-Mails im dunklen Modus
 - Das Logo erscheint klein neben dem Namen statt riesig (verkleinert mitgeschickt, feste Größe auch für Outlook)
 - Eigene Farben für den dunklen Modus: Der Knopf bleibt weiß beschriftet und gut lesbar, Mailprogramme färben nicht mehr selbst um

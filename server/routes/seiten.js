@@ -28,6 +28,11 @@ export function seitenAdminRouter({ db }) {
       ON CONFLICT (slug) DO UPDATE SET titel = excluded.titel, inhalt = excluded.inhalt,
         aktualisiert_von = excluded.aktualisiert_von, aktualisiert_am = datetime('now')
       RETURNING slug, titel, inhalt, aktualisiert_am`).get({ slug: req.params.slug, titel, inhalt, von: req.benutzer.id });
+    // Jede geänderte Fassung aufbewahren – Beiträge merken sich, unter welcher Fassung sie eingereicht wurden
+    const letzte = db.prepare('SELECT titel, inhalt FROM seiten_versionen WHERE slug = ? ORDER BY id DESC LIMIT 1').get(seite.slug);
+    if (!letzte || letzte.inhalt !== seite.inhalt || letzte.titel !== seite.titel) {
+      db.prepare('INSERT INTO seiten_versionen (slug, titel, inhalt, erstellt_von) VALUES (?, ?, ?, ?)').run(seite.slug, seite.titel, seite.inhalt, req.benutzer.id);
+    }
     res.json(seite);
   });
   return router;

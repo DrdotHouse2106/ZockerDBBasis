@@ -1,5 +1,6 @@
-// Verarbeitung hochgeladener Scans: Metadaten (Auflösung, DPI) auslesen,
-// Vorschaubilder erzeugen und nicht browsertaugliche Formate (TIFF) umwandeln.
+// Verarbeitung hochgeladener Fotos und Scans: Metadaten (Auflösung, DPI) auslesen, Vorschaubilder erzeugen,
+// nicht browsertaugliche Formate (TIFF) zusätzlich als Anzeigeversion umwandeln. Fotos werden verkleinert als WebP
+// gespeichert; Scans bleiben in Originalformat und voller Auflösung (zum Drucken und Archivieren).
 // Datenschutz: Fotos und Scans werden ohne Metadaten gespeichert – Handyfotos enthalten sonst oft die GPS-Position
 // (z. B. der eigenen Wohnung), Kameradaten und Aufnahmezeit, die andere bei geteilten Scans oder öffentlichen Sammlungen sähen.
 import fs from 'node:fs/promises';
@@ -87,6 +88,37 @@ export async function bereinigeBild(pfad, mime, { maxPixel = 100_000_000, qualit
   return (await fs.stat(pfad)).size;
 }
 const MAX_PIXEL = 600_000_000; // reicht für A3 mit 1200 dpi
+const FOTO_QUALITAET = 82; // WebP – sichtbar verlustfrei am Bildschirm, ein Bruchteil der JPEG-Größe
+
+/**
+ * Speichert ein hochgeladenes Bild ohne Metadaten (nach EXIF gedreht, Farbprofil bleibt). Fotos werden als WebP
+ * gespeichert und auf `maxPx` an der langen Seite verkleinert; Scans bleiben unverändert in Format und Auflösung.
+ * Liefert { datei, mime, groesse } – bei Fotos ändern sich Dateiname und Typ (alte Datei wird entfernt).
+ * Animierte Bilder bleiben im Originalformat.
+ */
+export async function speichereEinheitlich(verzeichnis, datei, mime, { foto = false, maxPx = 2560, maxPixel = MAX_PIXEL } = {}) {
+  const pfad = path.join(verzeichnis, datei);
+  const meta = await sharp(pfad, { limitInputPixels: maxPixel }).metadata();
+  if (!meta.width || !meta.height || meta.width * meta.height > maxPixel) throw new Error('Das Bild ist zu groß oder unlesbar.');
+  // Scans (und animierte Bilder): nur Metadaten entfernen – volle Auflösung, Originalformat (JPEG ohne Qualitätsverlust)
+  if (!foto || (meta.pages ?? 1) > 1) return { datei, mime, groesse: await bereinigeBild(pfad, mime, { maxPixel, qualitaet: 95 }) };
+  let bild = sharp(pfad, { limitInputPixels: maxPixel, failOn: 'error' }).rotate().keepIccProfile();
+  if (maxPx > 0) bild = bild.resize({ width: maxPx, height: maxPx, fit: 'inside', withoutEnlargement: true });
+  // WebP kann höchstens 16.383 Pixel je Seite – riesige Fotos in Originalgröße (Einstellung 0) als JPEG
+  const alsWebp = (maxPx > 0 ? Math.min(maxPx, Math.max(meta.width, meta.height)) : Math.max(meta.width, meta.height)) <= 16383;
+  bild = alsWebp ? bild.webp({ quality: FOTO_QUALITAET }) : bild.flatten({ background: '#ffffff' }).jpeg({ quality: 90 });
+  const neuMime = alsWebp ? 'image/webp' : 'image/jpeg';
+  const neueDatei = `${datei.replace(/\.[^.]+$/, '')}${MEDIEN_TYPEN[neuMime]}`;
+  const temp = path.join(verzeichnis, `${neueDatei}.${crypto.randomUUID()}.tmp`);
+  try {
+    await bild.toFile(temp);
+    await fs.rename(temp, path.join(verzeichnis, neueDatei));
+  } finally {
+    await fs.rm(temp, { force: true });
+  }
+  if (neueDatei !== datei) await fs.rm(pfad, { force: true });
+  return { datei: neueDatei, mime: neuMime, groesse: (await fs.stat(path.join(verzeichnis, neueDatei))).size };
+}
 
 async function pdfSeiten(pfad) {
   const text = (await fs.readFile(pfad)).toString('latin1');
@@ -98,8 +130,10 @@ async function pdfSeiten(pfad) {
  * Verarbeitet eine hochgeladene Datei im Upload-Verzeichnis.
  * @returns {Promise<object>} Felder für die Tabelle „medien“
  */
-export async function verarbeiteMedium({ verzeichnis, datei, mime }) {
-  const pfad = path.join(verzeichnis, datei);
+export async function verarbeiteMedium({ verzeichnis, datei: hochgeladen, mime: hochgeladenMime, foto = false, maxPx = 2560 }) {
+  let datei = hochgeladen;
+  let mime = hochgeladenMime;
+  let pfad = path.join(verzeichnis, datei);
   const stat = await fs.stat(pfad);
   const ergebnis = { datei, mime, groesse: stat.size, anzeige_datei: null, vorschau_datei: null, breite: null, hoehe: null, dpi: null, seiten: null };
 
@@ -117,8 +151,10 @@ export async function verarbeiteMedium({ verzeichnis, datei, mime }) {
   const meta = await bild.metadata();
   // DPI nur übernehmen, wenn sie plausibel ist (72 dpi ist meist nur ein Standardwert).
   ergebnis.dpi = meta.density && meta.density > 72 ? Math.round(meta.density) : null;
-  // Original ohne Metadaten (GPS, Kamera, Aufnahmezeit) – Scans bleiben dabei in voller Qualität
-  ergebnis.groesse = await bereinigeBild(pfad, mime, { maxPixel: MAX_PIXEL, qualitaet: 95 });
+  // Ohne Metadaten speichern (GPS, Kamera, Aufnahmezeit): Fotos verkleinert als WebP, Scans in voller Auflösung und Originalformat
+  ({ datei, mime, groesse: ergebnis.groesse } = await speichereEinheitlich(verzeichnis, datei, mime, { foto, maxPx }));
+  Object.assign(ergebnis, { datei, mime });
+  pfad = path.join(verzeichnis, datei);
   const nachher = await sharp(pfad, { limitInputPixels: MAX_PIXEL }).metadata();
   ergebnis.breite = nachher.width ?? null;
   ergebnis.hoehe = nachher.height ?? null;

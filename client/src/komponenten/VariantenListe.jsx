@@ -1,6 +1,6 @@
 // Bekannte Varianten/Revisionen eines Katalogeintrags als Sammel-Checkliste.
 import { useState } from 'react';
-import { REGIONEN, beschriftung, istModerator } from '../../../shared/konstanten.js';
+import { REGIONEN, beschriftung, istModerator, KATALOGBEITRAG_HINWEIS } from '../../../shared/konstanten.js';
 import { MODUL } from '../erweiterungen.jsx';
 
 // Einreichen für einen gemeinsamen Katalog gibt es nur mit einem Modul, das die Prüfung übernimmt
@@ -142,6 +142,7 @@ function VarianteFormular({ moderator, onFertig, vorlage }) {
             {MODERATION && <option value="einreichen">Zur Aufnahme in die globale Datenbank einreichen</option>}
             {moderator && <option value="veroeffentlichen">Direkt veröffentlichen (Moderation)</option>}
           </select>
+          {w.freigabe === 'einreichen' && <span className="mt-1 block text-xs text-leise">{KATALOGBEITRAG_HINWEIS}</span>}
         </label>}
       </div>
       {fehler && <p className="text-sm text-gefahr" role="alert">{fehler}</p>}

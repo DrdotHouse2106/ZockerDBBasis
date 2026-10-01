@@ -31,6 +31,8 @@ export function ladeKonfiguration(env = process.env) {
     uploadVerzeichnis: pfad(env.UPLOAD_DIR, 'data/uploads'),
     maxUploadMb: zahl(env.MAX_UPLOAD_MB, 8),
     maxMedienMb: zahl(env.MEDIA_MAX_MB, 200),
+    // Fotos (Artikelfoto, Modul, Disc, Verpackung …) als WebP mit höchstens so vielen Pixeln an der langen Seite speichern (0 = Originalgröße)
+    fotoMaxPx: Math.min(10000, Math.max(0, zahl(env.PHOTO_MAX_PX, 2560))),
     // Scans mit anderen Benutzern teilen (braucht die Moderation eines Zusatzmoduls)
     medienTeilenErlaubt: jaNein(env.MEDIA_SHARING, false),
     // Eigene Fotos (Modul, Disc, Verpackung, Gerät) mit anderen teilen – ebenfalls mit Moderation; getrennt von Scans,

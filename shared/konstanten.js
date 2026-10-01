@@ -320,3 +320,7 @@ export const ROLLEN = [
 ];
 
 /** Pflichtangaben gewerblicher Anbieter (Anbieterkennzeichnung) und freiwillige Zusatzangaben. */
+
+/** Kurzfassung der Nutzungsrechte an Katalogbeiträgen – angezeigt beim Einreichen (Einzelheiten: Nutzungsbedingungen). */
+export const KATALOGBEITRAG_HINWEIS = 'Dein Beitrag wird Teil des gemeinsamen Katalogs: Er darf dauerhaft genutzt, verbessert und angezeigt werden '
+  + 'und bleibt auch nach dem Löschen deines Kontos erhalten – ohne deinen Namen. Deine Sammlung selbst bleibt privat.';

@@ -27,6 +27,9 @@ export default function Scans({ katalogId, artikelId, nurLesen = false, onKatalo
   async function sichtbarkeitUmschalten(m) {
     try {
       const neu = m.sichtbarkeit === 'privat' || m.sichtbarkeit === 'abgelehnt' ? 'eingereicht' : 'privat';
+      if (neu === 'eingereicht' && !window.confirm('Zur Freigabe für alle einreichen?\n\nDu bestätigst, dass du den Scan teilen darfst – Cover und '
+        + 'Handbücher sind meist urheberrechtlich geschützt. Nach der Prüfung sehen ihn angemeldete Sammler. Es bleibt deine Datei; '
+        + 'du kannst sie jederzeit wieder privat machen oder löschen.')) return;
       await api.mediumAendern(m.id, { sichtbarkeit: neu });
       zeigeHinweis(neu === 'eingereicht' ? 'Zur Freigabe eingereicht – das Moderationsteam prüft den Scan.' : 'Scan ist wieder privat.');
       laden();
@@ -190,6 +193,12 @@ function HochladeFormular({ artikelId, teilenErlaubt, moderator, maxMb, onFertig
             <option value="eingereicht">Zur Freigabe für alle einreichen</option>
             {moderator && <option value="freigegeben">Direkt freigeben (Moderation)</option>}
           </select>
+          {werte.sichtbarkeit === 'eingereicht' && (
+            <span className="mt-1 block text-xs text-leise">
+              Nur einreichen, wenn du den Scan teilen darfst – Cover und Handbücher sind meist urheberrechtlich geschützt. Es bleibt deine Datei;
+              du kannst sie jederzeit wieder privat machen oder löschen.
+            </span>
+          )}
         </label>
         <label>
           <span className="beschriftung">Bezeichnung (optional)</span>

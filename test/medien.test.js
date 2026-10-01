@@ -34,6 +34,7 @@ test('Hochauflösender TIFF-Scan: DPI wird erkannt, Anzeige- und Vorschaubild en
   assert.equal(medium.breite, 1500);
   assert.equal(medium.dpi, 600);
   assert.match(medium.url, /-anzeige\.jpg$/);
+  assert.equal(medium.mime, 'image/tiff', 'Scans bleiben im Originalformat');
   assert.match(medium.vorschau_url, /-vorschau\.webp$/);
 
   // Der Artikel hat nun automatisch einen Katalogeintrag
@@ -90,4 +91,23 @@ test('Teilen lässt sich serverweit abschalten', async () => {
   } finally {
     await s.stoppe();
   }
+});
+
+test('Fotos werden verkleinert als WebP gespeichert, Scans bleiben in voller Auflösung', async () => {
+  const gross = await sharp({ create: { width: 4000, height: 3000, channels: 3, background: '#336699' } }).jpeg({ quality: 95 }).toBuffer();
+  // Foto des Moduls: lange Seite höchstens 2560 Pixel, WebP
+  const foto = await hochladen(anna, artikel.id, { puffer: gross, typ: 'image/jpeg', name: 'modul.jpg', felder: { art: 'foto_modul', sichtbarkeit: 'privat' } });
+  assert.equal(foto.status, 201, foto.text);
+  assert.equal(foto.json.mime, 'image/webp');
+  assert.deepEqual([foto.json.breite, foto.json.hoehe], [2560, 1920]);
+  assert.match(foto.json.original_url, /\.webp$/);
+  const fotoDatei = await anna.api(foto.json.original_url);
+  assert.equal((await sharp(fotoDatei.puffer).metadata()).format, 'webp');
+  assert.match((await anna.api(`${foto.json.original_url}?download=1`)).headers.get('content-disposition'), /modul\.webp/);
+
+  // Scan: bleibt unverändert in Format und voller Auflösung
+  const scan = await hochladen(anna, artikel.id, { puffer: gross, typ: 'image/jpeg', name: 'cover.jpg', felder: { art: 'cover_hinten', sichtbarkeit: 'privat' } });
+  assert.equal(scan.status, 201, scan.text);
+  assert.equal(scan.json.mime, 'image/jpeg');
+  assert.deepEqual([scan.json.breite, scan.json.hoehe], [4000, 3000]);
 });

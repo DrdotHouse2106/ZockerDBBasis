@@ -87,7 +87,7 @@ test('Passwort ändern: falsches bisheriges Passwort wird gedrosselt', async () 
   }
 });
 
-test('Fotos und Scans werden ohne Metadaten (GPS) gespeichert – JPEG verlustfrei', async () => {
+test('Fotos und Scans werden ohne Metadaten (GPS) gespeichert – Fotos als WebP, JPEG-Scans verlustfrei', async () => {
   const server = await starteTestServer();
   try {
     const anna = await server.registriere('anna');
@@ -104,9 +104,19 @@ test('Fotos und Scans werden ohne Metadaten (GPS) gespeichert – JPEG verlustfr
     const gespeichert = fs.readFileSync(server.kontext.dateien.pfadVon(r.json.bild_datei));
     const meta = await sharp(gespeichert).metadata();
     assert.equal(meta.exif, undefined, 'keine EXIF-Daten mehr');
+    assert.equal(meta.format, 'webp', 'Fotos werden als WebP gespeichert');
+    assert.match(r.json.bild_datei, /\.webp$/);
     assert.equal(r.json.bild_groesse, gespeichert.length);
-    // Pixel unverändert (verlustfrei, keine Neukodierung)
-    assert.deepEqual(await sharp(gespeichert).raw().toBuffer(), await sharp(mitGps).raw().toBuffer());
+
+    // JPEG-Scan mit GPS: Metadaten weg, Pixel unverändert (verlustfrei, keine Neukodierung)
+    const fj = new FormData();
+    fj.append('art', 'handbuch');
+    fj.append('datei', new Blob([mitGps], { type: 'image/jpeg' }), 'anleitung.jpg');
+    const jpegScan = await anna.api(`/api/artikel/${artikel.id}/medien`, { methode: 'POST', formular: fj });
+    assert.equal(jpegScan.status, 201, jpegScan.text);
+    const scanDatei = fs.readFileSync(server.kontext.dateien.pfadVon(jpegScan.json.original_url.split('/').pop()));
+    assert.equal((await sharp(scanDatei).metadata()).exif, undefined);
+    assert.deepEqual(await sharp(scanDatei).raw().toBuffer(), await sharp(mitGps).raw().toBuffer());
 
     // Gedrehtes Handyfoto (EXIF-Ausrichtung 6): wird aufrecht gespeichert, ebenfalls ohne Metadaten
     const gedreht = await sharp(roh).withExif(GPS).withMetadata({ orientation: 6 }).jpeg().toBuffer();

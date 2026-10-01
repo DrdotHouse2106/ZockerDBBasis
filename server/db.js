@@ -601,6 +601,48 @@ const MIGRATIONEN = [
   `
   ALTER TABLE medien ADD COLUMN variante_id INTEGER REFERENCES katalog_varianten (id) ON DELETE SET NULL;
   `,
+  // 35: Fassungen der Nutzungsbedingungen aufbewahren und bei jedem Beitrag merken, unter welcher Fassung er eingereicht
+  //     bzw. freigegeben wurde (Nachweis, welche Nutzungsrechte gelten). Die Trigger erfassen alle Wege (App, Sync, Import).
+  `
+  CREATE TABLE seiten_versionen (
+    id              INTEGER PRIMARY KEY,
+    slug            TEXT NOT NULL,
+    titel           TEXT NOT NULL,
+    inhalt          TEXT NOT NULL,
+    gueltig_ab      TEXT NOT NULL DEFAULT (datetime('now')),
+    erstellt_von    INTEGER REFERENCES benutzer (id) ON DELETE SET NULL
+  );
+  CREATE INDEX idx_seiten_versionen ON seiten_versionen (slug, id);
+  INSERT INTO seiten_versionen (slug, titel, inhalt, gueltig_ab) SELECT slug, titel, inhalt, aktualisiert_am FROM seiten;
+
+  ALTER TABLE katalog ADD COLUMN bedingungen_version INTEGER REFERENCES seiten_versionen (id);
+  ALTER TABLE katalog_varianten ADD COLUMN bedingungen_version INTEGER REFERENCES seiten_versionen (id);
+  ALTER TABLE medien ADD COLUMN bedingungen_version INTEGER REFERENCES seiten_versionen (id);
+
+  CREATE TRIGGER katalog_bedingungen_neu AFTER INSERT ON katalog WHEN NEW.status = 'eingereicht' BEGIN
+    UPDATE katalog SET bedingungen_version = (SELECT MAX(id) FROM seiten_versionen WHERE slug = 'nutzungsbedingungen') WHERE id = NEW.id;
+  END;
+  CREATE TRIGGER katalog_bedingungen_eingereicht AFTER UPDATE OF status ON katalog
+    WHEN NEW.status = 'eingereicht' AND OLD.status IS NOT 'eingereicht' BEGIN
+    UPDATE katalog SET bedingungen_version = (SELECT MAX(id) FROM seiten_versionen WHERE slug = 'nutzungsbedingungen') WHERE id = NEW.id;
+  END;
+  CREATE TRIGGER varianten_bedingungen_neu AFTER INSERT ON katalog_varianten WHEN NEW.status = 'eingereicht' BEGIN
+    UPDATE katalog_varianten SET bedingungen_version = (SELECT MAX(id) FROM seiten_versionen WHERE slug = 'nutzungsbedingungen') WHERE id = NEW.id;
+  END;
+  CREATE TRIGGER varianten_bedingungen_eingereicht AFTER UPDATE OF status ON katalog_varianten
+    WHEN NEW.status = 'eingereicht' AND OLD.status IS NOT 'eingereicht' BEGIN
+    UPDATE katalog_varianten SET bedingungen_version = (SELECT MAX(id) FROM seiten_versionen WHERE slug = 'nutzungsbedingungen') WHERE id = NEW.id;
+  END;
+  -- Dateien: beim Einreichen zur Freigabe und bei der Einwilligung in die öffentliche Anzeige
+  CREATE TRIGGER medien_bedingungen_neu AFTER INSERT ON medien
+    WHEN NEW.sichtbarkeit = 'eingereicht' OR NEW.oeffentlich_erlaubt = 1 BEGIN
+    UPDATE medien SET bedingungen_version = (SELECT MAX(id) FROM seiten_versionen WHERE slug = 'nutzungsbedingungen') WHERE id = NEW.id;
+  END;
+  CREATE TRIGGER medien_bedingungen_freigabe AFTER UPDATE OF sichtbarkeit, oeffentlich_erlaubt ON medien
+    WHEN (NEW.sichtbarkeit = 'eingereicht' AND OLD.sichtbarkeit IS NOT 'eingereicht') OR (NEW.oeffentlich_erlaubt = 1 AND OLD.oeffentlich_erlaubt = 0) BEGIN
+    UPDATE medien SET bedingungen_version = (SELECT MAX(id) FROM seiten_versionen WHERE slug = 'nutzungsbedingungen') WHERE id = NEW.id;
+  END;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

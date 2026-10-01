@@ -174,7 +174,9 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
       // Moderatoren können eigene Fotos direkt freigeben – mit ihrer Einwilligung dann auch öffentlich
       meta.oeffentlich = meta.sichtbarkeit === 'freigegeben' && meta.oeffentlich_erlaubt ? 1 : 0;
       meta.oeffentlich_offen = meta.oeffentlich_erlaubt && !meta.oeffentlich ? 1 : 0;
-      verarbeitet = await verarbeiteMedium({ verzeichnis: dateien.verzeichnis, datei: req.file.filename, mime: req.file.mimetype });
+      verarbeitet = await verarbeiteMedium({
+        verzeichnis: dateien.verzeichnis, datei: req.file.filename, mime: req.file.mimetype, foto: istFotoArt(meta.art), maxPx: konfiguration.fotoMaxPx,
+      });
       const groesseGesamt = speicher.summe(verarbeitet.datei, verarbeitet.anzeige_datei, verarbeitet.vorschau_datei);
       // Freigegebene Scans zählen nicht zum Kontingent – Moderatoren können direkt freigeben
       if (meta.sichtbarkeit !== 'freigegeben') speicher.pruefe(req.benutzer.id, groesseGesamt);
@@ -200,7 +202,9 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
       });
       res.status(201).json(medienZuObjekt(perId(id, req.benutzer), req.benutzer));
     } catch (fehler) {
-      dateien.loesche(req.file.filename, verarbeitet?.anzeige_datei, verarbeitet?.vorschau_datei);
+      // Beim Umwandeln kann die Datei eine neue Endung bekommen haben (.webp/.jpg)
+      const basis = req.file.filename.replace(/\.[^.]+$/, '');
+      dateien.loesche(req.file.filename, `${basis}.webp`, `${basis}.jpg`, verarbeitet?.anzeige_datei, verarbeitet?.vorschau_datei);
       if (fehler instanceof ValidierungsFehler || fehler instanceof KontoFehler) throw fehler;
       console.warn('[medien] Verarbeitung fehlgeschlagen:', fehler.message);
       res.status(400).json({ fehler: 'Die Datei konnte nicht verarbeitet werden. Ist sie beschädigt oder zu groß?' });
@@ -265,7 +269,8 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
     res.set('Cache-Control', 'private, max-age=2592000, immutable');
     if (req.query.download && zugriff.medium) {
       const endung = MEDIEN_TYPEN[zugriff.medium.mime] ?? '';
-      const name = zugriff.medium.originalname || `scan${endung}`;
+      // Endung passend zum gespeicherten Format (Fotos sind WebP, umgewandelte Scans JPEG)
+      const name = zugriff.medium.originalname ? `${zugriff.medium.originalname.replace(/\.[^.]+$/, '')}${endung}` : `scan${endung}`;
       return res.download(zugriff.pfad, name);
     }
     res.sendFile(zugriff.pfad, (fehler) => {

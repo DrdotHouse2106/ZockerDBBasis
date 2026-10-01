@@ -46,6 +46,8 @@ export const EINSTELLUNGEN = [
     hinweis: '0 = unbegrenzt. Freigegebene Scans zählen nicht mit.' },
   { schluessel: 'MAX_UPLOAD_MB', gruppe: 'Uploads & Speicher', titel: 'Maximale Größe von Artikelfotos (MB)', typ: 'zahl', min: 1, max: 100 },
   { schluessel: 'MEDIA_MAX_MB', gruppe: 'Uploads & Speicher', titel: 'Maximale Größe von Scans/PDFs (MB)', typ: 'zahl', min: 1, max: 2000 },
+  { schluessel: 'PHOTO_MAX_PX', gruppe: 'Uploads & Speicher', titel: 'Fotos verkleinern auf (Pixel, lange Seite)', typ: 'zahl', min: 0, max: 10000,
+    hinweis: 'Fotos werden als WebP gespeichert und auf diese Größe verkleinert – ein Handyfoto braucht dann meist unter 1 MB statt 4–8 MB. 0 = Originalgröße (trotzdem WebP). Scans von Cover und Anleitung bleiben unverändert in voller Auflösung.' },
   { schluessel: 'BACKUP_ENABLED', gruppe: 'Uploads & Speicher', titel: 'Automatische Datenbank-Sicherung', ...JA_NEIN,
     hinweis: 'Täglich eine Sicherung der Datenbank im Datenordner (Unterordner „sicherungen“).' },
   { schluessel: 'BACKUP_DAYS', gruppe: 'Uploads & Speicher', titel: 'Tägliche Sicherungen aufbewahren (Tage)', typ: 'zahl', min: 1, max: 90 },
@@ -75,7 +77,7 @@ export const EINSTELLUNGEN = [
 /** Was gilt, wenn weder .env noch Oberfläche einen Wert setzen – wird als Platzhalter bzw. „Standard (Ja)“ angezeigt. */
 const STANDARDWERTE = {
   REGISTRATION_OPEN: 'true', REQUIRE_2FA: 'false', REQUIRE_EMAIL: 'false', RECAPTCHA_MIN_SCORE: '0.5', ZOCKERDB_DONATE: 'false',
-  STORAGE_QUOTA_MB: '1024', MAX_UPLOAD_MB: '8', MEDIA_MAX_MB: '200', BACKUP_ENABLED: 'true', BACKUP_DAYS: '7', BACKUP_MONTHS: '12', SMTP_PORT: '587',
+  STORAGE_QUOTA_MB: '1024', MAX_UPLOAD_MB: '8', MEDIA_MAX_MB: '200', PHOTO_MAX_PX: '2560', BACKUP_ENABLED: 'true', BACKUP_DAYS: '7', BACKUP_MONTHS: '12', SMTP_PORT: '587',
 };
 
 /** Kern und Zusatzmodule zusammen. Standardwerte der Module (`standard`) haben Vorrang. */

@@ -10,7 +10,8 @@ let nutzer;
 let artikel;
 
 // Rauschen lässt sich kaum komprimieren – so entstehen verlässlich große Dateien (~600 KB)
-const rauschen = () => sharp(crypto.randomBytes(500 * 400 * 3), { raw: { width: 500, height: 400, channels: 3 } }).png().toBuffer();
+// Rauschen lässt sich kaum komprimieren: als PNG-Scan rund 740 KB (+ 170 KB Vorschau), als WebP-Foto rund 180 KB
+const rauschen = () => sharp(crypto.randomBytes(560 * 440 * 3), { raw: { width: 560, height: 440, channels: 3 } }).png().toBuffer();
 
 async function hochladen(client, artikelId, puffer, felder = { art: 'cover_vorne', sichtbarkeit: 'privat' }) {
   const formular = new FormData();

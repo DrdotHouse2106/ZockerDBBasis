@@ -258,7 +258,7 @@ export default function Fotos({
 
 const OEFFENTLICH_TEXT = 'Foto öffentlich zeigen?\n\nNach der Prüfung erscheint es auf der öffentlichen Seite des Spiels – auch für Besucher ohne Konto '
   + 'und in Suchmaschinen wie der Google-Bildersuche. Du bestätigst, dass du das Foto selbst gemacht hast und keine Personen darauf zu erkennen sind. '
-  + 'Du kannst die Erlaubnis jederzeit zurücknehmen.';
+  + 'Es bleibt dein Foto – es wird nur hier gezeigt und nicht verkauft. Du kannst die Erlaubnis jederzeit zurücknehmen.';
 
 function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeffentlichMoeglich, moderator, maxMb, onFertig }) {
   const vorher = gemerkt();
@@ -349,7 +349,7 @@ function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeff
         <div className="space-y-2 text-sm">
           <label className="flex items-start gap-2">
             <input type="checkbox" className="mt-1" checked={werte.teilen} onChange={haken('teilen')} />
-            <span>Mit der Community teilen <span className="block text-xs text-leise">{moderator ? 'Als Moderator gibst du es direkt frei.' : 'Nach der Prüfung für alle angemeldeten Sammler sichtbar.'}</span></span>
+            <span>Mit der Community teilen <span className="block text-xs text-leise">{moderator ? 'Als Moderator gibst du es direkt frei.' : 'Nach der Prüfung für alle angemeldeten Sammler sichtbar.'} Es bleibt dein Foto; löschen kannst du es jederzeit.</span></span>
           </label>
           {oeffentlichMoeglich && werte.teilen && (
             <label className="flex items-start gap-2">
@@ -357,8 +357,9 @@ function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeff
               <span>
                 Auch öffentlich zeigen – auf der Spieleseite und in Suchmaschinen (z. B. Google-Bildersuche)
                 <span className="block text-xs text-leise">
-                  Ich habe das Foto selbst gemacht, es zeigt keine Personen, und ich erlaube die öffentliche Anzeige. Die Erlaubnis kann ich
-                  jederzeit zurücknehmen; das Foto verschwindet dann von den öffentlichen Seiten.
+                  Ich habe das Foto selbst gemacht, es zeigt keine Personen, und ich erlaube die öffentliche Anzeige. Es bleibt mein Foto –
+                  es wird nur hier gezeigt und nicht verkauft. Die Erlaubnis kann ich jederzeit zurücknehmen; das Foto verschwindet dann von
+                  den öffentlichen Seiten.
                 </span>
               </span>
             </label>

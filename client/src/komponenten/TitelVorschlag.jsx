@@ -2,7 +2,7 @@
 // Katalog einreichen, ohne sie gleich in die eigene Sammlung aufzunehmen. Das Moderationsteam (bzw. bei selbst
 // gehosteten Servern zockerdb.de) prüft den Vorschlag und nimmt ihn in den Katalog auf.
 import { useEffect, useMemo, useState } from 'react';
-import { ARTIKELTYPEN } from '../../../shared/konstanten.js';
+import { ARTIKELTYPEN, KATALOGBEITRAG_HINWEIS } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
 import Symbol from './Symbole.jsx';
@@ -82,6 +82,7 @@ export default function TitelVorschlag({ titel = '', typ = 'spiel', zielName, on
         Für Titel, die nirgends zu finden sind – z. B. alte Spiele ohne Barcode, Sonderauflagen oder Exoten. {zielName} prüft
         den Vorschlag und nimmt ihn in den gemeinsamen Katalog auf.
       </p>
+      <p className="text-xs text-leise">{KATALOGBEITRAG_HINWEIS}</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm sm:col-span-2">
           <span className="mb-1 block text-leise">Titel (wie auf der Verpackung) *</span>
