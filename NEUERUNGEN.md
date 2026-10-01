@@ -9,6 +9,9 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 01.10.2026 – Logo in E-Mails
+- E-Mails (Einladung, Passwort vergessen, Bestätigung, Benachrichtigungen) zeigen oben das ZockerDB-Logo – direkt in der Mail eingebettet, damit es auch erscheint, wenn das Mailprogramm externe Bilder blockiert
+
 ## 01.10.2026 – Einladungen: gelöschte Konten verschwinden aus der Liste
 - Wurde das Konto einer eingeladenen Person gelöscht, steht die Einladung nicht mehr als „angenommen von @–“ in der Liste
 - Auch angenommene Einladungen lassen sich jetzt aus der Liste entfernen

@@ -62,6 +62,9 @@ test('Einladung per E-Mail verschicken, Kopie aller E-Mails per BCC', async () =
     assert.equal(m.bcc, 'pruefung@example.de');
     assert.match(m.subject, /Einladung/);
     assert.ok(m.text.includes(e.json.link) && m.html.includes('Konto anlegen'));
+    // Logo eingebettet (cid) – wird von Mailprogrammen auch ohne Nachladen externer Bilder gezeigt
+    assert.ok(m.html.includes('src="cid:logo@zockerdb"'));
+    assert.equal(m.attachments?.[0]?.cid, 'logo@zockerdb');
     assert.match(e.json.link, /^https:\/\/zockerdb\.example\/\?app=1#\/\?einladung=/);
   } finally {
     await server.stoppe();
