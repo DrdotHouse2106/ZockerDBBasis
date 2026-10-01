@@ -1,6 +1,6 @@
 // Admin → Einstellungen: Server-Einstellungen über die Weboberfläche (Vorrang vor der .env, wirken sofort).
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../api.js';
+import { api, anfrage } from '../api.js';
 import { datumDe } from '../format.js';
 import { useSitzung } from '../sitzung.js';
 import Symbol from '../komponenten/Symbole.jsx';
@@ -128,7 +128,7 @@ export default function AdminEinstellungen() {
                 {gruppe.startsWith('E-Mail') && <TestMail />}
                 {gruppe.includes('IGDB') && gruppe.startsWith('Spieledaten') && <TestIgdb />}
                 {liste.map((e) => (
-                  <Feld key={e.schluessel} e={e} wert={werte[e.schluessel]} fehler={fehler[e.schluessel]}
+                  <Feld key={e.schluessel} e={e} wert={werte[e.schluessel]} alleWerte={werte} fehler={fehler[e.schluessel]}
                     zuruecksetzenVorgemerkt={zuruecksetzen.has(e.schluessel)} entfernenVorgemerkt={entfernen.has(e.schluessel)}
                     onWert={(w) => setze(e.schluessel, w)}
                     onZuruecksetzen={() => umschalten(setZuruecksetzen, e.schluessel)}
@@ -209,8 +209,16 @@ export default function AdminEinstellungen() {
   );
 }
 
-function Feld({ e, wert, fehler, zuruecksetzenVorgemerkt, entfernenVorgemerkt, onWert, onZuruecksetzen, onEntfernen }) {
+function Feld({ e, wert, alleWerte, fehler, zuruecksetzenVorgemerkt, entfernenVorgemerkt, onWert, onZuruecksetzen, onEntfernen }) {
   const [herkunftText, herkunftFarbe] = HERKUNFT[e.herkunft];
+  // Auswahlliste, die ein Modul beim Anbieter abfragt (z. B. die verfügbaren KI-Modelle)
+  const [vorschlaege, setVorschlaege] = useState(null); // { modelle, standard } | { fehler } | 'laedt'
+  async function vorschlaegeLaden() {
+    setVorschlaege('laedt');
+    // Noch ungespeicherte Angaben aus dem Formular mitschicken (z. B. gerade gewählter Anbieter)
+    const daten = Object.fromEntries(Object.entries(e.vorschlaege.felder ?? {}).map(([feld, schluessel]) => [feld, alleWerte?.[schluessel] ?? '']));
+    try { setVorschlaege(await anfrage(e.vorschlaege.pfad, { methode: 'POST', daten })); } catch (f) { setVorschlaege({ fehler: f.message }); }
+  }
   const aktuell = wert ?? e.wert ?? '';
   const id = `einstellung-${e.schluessel}`;
   let eingabe;
@@ -238,6 +246,15 @@ function Feld({ e, wert, fehler, zuruecksetzenVorgemerkt, entfernenVorgemerkt, o
       <input id={id} className="eingabe font-mono" type="password" autoComplete="new-password" value={wert ?? ''} onChange={(ev) => onWert(ev.target.value)}
         placeholder={e.gesetzt ? `${e.maskiert} – neuen Wert eingeben (leer = unverändert)` : 'Nicht gesetzt – Wert eingeben'} />
     );
+  } else if (vorschlaege?.modelle?.length) {
+    const bekannt = vorschlaege.modelle.some((m) => m.id === aktuell);
+    eingabe = (
+      <select id={id} className="eingabe" value={aktuell} onChange={(ev) => onWert(ev.target.value)}>
+        <option value="">{vorschlaege.standard ? `Standard (${vorschlaege.modelle.find((m) => m.id === vorschlaege.standard)?.name ?? vorschlaege.standard})` : 'Standard des Anbieters'}</option>
+        {aktuell && !bekannt && <option value={aktuell}>{aktuell} (nicht in der Liste)</option>}
+        {vorschlaege.modelle.map((m) => <option key={m.id} value={m.id}>{m.name === m.id ? m.id : `${m.name} – ${m.id}`}</option>)}
+      </select>
+    );
   } else {
     eingabe = (
       <input id={id} className="eingabe" value={aktuell} onChange={(ev) => onWert(ev.target.value)} placeholder={e.platzhalter ?? (e.standard !== undefined ? `Standard: ${Number.isNaN(Number(e.standard)) ? e.standard : Number(e.standard).toLocaleString('de-DE')}` : '')}
@@ -252,7 +269,16 @@ function Feld({ e, wert, fehler, zuruecksetzenVorgemerkt, entfernenVorgemerkt, o
         <span className={`abzeichen text-[11px] ${herkunftFarbe}`}>{herkunftText}</span>
         <code className="text-[11px] text-leise">{e.schluessel}</code>
       </div>
-      {eingabe}
+      {e.vorschlaege ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-0 flex-1">{eingabe}</div>
+          <button type="button" className="knopf-sekundaer px-3 py-1.5 text-sm" disabled={vorschlaege === 'laedt'} onClick={vorschlaegeLaden}>
+            {vorschlaege === 'laedt' ? 'Wird abgerufen …' : vorschlaege?.modelle ? 'Neu abrufen' : e.vorschlaege.knopf}
+          </button>
+        </div>
+      ) : eingabe}
+      {vorschlaege?.fehler && <p className="text-xs text-gefahr" role="alert">{vorschlaege.fehler}</p>}
+      {vorschlaege?.modelle?.length === 0 && <p className="text-xs text-leise">Der Anbieter hat keine passenden Modelle gemeldet.</p>}
       {fehler && <p className="text-xs text-gefahr" role="alert">{fehler}</p>}
       {e.hinweis && <p className="text-xs text-leise">{e.hinweis}</p>}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
