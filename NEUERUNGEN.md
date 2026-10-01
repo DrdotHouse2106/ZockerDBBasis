@@ -9,6 +9,11 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 01.10.2026 – E-Mails im dunklen Modus
+- Das Logo erscheint klein neben dem Namen statt riesig (verkleinert mitgeschickt, feste Größe auch für Outlook)
+- Eigene Farben für den dunklen Modus: Der Knopf bleibt weiß beschriftet und gut lesbar, Mailprogramme färben nicht mehr selbst um
+- Der Ersatzlink unter dem Knopf ist anklickbar
+
 ## 01.10.2026 – Logo in E-Mails
 - E-Mails (Einladung, Passwort vergessen, Bestätigung, Benachrichtigungen) zeigen oben das ZockerDB-Logo – direkt in der Mail eingebettet, damit es auch erscheint, wenn das Mailprogramm externe Bilder blockiert
 

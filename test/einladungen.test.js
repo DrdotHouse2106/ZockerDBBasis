@@ -65,6 +65,8 @@ test('Einladung per E-Mail verschicken, Kopie aller E-Mails per BCC', async () =
     // Logo eingebettet (cid) – wird von Mailprogrammen auch ohne Nachladen externer Bilder gezeigt
     assert.ok(m.html.includes('src="cid:logo@zockerdb"'));
     assert.equal(m.attachments?.[0]?.cid, 'logo@zockerdb');
+    assert.ok(Buffer.isBuffer(m.attachments[0].content) && m.attachments[0].content.length < 15_000, 'Logo verkleinert mitgeschickt');
+    assert.ok(m.html.includes('name="color-scheme"') && m.html.includes('width:32px'), 'Dunkelmodus-Farben und feste Logogröße');
     assert.match(e.json.link, /^https:\/\/zockerdb\.example\/\?app=1#\/\?einladung=/);
   } finally {
     await server.stoppe();

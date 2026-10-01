@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
+import sharp from 'sharp';
 import { MARKE } from '../../shared/marke.js';
 
 // Logo als eingebettetes Bild (cid) – Mailprogramme blockieren externe Bilder oft, eingebettete nicht.
@@ -10,23 +11,46 @@ import { MARKE } from '../../shared/marke.js';
 const LOGO_CID = 'logo@zockerdb';
 const LOGO_PFAD = ['../../dist/icons/icon-192.png', '../../client/public/icons/icon-192.png']
   .map((p) => fileURLToPath(new URL(p, import.meta.url))).find((p) => fs.existsSync(p)) ?? null;
+// Klein mitschicken (64 px für 32 px Anzeige auf Retina) – manche Mailprogramme zeigen Anhänge sonst in Originalgröße
+let logoKlein = null;
+const logoInhalt = () => (logoKlein ??= sharp(LOGO_PFAD).resize(64, 64).png().toBuffer().catch(() => fs.readFileSync(LOGO_PFAD)));
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (z) => ESC[z]);
 
-/** Einfache, gut lesbare HTML-Mail mit optionalem Knopf. */
+// Farben für hellen und dunklen Modus. Ohne eigene Dunkel-Regeln färben manche Mailprogramme (Outlook, Apple Mail)
+// selbst um – dann wird z. B. die weiße Knopfschrift dunkel und unlesbar.
+const STIL = `:root{color-scheme:light dark;supported-color-schemes:light dark}
+@media (prefers-color-scheme:dark){
+.zdb-seite{background:#14111f!important;color:#ece9f5!important}
+.zdb-karte{background:#1f1a2e!important;border-color:#3a3350!important}
+.zdb-leise{color:#b3abc8!important}
+.zdb-link{color:#c4b5fd!important}
+}
+.zdb-knopf,.zdb-knopf a{color:#ffffff!important}
+[data-ogsc] .zdb-knopf a,[data-ogsb] .zdb-knopf{color:#ffffff!important;background:#7c3aed!important}`;
+
+/** Einfache, gut lesbare HTML-Mail mit optionalem Knopf (Tabellenaufbau, damit auch Outlook die Größen einhält). */
 export function mailHtml({ titel, absaetze = [], knopf, fuss }) {
-  return `<!doctype html><html lang="de"><body style="margin:0;background:#f6f4fb;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1d1830">
-<div style="max-width:560px;margin:0 auto;padding:24px">
-<p style="font-size:20px;font-weight:700;margin:0 0 16px"><img src="cid:${LOGO_CID}" alt="" width="32" height="32" style="vertical-align:middle;border-radius:8px;margin-right:8px;border:0">${esc(MARKE.name)}</p>
-<div style="background:#fff;border:1px solid #e2ddef;border-radius:16px;padding:24px">
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>${STIL}</style></head>
+<body class="zdb-seite" style="margin:0;padding:0;background:#f6f4fb;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1d1830">
+<table role="presentation" class="zdb-seite" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f4fb"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">
+<tr><td style="padding:0 0 16px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="32" style="width:32px;padding-right:10px;vertical-align:middle"><img src="cid:${LOGO_CID}" alt="" width="32" height="32" style="display:block;width:32px;height:32px;max-width:32px;border:0;border-radius:8px"></td>
+<td style="font-size:20px;font-weight:700;vertical-align:middle">${esc(MARKE.name)}</td>
+</tr></table></td></tr>
+<tr><td class="zdb-karte" style="background:#ffffff;border:1px solid #e2ddef;border-radius:16px;padding:24px">
 <h1 style="font-size:20px;margin:0 0 12px">${esc(titel)}</h1>
 ${absaetze.map((a) => `<p style="line-height:1.55;margin:0 0 12px">${esc(a)}</p>`).join('')}
-${knopf ? `<p style="margin:20px 0"><a href="${esc(knopf.url)}" style="background:#7c3aed;color:#fff;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:600;display:inline-block">${esc(knopf.text)}</a></p>
-<p style="font-size:13px;color:#5f5873;word-break:break-all">Falls der Knopf nicht funktioniert: ${esc(knopf.url)}</p>` : ''}
-</div>
-<p style="font-size:12px;color:#5f5873;margin-top:16px">${esc(fuss ?? `Diese E-Mail wurde automatisch von ${MARKE.name} versendet.`)}</p>
-</div></body></html>`;
+${knopf ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0"><tr>
+<td class="zdb-knopf" bgcolor="#7c3aed" style="background:#7c3aed;border-radius:12px"><a href="${esc(knopf.url)}" style="display:inline-block;padding:12px 20px;color:#ffffff;font-weight:600;text-decoration:none;border-radius:12px"><span style="color:#ffffff">${esc(knopf.text)}</span></a></td>
+</tr></table>
+<p class="zdb-leise" style="font-size:13px;color:#5f5873;word-break:break-all;margin:0">Falls der Knopf nicht funktioniert: <a class="zdb-link" href="${esc(knopf.url)}" style="color:#6d28d9">${esc(knopf.url)}</a></p>` : ''}
+</td></tr>
+<tr><td class="zdb-leise" style="font-size:12px;color:#5f5873;padding-top:16px">${esc(fuss ?? `Diese E-Mail wurde automatisch von ${MARKE.name} versendet.`)}</td></tr>
+</table></td></tr></table></body></html>`;
 }
 
 export function erstelleMailDienst(konfiguration, { transportFn } = {}) {
@@ -53,7 +77,7 @@ export function erstelleMailDienst(konfiguration, { transportFn } = {}) {
     const nachricht = { from: m.absender || `${MARKE.name} <noreply@localhost>`, to: an, subject: String(betreff).replace(/[\r\n]+/g, ' ').slice(0, 250), text, html };
     // Logo anhängen, wenn die Mail es verwendet (ohne Datei das Bild weglassen)
     if (html?.includes(`cid:${LOGO_CID}`)) {
-      if (LOGO_PFAD) nachricht.attachments = [{ filename: 'logo.png', path: LOGO_PFAD, cid: LOGO_CID, contentType: 'image/png' }];
+      if (LOGO_PFAD) nachricht.attachments = [{ filename: 'logo.png', content: await logoInhalt(), cid: LOGO_CID, contentType: 'image/png' }];
       else nachricht.html = html.replace(/<img src="cid:[^"]*"[^>]*>/g, '');
     }
     // Kopie aller E-Mails zur Kontrolle (SMTP_BCC) – unsichtbar für den Empfänger
