@@ -21,6 +21,7 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 - Tour „Erste Schritte“: Der Spielstatus lässt sich beim entsprechenden Schritt jetzt wirklich ausprobieren
 - Die Markierung der Tour wackelt und verrutscht nicht mehr: Während eines Schritts bleibt die Seite stehen, die Abdunkelung reicht immer bis an den Bildschirmrand
 - Sehr hohe Bereiche (z. B. die Liste unter „Mehr“) werden nur oben markiert, die Erklärung steht darunter statt mitten im Bild
+- Reiter in wischbaren Leisten (z. B. „Sicherungen“ in der Administration) werden für die Tour ins Bild gescrollt, statt außerhalb markiert zu werden
 - Fußleiste rutschte auf dem iPhone in die Bildmitte, wenn beim Seitenwechsel noch die Tastatur offen war (z. B. nach der Suche unter „Hinzufügen“) – behoben; in der Tour öffnet „Hinzufügen“ die Tastatur nicht mehr von selbst
 
 ## 30.09.2026 – Fotos: Varianten und Nachfrage nach dem Hinzufügen

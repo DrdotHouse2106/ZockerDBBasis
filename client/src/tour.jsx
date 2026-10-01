@@ -177,6 +177,8 @@ function TourSchritt({ schritt, k, nummer, gesamt, onWeiter, onZurueck, onBeende
         if (!gescrollt) {
           gescrollt = true;
           const r = el.getBoundingClientRect();
+          // Seitlich verborgen (z. B. ein Reiter in einer wischbaren Leiste): die Leiste auf das Element zentrieren
+          if (r.left < RAND || r.right > window.innerWidth - RAND) el.scrollIntoView({ block: 'nearest', inline: 'center' });
           // Hohe Elemente (z. B. eine lange Liste) mit dem Anfang oben zeigen, sonst mittig
           if (r.height > fensterHoehe() * HOCH) window.scrollBy(0, r.top - 72);
           else if (r.top < 64 || r.bottom > fensterHoehe() - 80) el.scrollIntoView({ block: 'center' });
