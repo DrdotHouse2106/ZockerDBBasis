@@ -19,6 +19,7 @@ export async function starteTestServer({ env = {}, fetchFn, kiAnbieterFn, mailFn
     ZOCKERDB_CENTRAL: 'aus', // keine Anfragen an zockerdb.de – Tests mit Zentrale setzen die Adresse selbst
     UPDATE_CHECK_REPO: 'aus', // keine Update-Prüfung bei GitHub
     MARKET_PHOTO_THRESHOLD: '0', // Foto-Pflicht der Börse nur im eigenen Test (boerse-sicherheit.test.js)
+    NONCOMMERCIAL: 'false', // Pakete, Zahlungen und Händler testen; der nicht-kommerzielle Betrieb hat einen eigenen Test
     ...env,
   });
   if (kiAnbieterFn) konfiguration.kiAnbieterFn = kiAnbieterFn;
