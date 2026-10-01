@@ -293,7 +293,8 @@ function ZugangAnfragen({ auth }) {
             </li>
           ))}
         </ul>
-        {auth?.nichtkommerziell && <p className="text-sm text-leise">Kostenlos, ohne Werbung und ohne Abo.</p>}
+        {/* Zusatzmodul: ehrlicher Hinweis zu Kosten und Plänen (z. B. im nicht-kommerziellen Betrieb) */}
+        {MODUL.anmeldungHinweis?.(auth) && <p className="text-sm text-leise">{MODUL.anmeldungHinweis(auth)}</p>}
         <p className="text-xs text-leise">
           Neue Konten gibt es gerade nur auf Einladung. Frag einfach an – du bekommst dann einen Link per E-Mail und legst dir dein Konto selbst an.
         </p>
