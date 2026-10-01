@@ -217,16 +217,97 @@ export default function Anmelden() {
           )}
         </form>
 
+        {!registrierungMoeglich && !zweiFaktor && (
+          auth?.zugangsanfragen ? <ZugangAnfragen auth={auth} /> : (
+            <p className="text-center text-xs text-leise">Die Registrierung neuer Konten ist auf diesem Server geschlossen.</p>
+          )
+        )}
         {MODUL.oeffentlicheSeiten && auth?.oeffentlicherKatalog && !zweiFaktor && (
           <p className="text-center text-sm"><a href="/suche" className="text-akzent-hell underline">Spiele ohne Anmeldung suchen und stöbern</a></p>
         )}
         {/* Die Basis-Version zeigt nur die Anmeldemaske; rechtliche Seiten braucht erst ein öffentliches Angebot */}
         {MODUL.oeffentlicheSeiten && <Fusszeile className="py-2" />}
-        {!registrierungMoeglich && !zweiFaktor && (
-          <p className="text-center text-xs text-leise">Die Registrierung neuer Konten ist auf diesem Server geschlossen.</p>
-        )}
       </div>
     </div>
+  );
+}
+
+/** Bei geschlossener Registrierung: Interessierte bitten um einen Zugang, ein Administrator lädt sie dann ein. */
+function ZugangAnfragen({ auth }) {
+  const [offen, setOffen] = useState(() => /[?&]zugang=1/.test(window.location.hash));
+  const [werte, setWerte] = useState({ name: '', email: '', nachricht: '', webseite: '' });
+  const [einwilligung, setEinwilligung] = useState(false);
+  const [captchaZustimmung, setCaptchaZustimmung] = useState(false);
+  const [felder, setFelder] = useState({});
+  const [fehler, setFehler] = useState(null);
+  const [laedt, setLaedt] = useState(false);
+  const [fertig, setFertig] = useState(false);
+  const setze = (feld) => (e) => setWerte((w) => ({ ...w, [feld]: e.target.value }));
+
+  async function absenden(e) {
+    e.preventDefault();
+    setFehler(null);
+    setFelder({});
+    setLaedt(true);
+    try {
+      const captcha = await captchaNachweis(auth?.captcha, 'zugang', { zustimmung: captchaZustimmung });
+      await api.zugangAnfragen({ ...werte, einwilligung, captcha });
+      setFertig(true);
+    } catch (f) {
+      if (f instanceof ApiFehler && Object.keys(f.felder).length) setFelder(f.felder);
+      else setFehler(f.message);
+    } finally {
+      setLaedt(false);
+    }
+  }
+
+  if (fertig) {
+    return (
+      <p className="karte p-4 text-sm" role="status">
+        <strong>Danke für dein Interesse!</strong> Deine Anfrage ist angekommen. Wenn ein Platz frei ist, bekommst du eine Einladung
+        an {werte.email} – damit legst du dir dann dein Konto an.
+      </p>
+    );
+  }
+  if (!offen) {
+    return (
+      <div className="space-y-2 text-center text-sm">
+        <p className="text-xs text-leise">Die Registrierung neuer Konten ist auf diesem Server gerade geschlossen.</p>
+        <button type="button" className="knopf-sekundaer w-full" onClick={() => setOffen(true)}>Interesse? Zugang anfragen</button>
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={absenden} className="karte space-y-3 p-5" noValidate aria-labelledby="zugang-titel">
+      <h2 id="zugang-titel" className="text-lg font-semibold">Zugang anfragen</h2>
+      <p className="text-sm text-leise">
+        Die Registrierung ist gerade geschlossen. Hinterlass deine E-Mail-Adresse – sobald es passt, schicken wir dir eine Einladung.
+      </p>
+      <Feld label="Name (optional)">
+        <input className="eingabe" value={werte.name} onChange={setze('name')} maxLength={80} autoComplete="name" />
+      </Feld>
+      <Feld label="E-Mail-Adresse" fehler={felder.email}>
+        <input className="eingabe" type="email" value={werte.email} onChange={setze('email')} maxLength={254} autoComplete="email" required />
+      </Feld>
+      <Feld label="Nachricht (optional)">
+        <textarea className="eingabe min-h-20" value={werte.nachricht} onChange={setze('nachricht')} maxLength={1000}
+          placeholder="Was sammelst du? Wie bist du auf uns gekommen?" />
+      </Feld>
+      {/* Für Menschen unsichtbar – Bots füllen es aus */}
+      <input type="text" name="webseite" value={werte.webseite} onChange={setze('webseite')} tabIndex={-1} autoComplete="off"
+        aria-hidden="true" className="absolute -left-[9999px] size-px opacity-0" />
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-0.5 size-4 accent-akzent" checked={einwilligung} onChange={(e) => setEinwilligung(e.target.checked)} />
+        <span>
+          Meine Angaben dürfen gespeichert werden, um die Anfrage zu bearbeiten. Sie werden spätestens nach 90 Tagen gelöscht.
+          {MODUL.oeffentlicheSeiten && <> Mehr in der <a href="#/seite/datenschutz" className="text-akzent-hell underline" target="_blank">Datenschutzerklärung</a>.</>}
+        </span>
+      </label>
+      {felder.einwilligung && <p className="text-sm text-gefahr">{felder.einwilligung}</p>}
+      <CaptchaHinweis info={auth?.captcha} zustimmung={captchaZustimmung} setZustimmung={setCaptchaZustimmung} />
+      {fehler && <p className="rounded-xl bg-gefahr/10 p-3 text-sm text-gefahr" role="alert">{fehler}</p>}
+      <button type="submit" className="knopf-primaer w-full" disabled={laedt}>{laedt ? 'Bitte warten …' : 'Anfrage senden'}</button>
+    </form>
   );
 }
 

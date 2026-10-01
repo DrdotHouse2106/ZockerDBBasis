@@ -151,36 +151,55 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
 
   // ── Einladungen: Konto für Bekannte bei geschlossener Registrierung ──
   router.get('/einladungen', (_req, res) => res.json(konten.einladungen()));
-  router.post('/einladungen', async (req, res) => {
-    const email = String(req.body?.email ?? '').trim().toLowerCase();
+  /** Einladung anlegen und – mit E-Mail-Adresse – per Mail verschicken. Der Link wird nur jetzt angezeigt (gespeichert ist eine Prüfsumme). */
+  async function ladeEin(req, { email, notiz, tage }) {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new KontoFehler('Bitte eine gültige E-Mail-Adresse angeben.');
     if (email && !mail.aktiv) throw new KontoFehler('Der E-Mail-Versand ist nicht eingerichtet (SMTP) – den Link bitte kopieren und selbst weitergeben.');
-    const e = konten.erstelleEinladung(req.benutzer.id, { notiz: req.body?.notiz || email, tage: req.body?.tage });
-    // Der Link wird nur jetzt angezeigt – gespeichert ist nur eine Prüfsumme.
+    const e = konten.erstelleEinladung(req.benutzer.id, { notiz: notiz || email, tage });
     // „?app=1“: Ohne Anmeldung zeigt „/“ sonst die öffentliche Startseite statt der App.
     const basis = konfiguration.oeffentlicheUrl || `${req.protocol}://${req.get('host')}`;
     const link = `${basis}/?app=1#/?einladung=${e.token}`;
-    let versendet = false;
-    if (email) {
-      const von = req.benutzer.anzeigename || req.benutzer.benutzername;
-      const bis = new Date(`${e.laeuft_ab.replace(' ', 'T')}Z`).toLocaleDateString('de-DE');
-      try {
-        await mail.sende({
-          an: email,
-          betreff: `Einladung zu ${MARKE.name}`,
-          text: `Hallo,\n\n${von} lädt dich zu ${MARKE.name} ein – ${MARKE.untertitel}.\n\nMit diesem Link legst du dir dein Konto an (gültig bis ${bis}, nur einmal verwendbar):\n${link}\n\nBenutzername und Passwort wählst du selbst.`,
-          html: mailHtml({
-            titel: `Einladung zu ${MARKE.name}`,
-            absaetze: [`${von} lädt dich zu ${MARKE.name} ein – ${MARKE.untertitel}.`, `Mit dem Knopf legst du dir dein Konto an. Benutzername und Passwort wählst du selbst. Der Link gilt bis ${bis} und nur für ein Konto.`],
-            knopf: { url: link, text: 'Konto anlegen' },
-          }),
-        });
-        versendet = true;
-      } catch (fehler) {
-        return res.status(201).json({ ...e, link, versendet: false, fehler: `Die E-Mail konnte nicht versendet werden (${fehler.message}). Den Link kannst du kopieren.` });
-      }
+    if (!email) return { ...e, link, versendet: false, an: null };
+    const von = req.benutzer.anzeigename || req.benutzer.benutzername;
+    const bis = new Date(`${e.laeuft_ab.replace(' ', 'T')}Z`).toLocaleDateString('de-DE');
+    try {
+      await mail.sende({
+        an: email,
+        betreff: `Einladung zu ${MARKE.name}`,
+        text: `Hallo,\n\n${von} lädt dich zu ${MARKE.name} ein – ${MARKE.untertitel}.\n\nMit diesem Link legst du dir dein Konto an (gültig bis ${bis}, nur einmal verwendbar):\n${link}\n\nBenutzername und Passwort wählst du selbst.`,
+        html: mailHtml({
+          titel: `Einladung zu ${MARKE.name}`,
+          absaetze: [`${von} lädt dich zu ${MARKE.name} ein – ${MARKE.untertitel}.`, `Mit dem Knopf legst du dir dein Konto an. Benutzername und Passwort wählst du selbst. Der Link gilt bis ${bis} und nur für ein Konto.`],
+          knopf: { url: link, text: 'Konto anlegen' },
+        }),
+      });
+    } catch (fehler) {
+      return { ...e, link, versendet: false, fehler: `Die E-Mail konnte nicht versendet werden (${fehler.message}). Den Link kannst du kopieren.` };
     }
-    res.status(201).json({ ...e, link, versendet, an: email || null });
+    return { ...e, link, versendet: true, an: email };
+  }
+
+  router.post('/einladungen', async (req, res) => {
+    const email = String(req.body?.email ?? '').trim().toLowerCase();
+    res.status(201).json(await ladeEin(req, { email, notiz: req.body?.notiz, tage: req.body?.tage }));
+  });
+
+  // ── Zugangsanfragen (geschlossene Registrierung) ──
+  router.get('/zugangsanfragen', (_req, res) => {
+    db.prepare("DELETE FROM zugangsanfragen WHERE erstellt_am < datetime('now', '-90 days')").run();
+    res.json(db.prepare("SELECT id, name, email, nachricht, status, erstellt_am, bearbeitet_am FROM zugangsanfragen ORDER BY status = 'offen' DESC, erstellt_am DESC LIMIT 200").all());
+  });
+  router.post('/zugangsanfragen/:id/einladen', async (req, res) => {
+    const a = db.prepare("SELECT * FROM zugangsanfragen WHERE id = ?").get(Number(req.params.id));
+    if (!a) throw new KontoFehler('Anfrage nicht gefunden.', 404);
+    // Ohne E-Mail-Versand: Link zum Kopieren und selbst Weitergeben
+    const ergebnis = await ladeEin(req, { email: mail.aktiv ? a.email : '', notiz: `Zugangsanfrage: ${a.name || a.email}` });
+    db.prepare("UPDATE zugangsanfragen SET status = 'eingeladen', bearbeitet_am = datetime('now'), bearbeitet_von = ? WHERE id = ?").run(req.benutzer.id, a.id);
+    res.status(201).json({ ...ergebnis, anfrage_email: a.email });
+  });
+  router.delete('/zugangsanfragen/:id', (req, res) => {
+    if (!db.prepare('DELETE FROM zugangsanfragen WHERE id = ?').run(Number(req.params.id)).changes) throw new KontoFehler('Anfrage nicht gefunden.', 404);
+    res.status(204).end();
   });
   router.delete('/einladungen/:id', (req, res) => {
     if (!konten.loescheEinladung(req.params.id)) throw new KontoFehler('Einladung nicht gefunden.', 404);

@@ -643,6 +643,20 @@ const MIGRATIONEN = [
     UPDATE medien SET bedingungen_version = (SELECT MAX(id) FROM seiten_versionen WHERE slug = 'nutzungsbedingungen') WHERE id = NEW.id;
   END;
   `,
+  // 36: Zugang anfragen bei geschlossener Registrierung (Name, E-Mail, Nachricht – nach 90 Tagen gelöscht)
+  `
+  CREATE TABLE zugangsanfragen (
+    id            INTEGER PRIMARY KEY,
+    name          TEXT,
+    email         TEXT    NOT NULL,
+    nachricht     TEXT,
+    status        TEXT    NOT NULL DEFAULT 'offen',     -- offen, eingeladen
+    erstellt_am   TEXT    NOT NULL DEFAULT (datetime('now')),
+    bearbeitet_am TEXT,
+    bearbeitet_von INTEGER REFERENCES benutzer (id) ON DELETE SET NULL
+  );
+  CREATE INDEX idx_zugangsanfragen_status ON zugangsanfragen (status, erstellt_am);
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

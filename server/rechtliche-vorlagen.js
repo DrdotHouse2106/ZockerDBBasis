@@ -44,6 +44,8 @@ Gespeichert werden Benutzername, optional Anzeigename und E-Mail-Adresse, das Pa
 
 Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO.
 
+Ist die Registrierung geschlossen, kannst du über „Zugang anfragen“ um eine Einladung bitten. Dafür speichern wir deine E-Mail-Adresse, optional Name und Nachricht sowie den Zeitpunkt. Die Administration sieht die Anfrage und schickt dir gegebenenfalls einen Einladungslink. Die Angaben werden spätestens nach 90 Tagen gelöscht, auf Wunsch sofort. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Anbahnung der Nutzung, auf deine Anfrage).
+
 ## 4. Cookies und lokale Speicherung
 
 Nur ein technisch notwendiges Sitzungs-Cookie für die Anmeldung. Die App speichert zuletzt geladene Daten auf deinem Gerät, damit sie offline funktioniert (§ 25 Abs. 2 Nr. 2 TDDDG).

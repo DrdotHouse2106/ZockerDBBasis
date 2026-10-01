@@ -9,6 +9,12 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 01.10.2026 – Zugang anfragen bei geschlossener Registrierung
+- Ist die Registrierung geschlossen, zeigt die Anmeldeseite „Interesse? Zugang anfragen“: E-Mail-Adresse, optional Name und Nachricht – mit Spam-Schutz
+- Administratoren bekommen eine Benachrichtigung und finden die Anfragen unter Administration → Benutzer; „Einladen“ verschickt einen Einladungslink an die Adresse (ohne E-Mail-Versand gibt es den Link zum Weitergeben)
+- Anfragen werden nach 90 Tagen automatisch gelöscht; die Datenschutz-Vorlage erklärt das
+- Abschaltbar unter Einstellungen → Konten & Sicherheit („Zugang anfragen bei geschlossener Registrierung“)
+
 ## 01.10.2026 – Fotos als WebP, Scans in voller Auflösung
 - Fotos (Artikelfoto, Modul, Disc, Verpackung …) werden als WebP gespeichert und auf höchstens 2.560 Pixel an der langen Seite verkleinert – ein Handyfoto braucht meist unter 1 MB statt 4–8 MB, am Bildschirm ohne sichtbaren Unterschied
 - Scans von Cover und Anleitung bleiben unverändert in Originalformat und voller Auflösung (nur ohne Metadaten) – zum Drucken und Archivieren

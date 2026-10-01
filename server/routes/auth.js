@@ -12,7 +12,7 @@ import { FUNKTIONEN } from '../../shared/konstanten.js';
 
 const ZU_VIELE = 'Zu viele Fehlversuche. Bitte warte 15 Minuten und versuche es dann erneut.';
 
-export function authRouter({ db, konten, konfiguration, dateien, speicher, kontoMail, captcha, erweiterungen }) {
+export function authRouter({ db, konten, konfiguration, dateien, speicher, kontoMail, captcha, erweiterungen, benachrichtigungen }) {
   const router = Router();
   const { cookieSicher } = konfiguration.konten;
   // Live-Werte (über Admin → Einstellungen änderbar)
@@ -29,6 +29,9 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
   const emailPflicht = () => Boolean(konfiguration.emailPflicht && kontoMail.bereit());
   const registrierDrossel = erstelleDrossel({ maxVersuche: konfiguration.konten.registrierungenProStunde, fensterMs: 60 * 60 * 1000 });
   const geraet = (req) => req.headers['user-agent'];
+  // Zugang anfragen: nur bei geschlossener Registrierung und wenn eingeschaltet
+  const zugangsanfragenAktiv = () => Boolean(!registrierungOffen() && konfiguration.konten.zugangsanfragen && !konten.istErsteinrichtung());
+  const anfrageDrossel = erstelleDrossel({ maxVersuche: 3, fensterMs: 60 * 60 * 1000 });
 
   // ── Ersteinrichtung: Das erste Konto wird Administrator. Kommt die Anfrage aus dem Internet (öffentliche IP) oder über einen
   // Reverse-Proxy, braucht es einen einmaligen Code aus dem Server-Protokoll – sonst könnte sich ein Fremder, der eine frisch
@@ -56,6 +59,7 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
       angemeldet: Boolean(req.benutzer),
       benutzer: oeffentlichesProfil(req.benutzer),
       registrierungOffen: registrierungOffen() || ersteinrichtung,
+      zugangsanfragen: zugangsanfragenAktiv(),
       ersteinrichtung,
       // Code aus dem Server-Protokoll nötig? (Der Code selbst wird dabei nur ins Protokoll geschrieben.)
       einrichtungscode: ersteinrichtung && brauchtEinrichtungscode(req) ? Boolean(aktuellerEinrichtungscode()) : false,
@@ -67,6 +71,36 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
       // Angaben von Zusatzmodulen
       ...erweiterungen.sammle('auth.status'),
     });
+  });
+
+  // ── Zugang anfragen (geschlossene Registrierung) ──────────────────
+  router.post('/auth/zugang', async (req, res) => {
+    if (!zugangsanfragenAktiv()) return res.status(404).json({ fehler: 'Zugangsanfragen sind auf diesem Server nicht möglich.' });
+    // Unsichtbares Feld für Bots: still „angenommen“, aber nichts gespeichert
+    if (String(req.body?.webseite ?? '').trim()) return res.status(201).json({ ok: true });
+    if (anfrageDrossel.gesperrt(req.ip)) return res.status(429).json({ fehler: 'Zu viele Anfragen. Bitte versuche es später noch einmal.' });
+    const email = normalisiereEmail(req.body?.email);
+    const name = String(req.body?.name ?? '').trim().slice(0, 80) || null;
+    const nachricht = String(req.body?.nachricht ?? '').trim().slice(0, 1000) || null;
+    if (!email) throw new ValidierungsFehler({ email: 'Bitte gib eine gültige E-Mail-Adresse an – dorthin kommt die Einladung.' });
+    if (!req.body?.einwilligung) throw new ValidierungsFehler({ einwilligung: 'Bitte bestätige, dass wir deine Angaben für die Anfrage speichern dürfen.' });
+    await captcha.pruefe(req.body?.captcha, { aktion: 'zugang', ip: req.ip });
+    anfrageDrossel.fehlschlag(req.ip);
+    // Alte Anfragen nach 90 Tagen löschen; dieselbe Adresse nicht mehrfach
+    db.prepare("DELETE FROM zugangsanfragen WHERE erstellt_am < datetime('now', '-90 days')").run();
+    const vorhanden = db.prepare("SELECT id FROM zugangsanfragen WHERE email = ? AND status = 'offen'").get(email);
+    if (vorhanden) {
+      db.prepare("UPDATE zugangsanfragen SET name = COALESCE(?, name), nachricht = COALESCE(?, nachricht), erstellt_am = datetime('now') WHERE id = ?").run(name, nachricht, vorhanden.id);
+    } else {
+      db.prepare('INSERT INTO zugangsanfragen (name, email, nachricht) VALUES (?, ?, ?)').run(name, email, nachricht);
+      for (const id of db.prepare("SELECT id FROM benutzer WHERE rolle = 'admin' AND gesperrt = 0").pluck().all()) {
+        benachrichtigungen?.sende(id, {
+          art: 'system', titel: 'Neue Zugangsanfrage', link: '#/admin?reiter=benutzer',
+          text: `${name || email} möchte mitmachen${nachricht ? `: „${nachricht.slice(0, 120)}${nachricht.length > 120 ? ' …' : ''}“` : '.'}`,
+        });
+      }
+    }
+    res.status(201).json({ ok: true });
   });
 
   // ALTCHA-Aufgabe für Registrierung und „Passwort vergessen“

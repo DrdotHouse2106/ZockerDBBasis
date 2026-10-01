@@ -118,6 +118,7 @@ function Benutzer() {
         <strong className="text-text">Rollen:</strong> <em>Moderatoren</em> prüfen Einreichungen und Meldungen, bearbeiten Katalogeinträge,
         Varianten, Plattformen und Kauflinks. <em>Administratoren</em> dürfen zusätzlich Benutzer verwalten und die rechtlichen Seiten ändern.
       </p>
+      <Zugangsanfragen />
       <Einladungen />
       <div className="flex gap-2">
         <input className="eingabe flex-1" type="search" placeholder="Benutzer suchen …" value={suche} onChange={(e) => setSuche(e.target.value)} />
@@ -264,6 +265,61 @@ function Sicherungen() {
       <Liste titel="Tägliche Sicherungen" eintraege={s.taeglich} />
       <Liste titel="Monatliche Sicherungen" eintraege={s.monatlich} />
     </div>
+  );
+}
+
+/** Anfragen von Interessierten, wenn die Registrierung geschlossen ist (Formular auf der Anmeldeseite). */
+function Zugangsanfragen() {
+  const zeigeHinweis = useHinweis();
+  const [liste, setListe] = useState([]);
+  const [link, setLink] = useState(null); // { email, link } – ohne E-Mail-Versand zum Kopieren
+  const laden = () => api.adminZugangsanfragen().then(setListe).catch(() => {});
+  useEffect(() => { laden(); }, []);
+  if (!liste.length) return null;
+
+  async function einladen(a) {
+    try {
+      const r = await api.adminZugangsanfrageEinladen(a.id);
+      if (r.versendet) zeigeHinweis(`Einladung an ${r.an} verschickt.`);
+      else setLink({ email: r.anfrage_email, link: r.link });
+      if (r.fehler) zeigeHinweis(r.fehler, 'fehler');
+      laden();
+    } catch (f) { zeigeHinweis(f.message, 'fehler'); }
+  }
+  async function loeschen(a) {
+    try { await api.adminZugangsanfrageLoeschen(a.id); laden(); } catch (f) { zeigeHinweis(f.message, 'fehler'); }
+  }
+  const offen = liste.filter((a) => a.status === 'offen').length;
+
+  return (
+    <section className="karte space-y-3 p-4">
+      <h2 className="font-semibold">Zugangsanfragen {offen > 0 && <span className="text-sm font-normal text-leise">({anzahl(offen)} offen)</span>}</h2>
+      <p className="text-sm text-leise">
+        Interessierte haben bei geschlossener Registrierung um einen Zugang gebeten. „Einladen“ schickt einen Einladungslink an die
+        angegebene Adresse (ohne E-Mail-Versand bekommst du den Link zum Weitergeben). Anfragen werden nach 90 Tagen gelöscht.
+      </p>
+      {link && (
+        <div className="space-y-2 rounded-lg border border-erfolg/50 p-3 text-sm" role="status">
+          <p>Einladungslink für {link.email} – wird nur jetzt angezeigt, bitte selbst weitergeben:</p>
+          <input className="eingabe font-mono text-xs" readOnly value={link.link} onFocus={(e) => e.target.select()} />
+        </div>
+      )}
+      <ul className="space-y-2 text-sm">
+        {liste.map((a) => (
+          <li key={a.id} className="rounded-lg border border-rand p-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0 flex-1 break-words font-medium">{a.name ? `${a.name} · ` : ''}{a.email}</span>
+              <span className="text-xs text-leise">{datumDe(a.erstellt_am.slice(0, 10))}{a.status === 'eingeladen' ? ' · eingeladen' : ''}</span>
+            </div>
+            {a.nachricht && <p className="mt-1 whitespace-pre-line break-words text-leise">{a.nachricht}</p>}
+            <div className="mt-2 flex gap-3">
+              {a.status === 'offen' && <button type="button" className="text-xs text-akzent-hell underline" onClick={() => einladen(a)}>Einladen</button>}
+              <button type="button" className="text-xs text-gefahr underline" onClick={() => loeschen(a)}>{a.status === 'offen' ? 'Ablehnen & löschen' : 'Entfernen'}</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

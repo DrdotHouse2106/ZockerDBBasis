@@ -16,6 +16,8 @@ export const JA_NEIN = { typ: 'jaNein' };
 export const EINSTELLUNGEN = [
   { schluessel: 'REGISTRATION_OPEN', gruppe: 'Konten & Sicherheit', titel: 'Registrierung offen', ...JA_NEIN, sicher: true,
     hinweis: 'Dürfen sich neue Benutzer selbst registrieren?' },
+  { schluessel: 'ACCESS_REQUESTS', gruppe: 'Konten & Sicherheit', titel: 'Zugang anfragen bei geschlossener Registrierung', ...JA_NEIN,
+    hinweis: 'Interessierte können auf der Anmeldeseite (und der öffentlichen Startseite) Name, E-Mail und eine Nachricht schicken. Du siehst die Anfragen unter Administration → Benutzer und kannst mit einem Klick einladen. Anfragen werden nach 90 Tagen gelöscht.' },
   { schluessel: 'REQUIRE_2FA', gruppe: 'Konten & Sicherheit', titel: 'Zwei-Faktor-Anmeldung für alle Pflicht', ...JA_NEIN, sicher: true,
     hinweis: 'Benutzer ohne 2FA müssen sie vor der Nutzung einrichten.' },
   { schluessel: 'CAPTCHA_PROVIDER', gruppe: 'Konten & Sicherheit', titel: 'Spam-Schutz bei Registrierung', typ: 'auswahl', sicher: true,
@@ -76,7 +78,7 @@ export const EINSTELLUNGEN = [
 
 /** Was gilt, wenn weder .env noch Oberfläche einen Wert setzen – wird als Platzhalter bzw. „Standard (Ja)“ angezeigt. */
 const STANDARDWERTE = {
-  REGISTRATION_OPEN: 'true', REQUIRE_2FA: 'false', REQUIRE_EMAIL: 'false', RECAPTCHA_MIN_SCORE: '0.5', ZOCKERDB_DONATE: 'false',
+  REGISTRATION_OPEN: 'true', ACCESS_REQUESTS: 'true', REQUIRE_2FA: 'false', REQUIRE_EMAIL: 'false', RECAPTCHA_MIN_SCORE: '0.5', ZOCKERDB_DONATE: 'false',
   STORAGE_QUOTA_MB: '1024', MAX_UPLOAD_MB: '8', MEDIA_MAX_MB: '200', PHOTO_MAX_PX: '2560', BACKUP_ENABLED: 'true', BACKUP_DAYS: '7', BACKUP_MONTHS: '12', SMTP_PORT: '587',
 };
 
