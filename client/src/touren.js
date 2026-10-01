@@ -1,5 +1,6 @@
 // Inhalte der geführten Touren (Ablauf siehe tour.jsx).
-// Schritt: { id, route?, ziel? (data-tour-Name), titel, text (Text oder Absätze), klick? (auf Tipp warten), vorher?, sichtbar?, ende? }
+// Schritt: { id, route?, ziel? (data-tour-Name), titel, text (Text oder Absätze), klick? (auf Tipp warten),
+//           bedienbar? (markiertes Element darf ausprobiert werden), vorher?, sichtbar?, ende? }
 // route, ziel, titel und text dürfen Funktionen sein – sie bekommen Sitzung und Tour-Kontext (z. B. beispielId).
 import { api } from './api.js';
 import { MARKE } from '../../shared/marke.js';
@@ -57,7 +58,7 @@ export const TOUREN = [
         text: ['Damit du alles ausprobieren kannst, haben wir ein Beispiel angelegt: Super Mario World fürs Super Nintendo.',
           'Am Ende der Tour kannst du es mit einem Tipp wieder löschen.'],
       },
-      { id: 'spielstatus', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'artikel-spielstatus', titel: 'Spielstatus', text: 'Ungespielt, am Spielen, durchgespielt oder abgebrochen – mit einem Tipp gesetzt. Probier es ruhig aus.' },
+      { id: 'spielstatus', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'artikel-spielstatus', bedienbar: true, titel: 'Spielstatus', text: 'Ungespielt, am Spielen, durchgespielt oder abgebrochen – mit einem Tipp gesetzt. Probier es ruhig aus.' },
       {
         id: 'aktionen', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'artikel-aktionen', titel: 'Weitere Aktionen',
         text: 'Ein weiteres Exemplar oder eine Variante anlegen, verleihen, als verkauft markieren, ein eigenes Foto hochladen oder löschen.',

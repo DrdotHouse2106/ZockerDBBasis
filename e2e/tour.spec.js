@@ -29,6 +29,13 @@ test('Tour „Erste Schritte“ mit Beispieleintrag', async ({ page }) => {
       await expect(page.getByRole('heading', { level: 2, name: 'Super Mario World (Beispiel)' })).toBeVisible();
       await keinQuerScrollen(page);
     }
+    if (titel.startsWith('Spielstatus')) {
+      // „Probier es ruhig aus“: das markierte Auswahlfeld ist während der Tour bedienbar
+      await page.locator('[data-tour="artikel-spielstatus"] select').click({ timeout: 3000 });
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.locator('[data-tour="artikel-spielstatus"] select').selectOption({ index: 2 });
+      await expect(blase).toBeVisible();
+    }
     const loeschen = blase.getByRole('button', { name: 'Fertig – Beispiel löschen' });
     if (await loeschen.isVisible()) { await loeschen.click(); break; }
     await blase.getByRole('button', { name: 'Weiter' }).click();

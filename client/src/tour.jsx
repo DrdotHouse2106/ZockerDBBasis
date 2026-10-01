@@ -137,6 +137,25 @@ export function TourAnbieter({ children }) {
 
 const ABSTAND = 8; // Luft um das hervorgehobene Element
 const RAND = 16;
+const HOCH = 0.55; // höhere Elemente werden nur bis hierhin (Anteil der Fensterhöhe) hervorgehoben
+// Tatsächlich sichtbare Höhe (iOS: ohne eingeblendete Tastatur/Leisten)
+const fensterHoehe = () => Math.round(window.visualViewport?.height ?? window.innerHeight);
+
+/** Während eines Schritts nicht scrollen – sonst verrutscht die Markierung (v. a. auf iOS mit Schwungscrollen). */
+function useScrollSperre(aktiv) {
+  useEffect(() => {
+    if (!aktiv) return undefined;
+    const html = document.documentElement;
+    const vorher = html.style.overflow;
+    html.style.overflow = 'hidden';
+    const sperren = (e) => { if (!e.target.closest?.('[data-tour-bedienbar]')) e.preventDefault(); };
+    document.addEventListener('touchmove', sperren, { passive: false });
+    return () => {
+      html.style.overflow = vorher;
+      document.removeEventListener('touchmove', sperren);
+    };
+  }, [aktiv]);
+}
 
 function TourSchritt({ schritt, k, nummer, gesamt, onWeiter, onZurueck, onBeenden }) {
   const [rechteck, setRechteck] = useState(null);
@@ -158,10 +177,16 @@ function TourSchritt({ schritt, k, nummer, gesamt, onWeiter, onZurueck, onBeende
         if (!gescrollt) {
           gescrollt = true;
           const r = el.getBoundingClientRect();
-          if (r.top < 64 || r.bottom > window.innerHeight - 80) el.scrollIntoView({ block: 'center' });
+          // Hohe Elemente (z. B. eine lange Liste) mit dem Anfang oben zeigen, sonst mittig
+          if (r.height > fensterHoehe() * HOCH) window.scrollBy(0, r.top - 72);
+          else if (r.top < 64 || r.bottom > fensterHoehe() - 80) el.scrollIntoView({ block: 'center' });
         }
         const r = el.getBoundingClientRect();
-        setRechteck((alt) => (alt && alt.x === r.x && alt.y === r.y && alt.width === r.width && alt.height === r.height ? alt : { x: r.x, y: r.y, width: r.width, height: r.height }));
+        // Auch die Fenstergröße: iOS blendet beim Scrollen Leisten ein und aus
+        const vw = window.innerWidth;
+        const vh = fensterHoehe();
+        setRechteck((alt) => (alt && alt.x === r.x && alt.y === r.y && alt.width === r.width && alt.height === r.height && alt.vw === vw && alt.vh === vh
+          ? alt : { x: r.x, y: r.y, width: r.width, height: r.height, vw, vh }));
         setGesucht(false);
       } else {
         setRechteck(null);
@@ -200,15 +225,20 @@ function TourSchritt({ schritt, k, nummer, gesamt, onWeiter, onZurueck, onBeende
     if (el) setBlase((alt) => (alt.b === el.offsetWidth && alt.h === el.offsetHeight ? alt : { b: el.offsetWidth, h: el.offsetHeight }));
   });
   useEffect(() => { if (!gesucht) weiterRef.current?.focus({ preventScroll: true }); }, [gesucht]);
+  useScrollSperre(true);
 
-  if (gesucht) return <div className="fixed inset-0 z-[90] bg-black/60" aria-hidden="true" />;
+  if (gesucht) return <div className="fixed -inset-[200px] z-[90] touch-none bg-black/60" aria-hidden="true" />;
 
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  const vw = rechteck?.vw ?? window.innerWidth;
+  const vh = rechteck?.vh ?? fensterHoehe();
   const loch = rechteck && {
     x: Math.max(rechteck.x - ABSTAND, 0), y: Math.max(rechteck.y - ABSTAND, 0),
-    r: Math.min(rechteck.x + rechteck.width + ABSTAND, vw), u: Math.min(rechteck.y + rechteck.height + ABSTAND, vh),
+    r: Math.min(rechteck.x + rechteck.width + ABSTAND, vw),
+    // Sehr hohe Elemente nur im oberen Teil markieren, damit die Sprechblase darunter Platz hat
+    u: Math.min(rechteck.y + rechteck.height + ABSTAND, vh, Math.max(rechteck.y, 0) + vh * HOCH),
   };
+  // Darf man das markierte Element bedienen? („Hier tippen“ oder „Probier es aus“)
+  const bedienbar = schritt.klick || schritt.bedienbar;
   // Sprechblase unter bzw. über dem Element, sonst unten am Rand; ohne Element in der Mitte
   let stil;
   let pfeil = null;
@@ -228,13 +258,13 @@ function TourSchritt({ schritt, k, nummer, gesamt, onWeiter, onZurueck, onBeende
     <>
       {loch ? (
         <>
-          {/* Abdunkeln rundherum – Klicks daneben bleiben wirkungslos */}
-          <div className="fixed z-[90] bg-black/60" style={{ left: 0, top: 0, width: vw, height: loch.y }} />
-          <div className="fixed z-[90] bg-black/60" style={{ left: 0, top: loch.u, width: vw, height: Math.max(vh - loch.u, 0) }} />
-          <div className="fixed z-[90] bg-black/60" style={{ left: 0, top: loch.y, width: loch.x, height: loch.u - loch.y }} />
-          <div className="fixed z-[90] bg-black/60" style={{ left: loch.r, top: loch.y, width: Math.max(vw - loch.r, 0), height: loch.u - loch.y }} />
-          {/* Ohne „Hier tippen“ ist auch das markierte Element gesperrt, damit man nicht versehentlich wegnavigiert */}
-          {!schritt.klick && <div className="fixed z-[90]" style={{ left: loch.x, top: loch.y, width: loch.r - loch.x, height: loch.u - loch.y }} />}
+          {/* Abdunkeln rundherum (bis an die Fensterränder, auch wenn iOS die Höhe ändert) – Klicks daneben bleiben wirkungslos */}
+          <div className="fixed z-[90] touch-none bg-black/60" style={{ left: 0, right: 0, top: -200, height: loch.y + 200 }} />
+          <div className="fixed z-[90] touch-none bg-black/60" style={{ left: 0, right: 0, top: loch.u, bottom: -200 }} />
+          <div className="fixed z-[90] touch-none bg-black/60" style={{ left: 0, top: loch.y, width: loch.x, height: loch.u - loch.y }} />
+          <div className="fixed z-[90] touch-none bg-black/60" style={{ left: loch.r, right: 0, top: loch.y, height: loch.u - loch.y }} />
+          {/* Nicht bedienbare Elemente sind gesperrt, damit man nicht versehentlich wegnavigiert */}
+          {!bedienbar && <div className="fixed z-[90] touch-none" style={{ left: loch.x, top: loch.y, width: loch.r - loch.x, height: loch.u - loch.y }} />}
           <div className={`pointer-events-none fixed z-[91] rounded-xl border-2 border-akzent ${schritt.klick ? 'tour-puls' : ''}`}
             style={{ left: loch.x, top: loch.y, width: loch.r - loch.x, height: loch.u - loch.y }} aria-hidden="true" />
           {schritt.klick && (
@@ -247,7 +277,7 @@ function TourSchritt({ schritt, k, nummer, gesamt, onWeiter, onZurueck, onBeende
             </span>
           )}
         </>
-      ) : <div className="fixed inset-0 z-[90] bg-black/60" />}
+      ) : <div className="fixed -inset-[200px] z-[90] touch-none bg-black/60" />}
 
       <div ref={blasenRef} role="dialog" aria-modal="true" aria-labelledby="tour-titel" aria-describedby="tour-text"
         className="karte fixed z-[93] w-[min(22rem,calc(100vw-2rem))] space-y-2 p-4 shadow-2xl" style={stil}>

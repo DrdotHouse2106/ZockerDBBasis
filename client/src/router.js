@@ -11,6 +11,10 @@ export function useRoute() {
   const [route, setRoute] = useState(lesen);
   useEffect(() => {
     const aktualisieren = () => {
+      // iOS (installierte App): Verschwindet ein Eingabefeld mit offener Tastatur, bleibt die Ansicht verkleinert –
+      // feste Leisten landen dann mitten im Bild. Vorher das Feld verlassen, damit die Tastatur sauber zugeht.
+      const fokus = document.activeElement;
+      if (fokus && fokus !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(fokus.tagName)) fokus.blur();
       setRoute(lesen());
       window.scrollTo(0, 0);
     };

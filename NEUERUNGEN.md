@@ -9,6 +9,12 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 01.10.2026 – Touren und Fußleiste auf dem iPhone
+- Tour „Erste Schritte“: Der Spielstatus lässt sich beim entsprechenden Schritt jetzt wirklich ausprobieren
+- Die Markierung der Tour wackelt und verrutscht nicht mehr: Während eines Schritts bleibt die Seite stehen, die Abdunkelung reicht immer bis an den Bildschirmrand
+- Sehr hohe Bereiche (z. B. die Liste unter „Mehr“) werden nur oben markiert, die Erklärung steht darunter statt mitten im Bild
+- Fußleiste rutschte auf dem iPhone in die Bildmitte, wenn beim Seitenwechsel noch die Tastatur offen war (z. B. nach der Suche unter „Hinzufügen“) – behoben; in der Tour öffnet „Hinzufügen“ die Tastatur nicht mehr von selbst
+
 ## 30.09.2026 – Fotos: Varianten und Nachfrage nach dem Hinzufügen
 - Fotos lassen sich einer Variante zuordnen (z. B. PAL oder NTSC, Platinum) – beim Hochladen ist die Variante deines Exemplars vorausgewählt, Fotos zeigen sie an
 - Hat dein Exemplar eine Variante, zählt die Checkliste nur Fotos genau dieser Variante – so sieht man, dass z. B. das NTSC-Modul noch fehlt

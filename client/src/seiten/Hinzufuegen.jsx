@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { navigiere } from '../router.js';
 import Layout from '../komponenten/Layout.jsx';
 import { useSitzung } from '../sitzung.js';
+import { useTour } from '../tour.jsx';
 import BarcodeScanner from '../komponenten/BarcodeScanner.jsx';
 import Cover from '../komponenten/Cover.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
@@ -18,6 +19,7 @@ import { MARKE } from '../../../shared/marke.js';
 export default function Hinzufuegen({ route }) {
   const p = route.parameter;
   const { status } = useSitzung();
+  const tourAktiv = Boolean(useTour().aktiv);
   const typ = p.typ ?? 'spiel';
   const [suchtext, setSuchtext] = useState(p.q ?? '');
   const [ergebnis, setErgebnis] = useState(null);
@@ -140,7 +142,8 @@ export default function Hinzufuegen({ route }) {
               onChange={(e) => setSuchtext(e.target.value)}
               placeholder={typ === 'spiel' ? 'Spieltitel oder EAN suchen …' : typ === 'konsole' ? 'Konsole suchen, z. B. „PlayStation“' : 'Zubehör suchen …'}
               className="eingabe pl-10"
-              autoFocus={p.scan !== '1'}
+              // In der Tour nicht: die iOS-Tastatur verdeckt sonst die Erklärung (und verstellt beim Seitenwechsel die Ansicht)
+              autoFocus={p.scan !== '1' && !tourAktiv}
             />
           </label>
           <button type="button" onClick={() => setzeParameter({ scan: '1' })} className="knopf-primaer px-3" aria-label="Barcode scannen" data-tour="neu-scan">
