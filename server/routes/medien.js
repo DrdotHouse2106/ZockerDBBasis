@@ -23,7 +23,8 @@ export function medienZuObjekt(m, benutzer) {
     seiten: m.seiten,
     originalname: m.originalname,
     erstellt_am: m.erstellt_am,
-    hochgeladen_von: m.hochgeladen_von ?? null,
+    // Fotos: Name des Fotografen nur, wenn er genannt werden möchte (sonst bleibt er anonym) – Scans wie bisher
+    hochgeladen_von: !istFotoArt(m.art) || m.name_nennen || m.benutzer_id === benutzer.id || istModerator(benutzer) ? m.hochgeladen_von ?? null : null,
     ist_foto: istFotoArt(m.art),
     // Variante (z. B. PAL-Modul) – eigene, noch nicht freigegebene Varianten nur für den Ersteller
     variante_id: m.variante_id ?? null,

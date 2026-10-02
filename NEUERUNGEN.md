@@ -9,6 +9,9 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 02.10.2026 – Fotografen bleiben anonym
+- An geteilten Fotos (Modul, Disc, Verpackung …) steht der Name des Fotografen nur noch, wenn er beim Hochladen „Namen nennen“ gewählt hat – bei Scans wie bisher
+
 ## 02.10.2026 – Kurzlink /mitmachen für Flyer und QR-Codes
 - Neue Adresse `/mitmachen`: führt zur Registrierung, solange sie offen ist – sonst direkt zum Formular „Zugang anfragen“ (ist auch das abgeschaltet, zur Anmeldung)
 - Ideal für Flyer: der QR-Code bleibt gültig, egal ob die Registrierung gerade offen oder geschlossen ist

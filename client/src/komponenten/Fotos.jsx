@@ -240,6 +240,7 @@ export default function Fotos({
                       <Symbol name="welt" className="size-4" />
                     </button>
                   )}
+                  {benutzer && !f.eigenes && f.oeffentlich && <Andockpunkt name="foto.aktionen" foto={f} />}
                   {!f.eigenes && <Andockpunkt name="melden" bereich="medien" zielId={f.id} klein />}
                   {f.darf_bearbeiten && (
                     <button type="button" onClick={() => loeschen(f)} className="rounded-lg p-1.5 text-leise hover:bg-gefahr/10 hover:text-gefahr" title="Löschen" aria-label="Löschen">
