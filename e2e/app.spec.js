@@ -68,3 +68,23 @@ test('Konvolut: Gesamtpreis anlegen, Artikel erfassen, Anteil wird angezeigt', a
   await keinQuerScrollen(page);
   expect(fehler).toEqual([]);
 });
+
+test('Unbekannter Barcode: Suchfeld direkt in der Barcode-Karte, Treffer wählen ordnet zu', async ({ page }) => {
+  const fehler = fehlerSammeln(page);
+  await anmelden(page, 'admin');
+  // Ein Spiel im eigenen Katalog, zu dem der Barcode noch nicht bekannt ist
+  expect((await page.request.post('/api/artikel', { data: { typ: 'spiel', titel: 'Barcodespiel Alpha' } })).ok()).toBeTruthy();
+  await page.goto('/?app=1#/neu?barcode=4006381333931');
+  await expect(page.getByText('Diesen Barcode kennen wir noch nicht.')).toBeVisible();
+  // Kein zweites Suchfeld oben – gesucht wird direkt in der Karte
+  await expect(page.getByRole('searchbox')).toHaveCount(1);
+  await page.getByRole('searchbox', { name: 'Spiel suchen und zuordnen' }).fill('Barcodespiel');
+  await keinQuerScrollen(page);
+  await page.getByRole('button', { name: /Barcodespiel Alpha/ }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Neuer Artikel' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Barcode (EAN/UPC)' })).toHaveValue('4006381333931');
+  // Die übrigen Wege bleiben als Links erreichbar
+  await page.goto('/?app=1#/neu?barcode=4006381333948');
+  await expect(page.getByRole('button', { name: 'Eigenen Eintrag anlegen' })).toBeVisible();
+  expect(fehler).toEqual([]);
+});

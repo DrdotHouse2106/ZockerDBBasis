@@ -9,6 +9,11 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 02.10.2026 – Unbekannter Barcode: direkt suchen und zuordnen
+- Kennt ZockerDB einen gescannten Barcode noch nicht, steht das Suchfeld jetzt direkt in der Barcode-Karte – die Treffer erscheinen gleich darunter, ohne nach oben zu scrollen
+- Hat der Barcode-Dienst einen Produktnamen geliefert, aber nichts Passendes gefunden, steht der Name schon im Suchfeld zum Nachbessern
+- „Eigenen Eintrag anlegen“, „Titel vorschlagen“ und „Plattform fehlt?“ sind darunter als kleine Links erreichbar
+
 ## 02.10.2026 – Betreiber in der Fußzeile jeder E-Mail
 - Unten in jeder E-Mail stehen jetzt der Betreiber (Name, Anschrift, Kontakt-E-Mail) und Links zu Impressum und Datenschutz
 - Die Angaben kommen automatisch aus dem Impressum (Abschnitt „Angaben gemäß § 5 DDG“ und die E-Mail unter „Kontakt“); solange dort noch Platzhalter in [eckigen Klammern] stehen, bleibt die Zeile weg

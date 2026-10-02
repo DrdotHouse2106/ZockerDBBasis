@@ -14,7 +14,6 @@ import { gueltigerBarcode } from '../../../shared/barcode.js';
 import TitelVorschlag from '../komponenten/TitelVorschlag.jsx';
 import PlattformVorschlag from '../komponenten/PlattformVorschlag.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
-import { MARKE } from '../../../shared/marke.js';
 
 export default function Hinzufuegen({ route }) {
   const p = route.parameter;
@@ -34,6 +33,8 @@ export default function Hinzufuegen({ route }) {
   const [barcodeFehler, setBarcodeFehler] = useState(null);
 
   const setzeParameter = (aenderung) => navigiere('/neu', { ...p, ...aenderung });
+  // Unbekannter Barcode: Suchfeld und Treffer direkt in der Barcode-Karte – kein Blick zurück nach oben
+  const inlineSuche = Boolean(p.barcode && barcodeErgebnis && barcodeErgebnis.quelle !== 'lokal');
 
   // Titelsuche (verzögert)
   useEffect(() => {
@@ -92,7 +93,12 @@ export default function Hinzufuegen({ route }) {
     }
     setBarcodeErgebnis(null);
     setBarcodeFehler(null);
-    api.katalogBarcode(p.barcode).then(setBarcodeErgebnis).catch((e) => setBarcodeFehler(e.message));
+    setSuchtext('');
+    api.katalogBarcode(p.barcode).then((r) => {
+      setBarcodeErgebnis(r);
+      // Nichts Passendes zum Produktnamen gefunden: Begriff zum Nachbessern ins Suchfeld (z. B. „Edition“ streichen)
+      if (r.quelle !== 'lokal' && !r.treffer.length && r.suchbegriff && !gueltigerBarcode(r.suchbegriff)) setSuchtext(r.suchbegriff);
+    }).catch((e) => setBarcodeFehler(e.message));
   }, [p.barcode]);
 
   const waehle = (eintrag) => navigiere('/neu/formular', {
@@ -106,6 +112,28 @@ export default function Hinzufuegen({ route }) {
   // Konvolut erfassen: Name anzeigen, damit klar ist, wohin die Artikel kommen
   const [konvolut, setKonvolut] = useState(null);
   useEffect(() => { if (p.konvolut) api.konvolut(p.konvolut).then(setKonvolut).catch(() => setKonvolut(null)); else setKonvolut(null); }, [p.konvolut]);
+
+  const suchergebnisse = (
+    <>
+      {sucht && <p className="text-sm text-leise">Suche läuft …</p>}
+      {ergebnis?.fehler && <p className="rounded-xl bg-gefahr/10 p-3 text-sm text-gefahr" role="alert">{ergebnis.fehler}</p>}
+      {ergebnis && (
+        <>
+          {ergebnis.lokal.length > 0 && <Trefferliste titel="Aus deinem Katalog" eintraege={ergebnis.lokal} onWaehle={waehle} />}
+          {ergebnis.online.length > 0 && <Trefferliste titel="Online gefunden (IGDB)" eintraege={ergebnis.online} onWaehle={waehle} />}
+          {!sucht && !ergebnis.lokal.length && !ergebnis.online.length && !ergebnis.fehler && (
+            <p className="text-sm text-leise">Keine Treffer für „{suchtext.trim()}“.</p>
+          )}
+          {!sucht && ergebnis.mehrOnline && (
+            <button type="button" className="knopf-sekundaer self-start" onClick={weitereLaden} disabled={laedtMehr}>
+              <Symbol name="suche" className="size-4" />
+              {laedtMehr ? 'Lädt …' : 'Weitere Ergebnisse bei IGDB laden'}
+            </button>
+          )}
+        </>
+      )}
+    </>
+  );
 
   return (
     <Layout route={route} titel={p.scan === '1' ? 'Barcode scannen' : 'Artikel hinzufügen'}>
@@ -132,7 +160,7 @@ export default function Hinzufuegen({ route }) {
           ))}
         </div>
 
-        <div className="flex gap-2">
+        {!inlineSuche && <div className="flex gap-2">
           <label className="relative flex-1" data-tour="neu-suche">
             <span className="sr-only">Titel suchen</span>
             <Symbol name="suche" className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-leise" />
@@ -150,7 +178,7 @@ export default function Hinzufuegen({ route }) {
             <Symbol name="scan" />
             <span className="hidden sm:inline">Scannen</span>
           </button>
-        </div>
+        </div>}
 
         {!status?.igdbKonfiguriert && typ !== 'zubehoer' && (
           <p className="flex gap-2 rounded-xl border border-rand p-3 text-sm text-leise">
@@ -167,9 +195,16 @@ export default function Hinzufuegen({ route }) {
                 <p className="text-xs font-semibold tracking-wide text-leise uppercase">Gescannter Barcode</p>
                 <p className="font-mono text-lg">{p.barcode}</p>
               </div>
-              <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setzeParameter({ barcode: undefined })}>
-                Verwerfen
-              </button>
+              <div className="flex gap-2">
+                {inlineSuche && (
+                  <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setzeParameter({ scan: '1' })} aria-label="Neu scannen">
+                    <Symbol name="scan" className="size-4" />
+                  </button>
+                )}
+                <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setzeParameter({ barcode: undefined })}>
+                  Verwerfen
+                </button>
+              </div>
             </div>
             {!barcodeErgebnis && !barcodeFehler && <p className="text-sm text-leise">Barcode wird gesucht …</p>}
             {barcodeFehler && <p className="text-sm text-gefahr" role="alert">{barcodeFehler}</p>}
@@ -197,52 +232,51 @@ export default function Hinzufuegen({ route }) {
                     Produkt: <strong>{barcodeErgebnis.produktname}</strong>
                     {barcodeErgebnis.quelle && barcodeErgebnis.quelle !== 'lokal' && <span className="text-leise"> (Quelle: {barcodeErgebnis.quelle})</span>}
                   </p>
-                ) : barcodeErgebnis.quelle !== 'lokal' && (
-                  <p className="text-sm text-leise">
-                    Zu diesem Barcode wurde online nichts gefunden. Suche oben nach dem Titel oder lege einen eigenen Eintrag an –
-                    der Barcode wird dabei gespeichert und beim nächsten Scan sofort erkannt.
-                  </p>
-                )}
+                ) : null}
                 {barcodeErgebnis.plattform && <p className="text-sm">Plattform: <strong>{barcodeErgebnis.plattform}</strong> <span className="text-leise">(aus dem Barcode)</span></p>}
                 {barcodeErgebnis.fehler && <p className="text-sm text-gefahr">{barcodeErgebnis.fehler}</p>}
-                {barcodeErgebnis.treffer.length > 0 && (
+                {!inlineSuche && barcodeErgebnis.treffer.length > 0 && (
                   <Trefferliste titel="Passende Einträge" eintraege={barcodeErgebnis.treffer} onWaehle={waehle} />
                 )}
                 {/* Unbekannter Barcode: die Zuordnung entsteht erst durch die Auswahl – dafür braucht es die Community */}
-                {barcodeErgebnis.quelle !== 'lokal' && (
-                  <p className="flex gap-2 rounded-xl bg-akzent/10 p-3 text-xs text-leise">
-                    <span aria-hidden="true">🤝</span>
-                    <span>
-                      <strong className="text-text">Diesen Barcode kennen wir noch nicht.</strong> Spieldatenbanken wie IGDB führen keine Barcodes –
-                      {' '}{MARKE.name} lernt sie von euch: Wähle den passenden Eintrag (und die Plattform), dann erkennen alle Sammler das Spiel
-                      beim nächsten Scan sofort. Danke, dass du hilfst, die Datenbank aufzubauen!
-                    </span>
-                  </p>
+                {inlineSuche && (
+                  <>
+                    <p className="text-sm">
+                      <strong>Diesen Barcode kennen wir noch nicht.</strong>{' '}
+                      <span className="text-leise">Such das Spiel und wähle es aus – dann erkennen alle Sammler es beim nächsten Scan. Danke fürs Mithelfen! 🤝</span>
+                    </p>
+                    <label className="relative block">
+                      <span className="sr-only">Spiel suchen und zuordnen</span>
+                      <Symbol name="suche" className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-akzent-hell" />
+                      <input
+                        type="search"
+                        value={suchtext}
+                        onChange={(e) => setSuchtext(e.target.value)}
+                        placeholder="Spiel suchen und zuordnen …"
+                        className="eingabe border-akzent pl-10 ring-1 ring-akzent/40"
+                        autoFocus={!barcodeErgebnis.treffer.length && !tourAktiv}
+                      />
+                    </label>
+                    {suchtext.trim().length < 2 && barcodeErgebnis.treffer.length > 0 && (
+                      <Trefferliste titel="Passt eins davon?" eintraege={barcodeErgebnis.treffer} onWaehle={waehle} />
+                    )}
+                    {suchtext.trim().length >= 2 && suchergebnisse}
+                    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-leise">
+                      <span>Nicht dabei?</span>
+                      <button type="button" className="text-akzent-hell underline" onClick={eigenerEintrag}>Eigenen Eintrag anlegen</button>
+                      {vorschlagZiel && !vorschlagOffen && <button type="button" className="text-akzent-hell underline" onClick={() => setVorschlagOffen(true)}>Titel vorschlagen</button>}
+                      {vorschlagZiel && !plattformOffen && <button type="button" className="text-akzent-hell underline" onClick={() => setPlattformOffen(true)}>Plattform fehlt?</button>}
+                    </p>
+                  </>
                 )}
               </>
             )}
           </section>
         )}
 
-        {sucht && <p className="text-sm text-leise">Suche läuft …</p>}
-        {ergebnis?.fehler && <p className="rounded-xl bg-gefahr/10 p-3 text-sm text-gefahr" role="alert">{ergebnis.fehler}</p>}
-        {ergebnis && (
-          <>
-            {ergebnis.lokal.length > 0 && <Trefferliste titel="Aus deinem Katalog" eintraege={ergebnis.lokal} onWaehle={waehle} />}
-            {ergebnis.online.length > 0 && <Trefferliste titel="Online gefunden (IGDB)" eintraege={ergebnis.online} onWaehle={waehle} />}
-            {!sucht && !ergebnis.lokal.length && !ergebnis.online.length && !ergebnis.fehler && (
-              <p className="text-sm text-leise">Keine Treffer für „{suchtext.trim()}“.</p>
-            )}
-            {!sucht && ergebnis.mehrOnline && (
-              <button type="button" className="knopf-sekundaer self-start" onClick={weitereLaden} disabled={laedtMehr}>
-                <Symbol name="suche" className="size-4" />
-                {laedtMehr ? 'Lädt …' : 'Weitere Ergebnisse bei IGDB laden'}
-              </button>
-            )}
-          </>
-        )}
+        {!inlineSuche && suchergebnisse}
 
-        <section className="karte flex flex-col items-start gap-3 p-4 sm:flex-row sm:items-center" data-tour="neu-eigen">
+        {!inlineSuche && <section className="karte flex flex-col items-start gap-3 p-4 sm:flex-row sm:items-center" data-tour="neu-eigen">
           <div className="flex-1">
             <p className="font-semibold">Nicht gefunden?</p>
             <p className="text-sm text-leise">
@@ -269,7 +303,7 @@ export default function Hinzufuegen({ route }) {
               </button>
             )}
           </div>
-        </section>
+        </section>}
         {plattformOffen && (
           <section className="karte p-4">
             <PlattformVorschlag zielName={vorschlagZiel} onAbbrechen={() => setPlattformOffen(false)}
