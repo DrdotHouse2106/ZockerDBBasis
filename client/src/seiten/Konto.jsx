@@ -453,7 +453,7 @@ function Benachrichtigungen({ emailAn, email }) {
   return (
     <section className="karte space-y-3 p-4" aria-labelledby="benachrichtigungen-titel">
       <h2 id="benachrichtigungen-titel" className="flex items-center gap-2 font-semibold"><Symbol name="glocke" className="size-5" />Benachrichtigungen</h2>
-      <p className="text-sm text-leise">Lege fest, worüber du informiert wirst und auf welchem Weg. Änderungen werden sofort gespeichert.</p>
+      <p className="text-sm text-leise">Lege fest, worüber du informiert wirst und auf welchem Weg. Jede Änderung gilt sofort.</p>
       {!mitEmail && (
         <p className="text-xs text-leise">
           {kanaele.email
