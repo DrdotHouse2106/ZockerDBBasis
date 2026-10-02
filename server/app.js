@@ -170,6 +170,12 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
 
   // Ohne Anmeldung erreichbar, damit Docker-Healthchecks funktionieren.
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  // Kurzlink für Flyer und QR-Codes: offen → Registrierung, geschlossen → „Zugang anfragen“ (sonst Anmeldung)
+  app.get('/mitmachen', (_req, res) => {
+    const k = konfiguration.konten;
+    res.set('Cache-Control', 'no-store')
+      .redirect(302, appLink(k.registrierungOffen ? '/?registrieren=1' : k.zugangsanfragen ? '/?zugang=1' : '/'));
+  });
 
   // Zusatzmodule: frühe Middleware und eigene Seiten (z. B. öffentliche Seiten, Webhooks) – vor der JSON-Verarbeitung
   for (const modul of MODULE) modul.vorApi?.(app, kontext);

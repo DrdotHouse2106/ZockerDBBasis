@@ -88,3 +88,17 @@ test('Zugangsanfrage: aus bei offener Registrierung oder abgeschaltet', async ()
     }
   }
 });
+
+test('Kurzlink /mitmachen: Registrierung, wenn offen – sonst Zugang anfragen', async () => {
+  const server = await starteTestServer({ env: { REGISTRATION_OPEN: 'true' } });
+  try {
+    const ziel = async () => (await server.client().api('/mitmachen', { redirect: 'manual' })).headers.get('location');
+    assert.equal(await ziel(), '/?app=1#/?registrieren=1');
+    server.kontext.konfiguration.konten.registrierungOffen = false;
+    assert.equal(await ziel(), '/?app=1#/?zugang=1');
+    server.kontext.konfiguration.konten.zugangsanfragen = false;
+    assert.equal(await ziel(), '/?app=1#/');
+  } finally {
+    await server.stoppe();
+  }
+});

@@ -9,6 +9,10 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 02.10.2026 – Kurzlink /mitmachen für Flyer und QR-Codes
+- Neue Adresse `/mitmachen`: führt zur Registrierung, solange sie offen ist – sonst direkt zum Formular „Zugang anfragen“ (ist auch das abgeschaltet, zur Anmeldung)
+- Ideal für Flyer: der QR-Code bleibt gültig, egal ob die Registrierung gerade offen oder geschlossen ist
+
 ## 02.10.2026 – Unbekannter Barcode: direkt suchen und zuordnen
 - Kennt ZockerDB einen gescannten Barcode noch nicht, steht das Suchfeld jetzt direkt in der Barcode-Karte – die Treffer erscheinen gleich darunter, ohne nach oben zu scrollen
 - Hat der Barcode-Dienst einen Produktnamen geliefert, aber nichts Passendes gefunden, steht der Name schon im Suchfeld zum Nachbessern
