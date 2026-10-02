@@ -35,7 +35,8 @@ import { verleihRouter } from './routes/verleih.js';
 import { erstelleVerleihDienst } from './services/verleih.js';
 import { erstelleWartungDienst } from './services/wartung.js';
 import { erstelleSteamDienst } from './services/steam.js';
-import { erstelleMailDienst } from './services/mail.js';
+import { erstelleMailDienst, betreiberAusImpressum } from './services/mail.js';
+import { appLink } from '../shared/seo.js';
 import { erstelleCaptchaDienst } from './services/captcha.js';
 import { erstelleKontoMailDienst } from './services/kontomail.js';
 import { erstelleBenachrichtigungsDienst } from './services/benachrichtigungen.js';
@@ -85,7 +86,16 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const aktualisierung = erstelleAktualisierung({ konfiguration, sicherung, build, fetchFn, quellen: neuerungsQuellen(MODULE) });
   const neuesCaptcha = () => erstelleCaptchaDienst(konfiguration.captcha, { schluessel, fetchFn });
   const captcha = neuesCaptcha();
-  const neueMail = () => erstelleMailDienst(konfiguration.mail, { transportFn: konfiguration.mailTransportFn });
+  // Fußzeile jeder E-Mail: Betreiber (Einstellung, sonst aus dem Impressum) und Links zu Impressum und Datenschutz
+  const mailFuss = () => {
+    const seite = (slug) => db.prepare("SELECT inhalt FROM seiten WHERE slug = ? AND inhalt != ''").pluck().get(slug);
+    const betreiber = konfiguration.mail.betreiber || betreiberAusImpressum(seite('impressum'));
+    const basis = konfiguration.oeffentlicheUrl;
+    const links = basis ? [['impressum', 'Impressum'], ['datenschutz', 'Datenschutz']]
+      .filter(([slug]) => seite(slug)).map(([slug, text]) => ({ text, url: `${basis}${appLink(`/seite/${slug}`)}` })) : [];
+    return { betreiber, links };
+  };
+  const neueMail = () => erstelleMailDienst(konfiguration.mail, { transportFn: konfiguration.mailTransportFn, fussFn: mailFuss });
   const mail = neueMail();
   const kontoMail = erstelleKontoMailDienst(db, { mail, konfiguration, konten });
   const benachrichtigungen = erstelleBenachrichtigungsDienst(db, { mail, konfiguration });

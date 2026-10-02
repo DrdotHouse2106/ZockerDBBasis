@@ -102,3 +102,34 @@ test('Bei einer Adressänderung wird die alte Adresse informiert', async () => {
   assert.match(hinweis.subject, /E-Mail-Adresse wurde geändert/);
   assert.match(hinweis.text, /m…@example\.org/);
 });
+
+test('Fußzeile jeder E-Mail: Betreiber aus dem Impressum oder der Einstellung, Links zu Impressum und Datenschutz', async () => {
+  const einladung = async () => {
+    const r = await admin.api('/api/admin/einladungen', { methode: 'POST', daten: { email: 'gast@example.org' } });
+    assert.equal(r.status, 201, r.text);
+    return letzteMail('gast@example.org');
+  };
+  // Impressum noch mit Platzhaltern: keine Betreiberzeile (statt „[Vorname Nachname]“)
+  let m = await einladung();
+  assert.doesNotMatch(m.html, /Betreiber:/);
+  assert.match(m.html, /<!doctype html>/);
+  assert.doesNotMatch(m.html, /zdb-betreiber/, 'Platzhalter wird immer ersetzt');
+
+  const impressum = '# Impressum\n\n## Angaben gemäß § 5 DDG\n\nMax Mustermann  \nMusterstraße 1  \n12345 Musterstadt\n\n## Kontakt\n\nE-Mail: kontakt@zockerdb.example\n';
+  assert.equal((await admin.api('/api/admin/seiten/impressum', { methode: 'PUT', daten: { titel: 'Impressum', inhalt: impressum } })).status, 200);
+  m = await einladung();
+  assert.match(m.html, /Betreiber: Max Mustermann · Musterstraße 1 · 12345 Musterstadt · E-Mail: kontakt@zockerdb\.example/);
+  assert.match(m.html, /href="https:\/\/zockerdb\.example\/\?app=1#\/seite\/impressum"/);
+  assert.match(m.text, /\n-- \nBetreiber: Max Mustermann/);
+  assert.match(m.text, /Impressum: https:\/\/zockerdb\.example\/\?app=1#\/seite\/impressum/);
+
+  // Eigene Angabe in den Einstellungen geht vor
+  server.kontext.konfiguration.mail.betreiber = 'ZockerDB-Team · Postfach 1 · 99999 Irgendwo';
+  try {
+    m = await einladung();
+    assert.match(m.html, /Betreiber: ZockerDB-Team · Postfach 1/);
+    assert.doesNotMatch(m.html, /Max Mustermann/);
+  } finally {
+    server.kontext.konfiguration.mail.betreiber = '';
+  }
+});

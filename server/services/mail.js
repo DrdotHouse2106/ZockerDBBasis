@@ -30,6 +30,27 @@ const STIL = `:root{color-scheme:light dark;supported-color-schemes:light dark}
 .zdb-knopf,.zdb-knopf a{color:#ffffff!important}
 [data-ogsc] .zdb-knopf a,[data-ogsb] .zdb-knopf{color:#ffffff!important;background:#7c3aed!important}`;
 
+// Platzhalter für Betreiberangaben und Links (Impressum, Datenschutz) – füllt `sende` mit den aktuellen Angaben
+const FUSS_MARKE = '<!--zdb-betreiber-->';
+
+/**
+ * Betreiberangaben aus dem Impressum lesen: Abschnitt „Angaben gemäß § 5 …“ plus E-Mail aus „Kontakt“.
+ * Stehen noch Platzhalter in [eckigen Klammern] darin, gibt es nichts – lieber keine Angabe als „[Vorname Nachname]“.
+ */
+export function betreiberAusImpressum(markdown) {
+  const text = String(markdown ?? '');
+  const abschnitt = (muster) => {
+    const m = text.match(new RegExp(`^##[^\\n]*${muster}[^\\n]*\\n([\\s\\S]*?)(?=^#{1,2} |$(?![\\s\\S]))`, 'mi'));
+    return (m?.[1] ?? '').split('\n').map((z) => z.replace(/\*\*|__|\\$|\s{2,}$/g, '').trim()).filter(Boolean);
+  };
+  const zeilen = abschnitt('Angaben gemäß');
+  if (!zeilen.length) return '';
+  const email = abschnitt('Kontakt').find((z) => /e-?mail/i.test(z));
+  const alle = email ? [...zeilen, email] : zeilen;
+  if (alle.some((z) => /\[[^\]]*\]/.test(z))) return '';
+  return alle.join(' · ').slice(0, 400);
+}
+
 /** Einfache, gut lesbare HTML-Mail mit optionalem Knopf (Tabellenaufbau, damit auch Outlook die Größen einhält). */
 export function mailHtml({ titel, absaetze = [], knopf, fuss }) {
   return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -49,11 +70,22 @@ ${knopf ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"
 </tr></table>
 <p class="zdb-leise" style="font-size:13px;color:#5f5873;word-break:break-all;margin:0">Falls der Knopf nicht funktioniert: <a class="zdb-link" href="${esc(knopf.url)}" style="color:#6d28d9">${esc(knopf.url)}</a></p>` : ''}
 </td></tr>
-<tr><td class="zdb-leise" style="font-size:12px;color:#5f5873;padding-top:16px">${esc(fuss ?? `Diese E-Mail wurde automatisch von ${MARKE.name} versendet.`)}</td></tr>
+<tr><td class="zdb-leise" style="font-size:12px;line-height:1.5;color:#5f5873;padding-top:16px">${esc(fuss ?? `Diese E-Mail wurde automatisch von ${MARKE.name} versendet.`)}${FUSS_MARKE}</td></tr>
 </table></td></tr></table></body></html>`;
 }
 
-export function erstelleMailDienst(konfiguration, { transportFn } = {}) {
+/** Fußzeile mit Betreiber und Links – als HTML für den Platzhalter und als Text zum Anhängen. */
+function fussteile({ betreiber, links = [] } = {}) {
+  const html = `${betreiber ? `<br>Betreiber: ${esc(betreiber)}` : ''}${links.length ? `<br>${links.map((l) => `<a class="zdb-link" href="${esc(l.url)}" style="color:#6d28d9">${esc(l.text)}</a>`).join(' · ')}` : ''}`;
+  const text = [betreiber ? `Betreiber: ${betreiber}` : '', ...links.map((l) => `${l.text}: ${l.url}`)].filter(Boolean).join('\n');
+  return { html, text };
+}
+
+/**
+ * `fussFn` liefert die aktuellen Angaben für die Fußzeile ({ betreiber, links }) – Betreiber steht so in jeder E-Mail,
+ * auch wenn er später im Impressum oder in den Einstellungen geändert wird.
+ */
+export function erstelleMailDienst(konfiguration, { transportFn, fussFn } = {}) {
   const m = konfiguration ?? {};
   const aktiv = Boolean(transportFn || (m.host && m.absender));
   let transport = null;
@@ -74,6 +106,10 @@ export function erstelleMailDienst(konfiguration, { transportFn } = {}) {
   async function sende({ an, betreff, text, html }) {
     if (!aktiv) throw new Error('Der E-Mail-Versand ist nicht eingerichtet (SMTP_HOST/SMTP_FROM).');
     // Zeilenumbrüche im Betreff entfernen (Titel stammen teils von Benutzern)
+    let fuss = { html: '', text: '' };
+    try { fuss = fussteile(fussFn?.()); } catch { /* Fußzeile darf den Versand nie verhindern */ }
+    if (html) html = html.replace(FUSS_MARKE, fuss.html);
+    if (fuss.text) text = `${text}\n\n-- \n${fuss.text}`;
     const nachricht = { from: m.absender || `${MARKE.name} <noreply@localhost>`, to: an, subject: String(betreff).replace(/[\r\n]+/g, ' ').slice(0, 250), text, html };
     // Logo anhängen, wenn die Mail es verwendet (ohne Datei das Bild weglassen)
     if (html?.includes(`cid:${LOGO_CID}`)) {

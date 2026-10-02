@@ -65,6 +65,8 @@ export const EINSTELLUNGEN = [
   { schluessel: 'SMTP_USER', gruppe: 'E-Mail (SMTP)', titel: 'Benutzername', typ: 'text' },
   { schluessel: 'SMTP_PASSWORD', gruppe: 'E-Mail (SMTP)', titel: 'Passwort', typ: 'geheim', sicher: true },
   { schluessel: 'SMTP_FROM', gruppe: 'E-Mail (SMTP)', titel: 'Absender', typ: 'text', platzhalter: 'ZockerDB <noreply@zockerdb.de>' },
+  { schluessel: 'MAIL_OPERATOR', gruppe: 'E-Mail (SMTP)', titel: 'Betreiber in der Fußzeile', typ: 'text', platzhalter: 'Max Mustermann · Musterstraße 1 · 12345 Musterstadt · E-Mail: kontakt@example.de',
+    hinweis: 'Steht unten in jeder E-Mail, dazu Links zu Impressum und Datenschutz (braucht die öffentliche Adresse). Leer = automatisch aus dem Impressum (Abschnitt „Angaben gemäß § 5 DDG“ und die E-Mail unter „Kontakt“) – solange dort noch Platzhalter in [eckigen Klammern] stehen, bleibt die Zeile weg.' },
   { schluessel: 'SMTP_BCC', gruppe: 'E-Mail (SMTP)', titel: 'Kopie aller E-Mails an (BCC)', typ: 'text', platzhalter: 'pruefung@example.de',
     hinweis: 'Jede versendete E-Mail geht zusätzlich unsichtbar an diese Adresse – zum Prüfen der Texte. Leer = aus. Achtung: Die Kopien enthalten auch Links zum Zurücksetzen von Passwörtern; nach der Prüfphase wieder leeren.' },
   { schluessel: 'TWITCH_CLIENT_ID', gruppe: 'Spieledaten (IGDB) & Barcodes', titel: 'Twitch Client-ID (IGDB)', typ: 'text' },

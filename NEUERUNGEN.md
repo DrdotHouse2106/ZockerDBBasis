@@ -9,6 +9,12 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 02.10.2026 – Betreiber in der Fußzeile jeder E-Mail
+- Unten in jeder E-Mail stehen jetzt der Betreiber (Name, Anschrift, Kontakt-E-Mail) und Links zu Impressum und Datenschutz
+- Die Angaben kommen automatisch aus dem Impressum (Abschnitt „Angaben gemäß § 5 DDG“ und die E-Mail unter „Kontakt“); solange dort noch Platzhalter in [eckigen Klammern] stehen, bleibt die Zeile weg
+- Eigene Fassung möglich unter Einstellungen → E-Mail (SMTP) → „Betreiber in der Fußzeile“
+- Die Links brauchen die öffentliche Adresse (PUBLIC_URL)
+
 ## 01.10.2026 – Zugang anfragen bei geschlossener Registrierung
 - Ist die Registrierung geschlossen, zeigt die Anmeldeseite kurz, was dich erwartet (Barcode-Scanner, Varianten, Fotos & Scans, Erfolge …), und darunter „Zugang anfragen“: E-Mail-Adresse, optional Name und Nachricht – mit Spam-Schutz
 - Administratoren bekommen eine Benachrichtigung und finden die Anfragen unter Administration → Benutzer; „Einladen“ verschickt einen Einladungslink an die Adresse (ohne E-Mail-Versand gibt es den Link zum Weitergeben)
