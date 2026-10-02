@@ -89,7 +89,7 @@ export function ladeKonfiguration(env = process.env) {
       // automatisch einer erzeugt und neben der Datenbank gespeichert.
       appGeheimnis: (env.APP_SECRET || '').trim(),
       registrierungOffen: jaNein(env.REGISTRATION_OPEN, true),
-      // Bei geschlossener Registrierung: Interessierte können über ein Formular einen Zugang anfragen
+      // Bei geschlossener Registrierung: Interessenten können über ein Formular einen Zugang anfragen
       zugangsanfragen: jaNein(env.ACCESS_REQUESTS, true),
       zweiFaktorPflicht: jaNein(env.REQUIRE_2FA, false),
       sitzungTage: zahl(env.SESSION_DAYS, 30),

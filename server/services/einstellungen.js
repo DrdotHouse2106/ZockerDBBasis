@@ -17,7 +17,7 @@ export const EINSTELLUNGEN = [
   { schluessel: 'REGISTRATION_OPEN', gruppe: 'Konten & Sicherheit', titel: 'Registrierung offen', ...JA_NEIN, sicher: true,
     hinweis: 'Dürfen sich neue Benutzer selbst registrieren?' },
   { schluessel: 'ACCESS_REQUESTS', gruppe: 'Konten & Sicherheit', titel: 'Zugang anfragen bei geschlossener Registrierung', ...JA_NEIN,
-    hinweis: 'Interessierte können auf der Anmeldeseite (und der öffentlichen Startseite) Name, E-Mail und eine Nachricht schicken. Du siehst die Anfragen unter Administration → Benutzer und kannst mit einem Klick einladen. Anfragen werden nach 90 Tagen gelöscht.' },
+    hinweis: 'Interessenten können auf der Anmeldeseite (und der öffentlichen Startseite) Name, E-Mail und eine Nachricht schicken. Du siehst die Anfragen unter Administration → Benutzer und kannst mit einem Klick einladen. Anfragen werden nach 90 Tagen gelöscht.' },
   { schluessel: 'REQUIRE_2FA', gruppe: 'Konten & Sicherheit', titel: 'Zwei-Faktor-Anmeldung für alle Pflicht', ...JA_NEIN, sicher: true,
     hinweis: 'Benutzer ohne 2FA müssen sie vor der Nutzung einrichten.' },
   { schluessel: 'CAPTCHA_PROVIDER', gruppe: 'Konten & Sicherheit', titel: 'Spam-Schutz bei Registrierung', typ: 'auswahl', sicher: true,

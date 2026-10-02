@@ -268,7 +268,7 @@ function Sicherungen() {
   );
 }
 
-/** Anfragen von Interessierten, wenn die Registrierung geschlossen ist (Formular auf der Anmeldeseite). */
+/** Anfragen von Interessenten, wenn die Registrierung geschlossen ist (Formular auf der Anmeldeseite). */
 function Zugangsanfragen() {
   const zeigeHinweis = useHinweis();
   const [liste, setListe] = useState([]);
@@ -295,7 +295,7 @@ function Zugangsanfragen() {
     <section className="karte space-y-3 p-4">
       <h2 className="font-semibold">Zugangsanfragen {offen > 0 && <span className="text-sm font-normal text-leise">({anzahl(offen)} offen)</span>}</h2>
       <p className="text-sm text-leise">
-        Interessierte haben bei geschlossener Registrierung um einen Zugang gebeten. „Einladen“ schickt einen Einladungslink an die
+        Interessenten haben bei geschlossener Registrierung um einen Zugang gebeten. „Einladen“ schickt einen Einladungslink an die
         angegebene Adresse (ohne E-Mail-Versand bekommst du den Link zum Weitergeben). Anfragen werden nach 90 Tagen gelöscht.
       </p>
       {link && (
@@ -354,8 +354,8 @@ function Einladungen() {
     <section className="karte space-y-3 p-4">
       <h2 className="font-semibold">Jemanden einladen</h2>
       <p className="text-sm text-leise">
-        Erstellt einen Link, mit dem sich eine Person ein Konto anlegen kann – auch wenn die Registrierung geschlossen ist.
-        Benutzername und Passwort wählt sie selbst. Der Link gilt 7 Tage und nur für ein Konto. Mit E-Mail-Adresse wird die
+        Erstellt einen Link, mit dem sich jemand ein Konto anlegen kann – auch wenn die Registrierung geschlossen ist.
+        Benutzername und Passwort wählt er selbst. Der Link gilt 7 Tage und nur für ein Konto. Mit E-Mail-Adresse wird die
         Einladung direkt verschickt; kopieren lässt sich der Link trotzdem.
       </p>
       <form onSubmit={erstellen} className="flex flex-col gap-2 sm:flex-row">

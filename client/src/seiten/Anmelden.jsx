@@ -244,7 +244,7 @@ const MERKMALE = [
   { bild: '📱', titel: 'Überall dabei', text: 'Als App aufs Handy, auch offline, und deine Sammlung per Link teilen.' },
 ];
 
-/** Bei geschlossener Registrierung: Interessierte bitten um einen Zugang, ein Administrator lädt sie dann ein. */
+/** Bei geschlossener Registrierung: Interessenten bitten um einen Zugang, ein Administrator lädt sie dann ein. */
 function ZugangAnfragen({ auth }) {
   const [offen, setOffen] = useState(() => /[?&]zugang=1/.test(window.location.hash));
   const [werte, setWerte] = useState({ name: '', email: '', nachricht: '', webseite: '' });

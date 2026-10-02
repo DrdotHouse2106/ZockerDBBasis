@@ -1,4 +1,4 @@
-// Zugang anfragen: Bei geschlossener Registrierung bitten Interessierte um eine Einladung.
+// Zugang anfragen: Bei geschlossener Registrierung bitten Interessenten um eine Einladung.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { starteTestServer } from './hilfen.js';
