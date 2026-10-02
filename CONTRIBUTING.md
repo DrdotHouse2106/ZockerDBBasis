@@ -70,6 +70,9 @@ test/              Tests
 ## Richtlinien für Code
 
 - **Sprache:** Alle Texte in der Oberfläche, Fehlermeldungen und Dokumentation sind auf **Deutsch**.
+- **Generisches Maskulinum:** Personenbezeichnungen stehen durchgehend im generischen Maskulinum („der Sammler“, „Benutzer“, „Interessenten“) –
+  kein Gendersternchen, kein Doppelpunkt, keine Doppelnennungen und keine Umschreibungen wie „Nutzende“ oder „die Person“.
+  Für Politik ist hier kein Platz: Um niemanden auszuschließen, verwenden wir ausschließlich das generische Maskulinum.
   Bezeichner im Code sind überwiegend deutsch gehalten – bitte dem bestehenden Stil folgen.
 - **Datenbank:** Schemaänderungen immer als **neue** Migration in `server/db.js` anhängen,
   bestehende Migrationen nie verändern.
@@ -100,7 +103,7 @@ test/              Tests
 **Checkliste vor dem Pull Request**
 
 - [ ] `npm test` und `npm run build` laufen fehlerfrei
-- [ ] Texte auf Deutsch, neue Einstellungen in `.env.example` und README dokumentiert
+- [ ] Texte auf Deutsch und im generischen Maskulinum, neue Einstellungen in `.env.example` und README dokumentiert
 - [ ] Sichtbare Änderungen in `NEUERUNGEN.md` eingetragen (neuer Eintrag oben, Überschrift „## TT.MM.JJJJ – Titel“)
 - [ ] Keine Geheimnisse, Partner-IDs oder personenbezogenen Daten im Code
 - [ ] Alle Commits mit Sign-off (`git commit -s`)

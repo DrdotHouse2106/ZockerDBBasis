@@ -9,6 +9,9 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 02.10.2026 – Gut zu wissen
+- Unter „Mehr“ steht bei „Hilfe & Touren“ jetzt kurz, warum alle Texte im generischen Maskulinum geschrieben sind
+
 ## 02.10.2026 – Fotografen bleiben anonym
 - An geteilten Fotos (Modul, Disc, Verpackung …) steht der Name des Fotografen nur noch, wenn er beim Hochladen „Namen nennen“ gewählt hat – bei Scans wie bisher
 

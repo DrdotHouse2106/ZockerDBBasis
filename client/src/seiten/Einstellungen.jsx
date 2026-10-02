@@ -78,6 +78,14 @@ export default function Einstellungen({ route }) {
 
         <TourListe />
 
+        <section className="karte space-y-1 p-4 text-sm">
+          <h2 className="font-semibold">Gut zu wissen</h2>
+          <p className="text-leise">
+            Hier geht es ums Sammeln und Zocken – für Politik ist hier kein Platz. Um niemanden auszuschließen, verwenden wir
+            ausschließlich das generische Maskulinum: „Sammler“ meint alle Sammler.
+          </p>
+        </section>
+
         {/* Serverstatus nur für die Administration – andere sehen nur Hinweise, die sie selbst betreffen */}
         {benutzer?.rolle !== 'admin' && !window.isSecureContext && (
           <p className="karte p-4 text-sm text-warnung">Der Barcode-Scanner braucht eine sichere Verbindung (HTTPS) – über diese Adresse ist die Kamera nicht verfügbar.</p>
