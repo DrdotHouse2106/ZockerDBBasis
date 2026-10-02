@@ -58,7 +58,8 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
   return (
     <div className="min-h-dvh pb-24 md:pb-10">
       <header className="sticky top-0 z-30 border-b border-rand/60 bg-flaeche/85 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4">
+        {/* Etwas breiter als der Inhalt, damit die beschrifteten Menüpunkte am Desktop neben Logo und Symbolen Platz haben */}
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4">
           {zurueck ? (
             <button
               type="button"
@@ -69,7 +70,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
               <Symbol name="zurueck" className="size-6" />
             </button>
           ) : (
-            <a href="#/" className="flex items-center gap-2 font-bold" aria-label="Zur Sammlung">
+            <a href="#/" className="flex shrink-0 items-center gap-2 font-bold" aria-label="Zur Sammlung">
               <img src="/icons/icon.svg" alt="" className="size-8" />
               <span className="hidden sm:inline">{MARKE.name}</span>
             </a>
@@ -80,7 +81,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
           {aktionen}
           <Andockpunkt name="kopfleiste" />
           <Glocke />
-          <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Hauptnavigation">
+          <nav className="ml-2 hidden shrink-0 items-center gap-1 md:flex xl:ml-4" aria-label="Hauptnavigation">
             {[...NAVIGATION.slice(0, 2), ...desktop, ...NAVIGATION.slice(2)].map((eintrag) => (
               <a
                 key={eintrag.pfad}
@@ -88,12 +89,12 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
                 title={eintrag.label}
                 aria-label={eintrag.label}
                 data-tour={`nav-${eintrag.symbol}`}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ${
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium ${
                   istAktiv(eintrag, route) ? 'bg-karte text-text' : 'text-leise hover:text-text'
                 }`}
               >
                 <Symbol name={eintrag.symbol} className="size-4" />
-                <span className="hidden lg:inline">{eintrag.label}</span>
+                <span className="hidden xl:inline">{eintrag.label}</span>
               </a>
             ))}
           </nav>
