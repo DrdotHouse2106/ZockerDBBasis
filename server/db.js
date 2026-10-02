@@ -657,6 +657,10 @@ const MIGRATIONEN = [
   );
   CREATE INDEX idx_zugangsanfragen_status ON zugangsanfragen (status, erstellt_am);
   `,
+  // 37: Benachrichtigungen je Art abschaltbar (App, E-Mail, Push) – JSON {kategorie: {app, email, push}}, leer = Standard
+  `
+  ALTER TABLE benutzer ADD COLUMN benachrichtigung_auswahl TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

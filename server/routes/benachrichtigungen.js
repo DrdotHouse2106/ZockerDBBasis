@@ -18,6 +18,10 @@ export function benachrichtigungenRouter({ benachrichtigungen }) {
     res.json({ ungelesen: benachrichtigungen.ungelesen(req.benutzer.id) });
   });
 
+  // Welche Benachrichtigungen der Benutzer bekommt – je Art und Kanal (App, E-Mail, Push)
+  router.get('/benachrichtigungen/auswahl', (req, res) => res.json(benachrichtigungen.auswahl(req.benutzer.id)));
+  router.put('/benachrichtigungen/auswahl', (req, res) => res.json(benachrichtigungen.setzeAuswahl(req.benutzer.id, req.body?.kategorien)));
+
   router.delete('/benachrichtigungen/:id', (req, res) => {
     benachrichtigungen.loesche(req.benutzer.id, Number(req.params.id));
     res.status(204).end();

@@ -43,6 +43,7 @@ export default function Konto({ route }) {
           <>
             <Profil konto={konto} onSpeichern={speichereProfil} />
             {!pflicht && <EmailAdresse konto={konto} onGeaendert={laden} onSpeichern={speichereProfil} />}
+            {!pflicht && <Benachrichtigungen emailAn={konto.benachrichtigung_email} email={konto.email} />}
             <ZweiFaktor konto={konto} pflicht={auth?.zweiFaktorPflicht} onGeaendert={() => { laden(); aktualisiere(); }} />
             {!pflicht && (
               <>
@@ -397,7 +398,7 @@ function EmailAdresse({ konto, onGeaendert, onSpeichern }) {
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="mt-1 size-4 accent-akzent" checked={konto.benachrichtigung_email}
                 onChange={(e) => onSpeichern({ benachrichtigung_email: e.target.checked })} />
-              <span>Benachrichtigungen zusätzlich per E-Mail (z. B. wenn deine Einreichungen geprüft wurden)</span>
+              <span>Benachrichtigungen auch per E-Mail erhalten – welche genau, legst du unter „Benachrichtigungen“ fest</span>
             </label>
           )}
           {offen ? (
@@ -418,6 +419,71 @@ function EmailAdresse({ konto, onGeaendert, onSpeichern }) {
           )}
         </>
       )}
+    </section>
+  );
+}
+
+function Benachrichtigungen({ emailAn, email }) {
+  const zeigeHinweis = useHinweis();
+  const [daten, setDaten] = useState(null);
+  useEffect(() => {
+    api.benachrichtigungsAuswahl().then(setDaten).catch((e) => zeigeHinweis(e.message, 'fehler'));
+  }, [emailAn, email]);
+  if (!daten) return null;
+
+  const { kanaele } = daten;
+  const mitEmail = kanaele.email && kanaele.email_an;
+  const spalten = [
+    { id: 'app', label: 'In der App' },
+    ...(mitEmail ? [{ id: 'email', label: 'E-Mail' }] : []),
+    ...(kanaele.push ? [{ id: 'push', label: 'Push' }] : []),
+  ];
+
+  async function umschalten(kategorie, kanal, wert) {
+    const vorher = daten;
+    setDaten({ ...daten, kategorien: daten.kategorien.map((k) => (k.id === kategorie ? { ...k, [kanal]: wert } : k)) });
+    try {
+      setDaten(await api.benachrichtigungsAuswahlSetzen({ [kategorie]: { [kanal]: wert } }));
+    } catch (e) {
+      setDaten(vorher);
+      zeigeHinweis(e.message, 'fehler');
+    }
+  }
+
+  return (
+    <section className="karte space-y-3 p-4" aria-labelledby="benachrichtigungen-titel">
+      <h2 id="benachrichtigungen-titel" className="flex items-center gap-2 font-semibold"><Symbol name="glocke" className="size-5" />Benachrichtigungen</h2>
+      <p className="text-sm text-leise">Lege fest, worüber du informiert wirst und auf welchem Weg. Änderungen werden sofort gespeichert.</p>
+      {!mitEmail && (
+        <p className="text-xs text-leise">
+          {kanaele.email
+            ? 'E-Mail-Benachrichtigungen sind ausgeschaltet. Du kannst sie oben unter „E-Mail-Adresse“ einschalten.'
+            : 'Für E-Mail-Benachrichtigungen brauchst du eine bestätigte E-Mail-Adresse (sofern der Server E-Mails versendet).'}
+        </p>
+      )}
+      <ul className="divide-y divide-rand">
+        {daten.kategorien.map((k) => (
+          <li key={k.id} className="space-y-2 py-3 first:pt-0 last:pb-0">
+            <div>
+              <p className="text-sm font-medium">{k.label}</p>
+              <p className="text-xs text-leise">{k.beschreibung}</p>
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {spalten.map((s) => {
+                const gesperrt = s.id === 'app' && k.app_pflicht;
+                return (
+                  <label key={s.id} className={`flex items-center gap-2 text-sm ${gesperrt ? 'text-leise' : ''}`}>
+                    <input type="checkbox" className="size-4 accent-akzent" checked={gesperrt ? true : Boolean(k[s.id])} disabled={gesperrt}
+                      aria-label={`${k.label}: ${s.label}`}
+                      onChange={(e) => umschalten(k.id, s.id, e.target.checked)} />
+                    {s.label}
+                  </label>
+                );
+              })}
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

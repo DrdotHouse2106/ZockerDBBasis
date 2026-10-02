@@ -9,6 +9,11 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 02.10.2026 – Benachrichtigungen selbst auswählen
+- Unter „Konto“ → „Benachrichtigungen“ legst du je Bereich fest, ob du in der App, per E-Mail oder per Push informiert wirst – z. B. Verleih-Erinnerungen nur in der App, geprüfte Beiträge auch per E-Mail
+- Wichtige Hinweise zu Konto und Sicherheit bleiben in der App immer an
+- Der E-Mail-Schalter bei der E-Mail-Adresse bleibt der Hauptschalter; voreingestellt ist wie bisher alles an
+
 ## 02.10.2026 – Gut zu wissen
 - Unter „Mehr“ steht bei „Hilfe & Touren“ jetzt kurz, warum alle Texte im generischen Maskulinum geschrieben sind
 

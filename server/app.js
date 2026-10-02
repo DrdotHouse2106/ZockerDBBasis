@@ -98,7 +98,7 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const neueMail = () => erstelleMailDienst(konfiguration.mail, { transportFn: konfiguration.mailTransportFn, fussFn: mailFuss });
   const mail = neueMail();
   const kontoMail = erstelleKontoMailDienst(db, { mail, konfiguration, konten });
-  const benachrichtigungen = erstelleBenachrichtigungsDienst(db, { mail, konfiguration });
+  const benachrichtigungen = erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erweiterungen });
   const konvolute = erstelleKonvolutDienst(db, { erweiterungen });
   const vorschlaege = erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattformen, benachrichtigungen });
   // Fotos zu Vorschlägen: nur für Einsender und Moderationsteam
