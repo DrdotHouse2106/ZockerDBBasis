@@ -131,6 +131,7 @@ export default function AdminUpdate() {
           <div className="mt-2"><Neuerungen eintraege={d.neuerungen} /></div>
         </details>
       )}
+      <MessanzeigeSchalter />
       {d.eingerichtet ? (
         <>
           <button type="button" className="knopf-primaer px-3 py-1.5" disabled={beschaeftigt} onClick={starten}>
@@ -153,5 +154,26 @@ export default function AdminUpdate() {
         </div>
       )}
     </section>
+  );
+}
+
+/** Fehlersuche auf dem Handy: Maße der Ansicht einblenden (z. B. wenn die Fußleiste verrutscht) – nur auf diesem Gerät. */
+function MessanzeigeSchalter() {
+  let an = false;
+  try { an = localStorage.getItem('ansicht-messen') === '1'; } catch { /* gesperrt */ }
+  const umschalten = () => {
+    try {
+      if (an) localStorage.removeItem('ansicht-messen');
+      else localStorage.setItem('ansicht-messen', '1');
+    } catch { return; }
+    window.location.reload();
+  };
+  return (
+    <p className="text-xs text-leise">
+      <button type="button" className="underline" onClick={umschalten}>
+        {an ? 'Messanzeige ausblenden' : 'Messanzeige für die Bildschirmmaße einblenden'}
+      </button>{' '}
+      (Fehlersuche, nur auf diesem Gerät)
+    </p>
   );
 }

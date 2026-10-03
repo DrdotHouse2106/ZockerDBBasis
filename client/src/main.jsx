@@ -28,8 +28,8 @@ window.addEventListener('popstate', spaeterZuruecksetzen);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') spaeterZuruecksetzen();
 });
-// Messanzeige zur Fehlersuche (Fußleiste auf dem iPhone): einschalten mit „?ansicht=messen“ in der Adresse,
-// ausschalten mit „?ansicht=aus“. Zeigt die Maße, die der Browser meldet – sonst bleibt alles unverändert.
+// Messanzeige zur Fehlersuche (Fußleiste auf dem iPhone): einschalten unter Administration → Update oder mit
+// „?ansicht=messen“ in der Adresse, ausschalten dort bzw. mit „?ansicht=aus“. Zeigt die Maße, die der Browser meldet – sonst bleibt alles unverändert.
 try {
   const wahl = new URLSearchParams(window.location.search).get('ansicht');
   if (wahl === 'messen') localStorage.setItem('ansicht-messen', '1');
