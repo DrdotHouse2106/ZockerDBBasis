@@ -1,12 +1,21 @@
 // Sprachen eines Spiels: Sprachausgabe, Untertitel und Menü/Texte je Sprache (laut IGDB, je Spiel – nicht je Fassung).
 // Gespeichert als JSON am Katalogeintrag, z. B. {"de":["audio","untertitel","menue"],"en":["audio"]}.
+// Von Sammlern belegt (je Fassung) zusätzlich „…_download“: nur per Sprachpaket aus dem Store nachladbar, nicht auf der Disc.
 
 export const SPRACH_ARTEN = [
   ['audio', 'Sprachausgabe'],
   ['untertitel', 'Untertitel'],
   ['menue', 'Menü/Texte'],
 ];
-const ARTEN = SPRACH_ARTEN.map(([a]) => a);
+const GRUNDARTEN = SPRACH_ARTEN.map(([a]) => a);
+const ARTEN = [...GRUNDARTEN, ...GRUNDARTEN.map((a) => `${a}_download`)];
+/** „audio_download“ → „Sprachausgabe (⬇ Download)“ */
+export const artName = (art) => {
+  const grund = String(art).replace(/_download$/, '');
+  const name = Object.fromEntries(SPRACH_ARTEN)[grund] ?? grund;
+  return art.endsWith('_download') ? `${name} (⬇ Download)` : name;
+};
+export const istDownload = (art) => String(art).endsWith('_download');
 
 export const SPRACHNAMEN = {
   de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es: 'Spanisch', it: 'Italienisch', nl: 'Niederländisch', pt: 'Portugiesisch',
@@ -60,7 +69,10 @@ export function normSprachen(wert) {
   const ergebnis = {};
   for (const code of Object.keys(obj).sort()) {
     if (!/^[a-z]{2}$/.test(code)) continue;
-    const arten = [...new Set(obj[code] ?? [])].filter((a) => ARTEN.includes(a)).sort((a, b) => ARTEN.indexOf(a) - ARTEN.indexOf(b));
+    const roh = new Set(obj[code] ?? []);
+    // Auf der Disc schlägt „per Download“
+    const arten = [...roh].filter((a) => ARTEN.includes(a) && !(istDownload(a) && roh.has(a.replace(/_download$/, ''))))
+      .sort((a, b) => ARTEN.indexOf(a) - ARTEN.indexOf(b));
     if (arten.length) ergebnis[code] = arten;
   }
   return Object.keys(ergebnis).length ? ergebnis : null;
@@ -93,7 +105,9 @@ export function spracheTrifft(sprachen, filter) {
   const m = /^([a-z]{2})(?:_(audio|text))?$/.exec(String(filter ?? ''));
   if (!m) return true;
   const arten = normSprachen(sprachen)?.[m[1]] ?? [];
-  return m[2] === 'audio' ? arten.includes('audio') : m[2] === 'text' ? arten.some((a) => a !== 'audio') : arten.length > 0;
+  // Wie im SQL-Filter zählt nur, was auf der Disc ist (nicht per Download)
+  return m[2] === 'audio' ? arten.includes('audio') : m[2] === 'text' ? arten.some((a) => a === 'untertitel' || a === 'menue')
+    : arten.some((a) => !istDownload(a));
 }
 
 /** Kurzangabe fürs Exemplar: „Deutsch: Sprachausgabe, Untertitel“ – null, wenn keine Sprachen bekannt sind. */
@@ -101,6 +115,5 @@ export function deutschKurz(sprachen) {
   const s = normSprachen(sprachen);
   if (!s) return null;
   if (!s.de) return 'Kein Deutsch (laut IGDB)';
-  const namen = Object.fromEntries(SPRACH_ARTEN);
-  return `Deutsch: ${s.de.map((a) => namen[a]).join(', ')}`;
+  return `Deutsch: ${s.de.map(artName).join(', ')}`;
 }
