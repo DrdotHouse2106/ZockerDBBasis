@@ -13,6 +13,7 @@
 //  - Rückgabe: Sammlerzahlen aller ZockerDB-Nutzer und Link zur öffentlichen Seite je Eintrag.
 //
 // Die Installation meldet sich beim ersten Kontakt selbst an und erhält einen Zugangsschlüssel (ohne persönliche Daten).
+import { normSprachen } from '../../shared/sprachen.js';
 import { MARKE } from '../../shared/marke.js';
 import { ARTIKELTYPEN } from '../../shared/konstanten.js';
 
@@ -42,6 +43,7 @@ export function zentralZuEintrag(e) {
     cover_url: /^https:\/\//.test(e.cover_url ?? '') ? String(e.cover_url).slice(0, 1000) : null,
     beschreibung: text(e.beschreibung, 5000),
     spieltyp: /^[a-z0-9_]{2,40}$/.test(e.spieltyp ?? '') ? e.spieltyp : null,
+    sprachen: normSprachen(e.sprachen),
     status: 'freigegeben',
   };
 }

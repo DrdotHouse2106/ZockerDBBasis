@@ -10,11 +10,12 @@ import crypto from 'node:crypto';
 import { istModerator } from '../../shared/konstanten.js';
 import { bereinigeProduktname, barcodeVarianten, suchbegriffe, plattformImNamen, rangiereTreffer, vergleichsTitel } from './titel.js';
 import { nurZiffern } from '../../shared/barcode.js';
+import { normSprachen } from '../../shared/sprachen.js';
 
 export function katalogZeileZuObjekt(zeile) {
   if (!zeile) return null;
   const { daten: _daten, ...rest } = zeile;
-  return { ...rest, plattformen: JSON.parse(zeile.plattformen || '[]') };
+  return { ...rest, plattformen: JSON.parse(zeile.plattformen || '[]'), ...('sprachen' in zeile ? { sprachen: normSprachen(zeile.sprachen) } : {}) };
 }
 
 /**
@@ -64,6 +65,9 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
     WHERE katalog.manuell_bearbeitet = 0
     RETURNING *`);
   const perQuelle = db.prepare('SELECT * FROM katalog WHERE quelle = ? AND externe_id = ?');
+  // Sprachen kommen immer aus der Quelle – auch bei von Hand bearbeiteten Einträgen (dort gibt es kein Eingabefeld dafür)
+  const sprachenSetzen = db.prepare(`UPDATE katalog SET sprachen = @sprachen
+    WHERE quelle = @quelle AND externe_id = @externe_id AND sprachen IS NOT @sprachen`);
   const perId = db.prepare('SELECT * FROM katalog WHERE id = ?');
   const barcodeLesen = db.prepare('SELECT * FROM barcodes WHERE code = ?');
   const barcodeSchreiben = db.prepare(`
@@ -89,6 +93,11 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
       erstellt_von: null, titel_original: null, igdb_url: null, erscheinungsjahr: null, hersteller: null, cover_url: null, beschreibung: null, spieltyp: null,
       ...eintrag, status, plattformen: JSON.stringify(eintrag.plattformen ?? []),
     });
+    const sprachen = normSprachen(eintrag.sprachen);
+    if (sprachen) {
+      sprachenSetzen.run({ sprachen: JSON.stringify(sprachen), quelle: eintrag.quelle, externe_id: eintrag.externe_id });
+      if (zeile) zeile.sprachen = JSON.stringify(sprachen);
+    }
     // Manuell bearbeitete Einträge werden von Importen (IGDB) nicht überschrieben
     if (!zeile) return katalogZeileZuObjekt(perQuelle.get(eintrag.quelle, eintrag.externe_id));
     plattformen?.verknuepfeKatalog(zeile.id, eintrag.plattformen);

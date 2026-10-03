@@ -4,6 +4,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { pruefeArtikel, ValidierungsFehler } from '../services/validierung.js';
 import { speichereEinheitlich } from '../services/medien.js';
+import { sprachBedingung, normSprachen } from '../../shared/sprachen.js';
 
 const SORTIERUNGEN = {
   neueste: 'a.erstellt_am DESC, a.id DESC',
@@ -31,6 +32,7 @@ export function artikelZuObjekt(zeile) {
   return {
     ...zeile,
     beilagen,
+    ...('katalog_sprachen' in zeile ? { katalog_sprachen: normSprachen(zeile.katalog_sprachen) } : {}),
     bild_url: zeile.bild_datei ? `/api/dateien/${zeile.bild_datei}` : zeile.cover_url || zeile.katalog_cover_url || null,
   };
 }
@@ -49,7 +51,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
   const einzeldatei = (feld) => (req, res, next) => upload().single(feld)(req, res, next);
 
   const basisAbfrage = `
-    SELECT a.*, k.cover_url AS katalog_cover_url, k.erscheinungsjahr, k.quelle AS katalog_quelle, k.status AS katalog_status,
+    SELECT a.*, k.cover_url AS katalog_cover_url, k.erscheinungsjahr, k.sprachen AS katalog_sprachen, k.quelle AS katalog_quelle, k.status AS katalog_status,
            p.kurz AS plattform_kurz, p.hersteller AS plattform_hersteller, v.bezeichnung AS variante_bezeichnung, kv.name AS konvolut_name,
            vl.id AS verleih_id, vl.an_name AS verliehen_an, vl.seit AS verliehen_seit, vl.rueckgabe_geplant, vl.bestaetigung AS verleih_bestaetigung
     FROM artikel a LEFT JOIN katalog k ON k.id = a.katalog_id LEFT JOIN plattformen p ON p.id = a.plattform_id
@@ -137,6 +139,9 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
       }
     }
     if (req.query.ohne_lagerort === '1') bedingungen.push('a.lagerort_ort IS NULL');
+    // Sprache laut IGDB am verknüpften Katalogeintrag (z. B. „de_audio“)
+    const sprache = sprachBedingung(req.query.sprache, 'k.sprachen');
+    if (sprache) bedingungen.push(sprache);
     if (typeof q === 'string' && q.trim()) {
       parameter.q = `%${q.trim().replace(/[\\%_]/g, (z) => `\\${z}`)}%`;
       bedingungen.push(`(${['titel', 'plattform', 'edition', 'farbe', 'modellnummer', 'seriennummer', 'seriennummer_ovp', 'notizen', 'barcode', 'lagerort_ort', 'lagerort_regal', 'lagerort_fach']

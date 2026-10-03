@@ -694,6 +694,10 @@ const MIGRATIONEN = [
   ALTER TABLE artikel ADD COLUMN kauf_quelle TEXT;
   ALTER TABLE artikel ADD COLUMN beilagen_notiz TEXT;
   `,
+  // 44: Sprachen eines Spiels laut IGDB (Sprachausgabe, Untertitel, Menü je Sprache) als JSON, z. B. {"de":["audio","menue"]}
+  `
+  ALTER TABLE katalog ADD COLUMN sprachen TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

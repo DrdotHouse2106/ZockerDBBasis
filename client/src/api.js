@@ -1,5 +1,6 @@
 // Dünne Hülle um fetch mit deutschen Fehlermeldungen.
 import { offlineFaehig, merke } from './offline.js';
+import { spracheTrifft } from '../../shared/sprachen.js';
 
 export class ApiFehler extends Error {
   constructor(meldung, status, felder, code) {
@@ -279,7 +280,7 @@ async function sammlungOffline(filter, fehler) {
       if (url.pathname !== '/api/artikel') continue;
       const p = Object.fromEntries(url.searchParams);
       // Am besten eine ungefilterte Liste (Sortierung egal) desselben Bestands
-      const passend = !p.q && !p.typ && !p.plattform_id && !p.spielstatus && !p.verliehen && (p.bestand ?? 'besitz') === (filter.bestand ?? 'besitz');
+      const passend = !p.q && !p.typ && !p.plattform_id && !p.spielstatus && !p.sprache && !p.verliehen && (p.bestand ?? 'besitz') === (filter.bestand ?? 'besitz');
       if (passend) { beste = await cache.match(anfrageAlt); break; }
     }
     if (beste) break;
@@ -290,6 +291,7 @@ async function sammlungOffline(filter, fehler) {
   const ergebnis = liste.filter((a) => (!filter.typ || a.typ === filter.typ)
     && (!filter.plattform_id || String(a.plattform_id) === String(filter.plattform_id))
     && (!filter.spielstatus || a.spielstatus === filter.spielstatus)
+    && (!filter.sprache || spracheTrifft(a.katalog_sprachen, filter.sprache))
     && (!filter.verliehen || a.verleih_id)
     && (!q || [a.titel, a.plattform, a.edition, a.farbe, a.barcode].some((w) => String(w ?? '').toLowerCase().includes(q))));
   ergebnis.offline = true;

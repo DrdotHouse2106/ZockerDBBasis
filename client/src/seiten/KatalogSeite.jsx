@@ -18,6 +18,7 @@ import VariantenListe from '../komponenten/VariantenListe.jsx';
 import Kommentare from '../komponenten/Kommentare.jsx';
 import Erfahrungsberichte from '../komponenten/Erfahrungsberichte.jsx';
 import Scans from '../komponenten/Scans.jsx';
+import Sprachen from '../komponenten/Sprachen.jsx';
 import Fotos from '../komponenten/Fotos.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { Andockpunkt } from '../erweiterungen.jsx';
@@ -103,6 +104,8 @@ export default function KatalogSeite({ route, id }) {
             </div>
             {e.quelle === 'zockerdb' && <KatalogZockerdb eintrag={e} laden={laden} />}
           </div>
+
+          <Sprachen sprachen={e.sprachen} />
 
           {e.sammlerhinweise ? (
             <section className="karte space-y-2 p-4">

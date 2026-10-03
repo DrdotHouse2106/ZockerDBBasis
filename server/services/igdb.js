@@ -1,6 +1,8 @@
 // Anbindung an die IGDB-API (https://api-docs.igdb.com) über einen Twitch-Account.
 // Zugangsdaten: TWITCH_CLIENT_ID und TWITCH_CLIENT_SECRET in der .env-Datei.
 
+import { igdbSprachen } from '../../shared/sprachen.js';
+
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 const API_URL = 'https://api.igdb.com/v4';
 const BILD_URL = 'https://images.igdb.com/igdb/image/upload';
@@ -26,7 +28,8 @@ function jahr(unixSekunden) {
 /** Felder eines Spiels, die für einen Katalogeintrag gebraucht werden (auch mit Präfix, z. B. „similar_games.“). */
 export const SPIEL_FELDER = 'name, first_release_date, summary, cover.image_id, platforms.name, '
   + 'involved_companies.company.name, involved_companies.publisher, involved_companies.developer, '
-  + 'alternative_names.name, alternative_names.comment, url, game_type.type';
+  + 'alternative_names.name, alternative_names.comment, url, game_type.type, '
+  + 'language_supports.language.locale, language_supports.language_support_type.name';
 
 /** IGDB-Spieltyp als Schlüssel: „Main Game“ → main_game, „DLC“ → dlc, „Bundle“ → bundle. */
 export const spieltypSchluessel = (text) => (text ? String(text).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || null : null);
@@ -59,6 +62,7 @@ export function spielZuEintrag(spiel) {
     cover_url: igdbBildUrl(spiel.cover?.image_id),
     beschreibung: spiel.summary ?? null,
     spieltyp: spieltypSchluessel(spiel.game_type?.type),
+    sprachen: igdbSprachen(spiel.language_supports),
   };
 }
 

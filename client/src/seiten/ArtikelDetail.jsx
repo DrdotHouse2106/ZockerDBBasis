@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung, beilageText, beilageVorhanden, zustandBeschriftung, KAUFQUELLEN,
 } from '../../../shared/konstanten.js';
+import { deutschKurz } from '../../../shared/sprachen.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
 import { euro, datumDe, euroMitVorzeichen } from '../format.js';
@@ -234,6 +235,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     ['Artikeltyp', beschriftung(ARTIKELTYPEN, artikel.typ)],
     ['Plattform', artikel.plattform],
     ['Region', beschriftung(REGIONEN, artikel.region)],
+    ['Sprache', artikel.typ === 'spiel' ? deutschKurz(artikel.katalog_sprachen) : null],
     [artikel.zustand_ovp ? zustandBeschriftung(artikel.typ).traeger : 'Zustand', beschriftung(ZUSTAENDE, artikel.zustand)],
     [zustandBeschriftung(artikel.typ).ovp, artikel.zustand_ovp ? beschriftung(ZUSTAENDE, artikel.zustand_ovp) : null],
     ['Vollständigkeit', beschriftung(VOLLSTAENDIGKEITEN, artikel.vollstaendigkeit)],

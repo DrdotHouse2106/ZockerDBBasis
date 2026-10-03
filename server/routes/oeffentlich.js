@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import { meineSysteme } from '../services/plattformen.js';
 import { HERSTELLER_REIHENFOLGE, KATALOG_REGIONEN } from '../../shared/konstanten.js';
+import { sprachBedingung } from '../../shared/sprachen.js';
 import { katalogZeileZuObjekt, SICHTBAR_SQL, sichtbarParameter, fuerBenutzer } from '../services/katalog.js';
 
 const SEITENGROESSE = 48;
@@ -62,6 +63,9 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
     if (region?.codes) {
       bedingungen.push(`(k.regionen IS NULL OR EXISTS (SELECT 1 FROM json_each(k.regionen) WHERE value IN (${region.codes.map((c) => `'${c}'`).join(', ')})))`);
     }
+    // Sprache laut IGDB, z. B. „de_audio“ = deutsche Sprachausgabe
+    const sprache = sprachBedingung(req.query.sprache, 'k.sprachen');
+    if (sprache) bedingungen.push(sprache);
     const seite = Math.min(10_000, Math.max(1, Number.parseInt(req.query.seite, 10) || 1));
     const where = bedingungen.join(' AND ');
     const gesamt = db.prepare(`SELECT COUNT(*) AS n FROM katalog k WHERE ${where}`).get(parameter).n;

@@ -1,6 +1,7 @@
 // Globaler Katalog: Plattformen nach Hersteller, Suche und Liste – auch ohne Anmeldung.
 import { useEffect, useState } from 'react';
 import { ARTIKELTYPEN, KATALOG_REGIONEN } from '../../../shared/konstanten.js';
+import { SPRACH_FILTER } from '../../../shared/sprachen.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
 import { anzahl } from '../format.js';
@@ -43,8 +44,8 @@ export default function Katalog({ route }) {
   useEffect(() => {
     if (!zeigeListe) return;
     setDaten(null);
-    api.katalogListe({ plattform: p.plattform, q: p.q, typ: p.typ, seite: p.seite, region }).then(setDaten).catch(() => setDaten({ eintraege: [], gesamt: 0, seite: 1, seiten: 1 }));
-  }, [p.plattform, p.q, p.typ, p.seite, region]);
+    api.katalogListe({ plattform: p.plattform, q: p.q, typ: p.typ, seite: p.seite, region, sprache: p.sprache }).then(setDaten).catch(() => setDaten({ eintraege: [], gesamt: 0, seite: 1, seiten: 1 }));
+  }, [p.plattform, p.q, p.typ, p.seite, region, p.sprache]);
 
   return (
     <Layout route={route} titel={plattform ? `Katalog: ${plattform.name}` : 'Katalog'} zurueck={zeigeListe ? '/katalog' : undefined}>
@@ -67,6 +68,12 @@ export default function Katalog({ route }) {
             <select className="eingabe w-auto shrink-0 py-1 text-sm" value={region} onChange={(e) => setzeRegion(e.target.value)} aria-label="Veröffentlichungsregion"
               title="Nur Spiele, die in dieser Region erschienen sind (Einträge ohne bekannte Termine werden immer gezeigt)">
               {KATALOG_REGIONEN.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+            <select className="eingabe w-auto shrink-0 py-1 text-sm" value={p.sprache ?? ''} aria-label="Sprache"
+              onChange={(e) => navigiere('/katalog', { ...p, sprache: e.target.value || undefined, seite: undefined })}
+              title="Sprachen laut IGDB – gilt fürs Spiel, nicht für jede Fassung">
+              <option value="">Jede Sprache</option>
+              {SPRACH_FILTER.map(([wert, name]) => <option key={wert} value={wert}>{name}</option>)}
             </select>
           </div>
         )}

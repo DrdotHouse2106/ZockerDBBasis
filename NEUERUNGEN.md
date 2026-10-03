@@ -11,6 +11,12 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Sprachen der Spiele
+- Auf der Seite eines Spiels steht jetzt, in welchen Sprachen es Sprachausgabe, Untertitel und Menüs gibt – Deutsch und Englisch zuerst
+- Im Katalog und in der Sammlung (Filter) lässt sich nach „Deutsche Sprachausgabe“, „Deutsche Texte/Untertitel“ oder „Irgendetwas auf Deutsch“ filtern
+- Am Exemplar steht kurz, was auf Deutsch dabei ist
+- Die Angaben stammen von IGDB und gelten fürs Spiel insgesamt – einzelne Fassungen (z. B. PAL/NTSC) können abweichen
+
 ## 03.10.2026 – Preisgeschichte am Exemplar
 - Neu beim Kauf: „Gekauft bei/auf“ (Laden, Online-Shop, eBay, Kleinanzeigen, Flohmarkt …)
 - Neu: „Erstkauf laut Beleg“ – z. B. vom Kassenbon des Vorbesitzers: Neupreis, Datum und Händler
