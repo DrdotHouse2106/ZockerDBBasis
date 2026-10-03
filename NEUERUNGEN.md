@@ -11,6 +11,9 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Vom Exemplar zur Katalogseite
+- Ein Tipp auf das Bild eines Exemplars öffnet die Katalogseite des Spiels (Infos, Sprachen, Fotos, Preise)
+
 ## 03.10.2026 – Drucknummer auf dem Cover
 - Neues Feld „Drucknummer (Cover)“ bei Spielen – die kleine Nummer auf dem Cover-Rücken, meist unter der CUSA-/SLES-Nummer (z. B. „8826161“); sie unterscheidet Nachdrucke
 - Die Modellnummer schlägt bei Spielen jetzt passende Beispiele vor (z. B. „CUSA-03067“)

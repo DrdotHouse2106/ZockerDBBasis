@@ -284,7 +284,14 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     >
       <div className="mx-auto grid max-w-4xl grid-cols-1 gap-5 md:grid-cols-[16rem_minmax(0,1fr)]">
         <div className="space-y-2">
-          <Cover url={artikel.bild_url} typ={artikel.typ} alt={artikel.titel} className="mx-auto aspect-[3/4] w-40 rounded-2xl border border-rand md:w-full" band={digitalBand(artikel)} />
+          {/* Bild antippen → Katalogseite des Spiels (Infos, Fotos, Preise) */}
+          {artikel.katalog_id ? (
+            <a href={`#/katalog/${artikel.katalog_id}`} className="block" aria-label={`Katalogseite: ${artikel.titel}`} title="Zur Katalogseite">
+              <Cover url={artikel.bild_url} typ={artikel.typ} alt={artikel.titel} className="mx-auto aspect-[3/4] w-40 rounded-2xl border border-rand transition hover:opacity-90 md:w-full" band={digitalBand(artikel)} />
+            </a>
+          ) : (
+            <Cover url={artikel.bild_url} typ={artikel.typ} alt={artikel.titel} className="mx-auto aspect-[3/4] w-40 rounded-2xl border border-rand md:w-full" band={digitalBand(artikel)} />
+          )}
           {eigener && <ArtikelFotoSync artikel={artikel} onGeaendert={setArtikel} />}
         </div>
 

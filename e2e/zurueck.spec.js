@@ -24,6 +24,13 @@ test('Zurück führt zur vorherigen Seite – auch nach Foto-Auswahl und nach de
   await zurueck();
   await expect.poll(hash).toBe('#/lagerorte');
 
+  // Bild antippen → Katalogseite; Zurück → wieder zum Artikel
+  await page.evaluate((id) => { window.location.hash = `#/artikel/${id}`; }, a.id);
+  await page.getByRole('link', { name: 'Katalogseite: Zurück-Test (E2E)' }).click();
+  await expect.poll(hash).toMatch(/^#\/katalog\/\d+$/);
+  await zurueck();
+  await expect.poll(hash).toBe(`#/artikel/${a.id}`);
+
   // Direkt geöffnet (keine Vorgeschichte): wie bisher zur Sammlung
   await page.goto(`/?app=1&neu=1#/artikel/${a.id}`); // anderer Pfad → echter Neustart der Seite
   await expect(page.getByText('Zurück-Test (E2E)').first()).toBeVisible();
