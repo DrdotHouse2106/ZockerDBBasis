@@ -16,6 +16,8 @@ export const artName = (art) => {
   return art.endsWith('_download') ? `${name} (⬇ Download)` : name;
 };
 export const istDownload = (art) => String(art).endsWith('_download');
+/** Kurz für Listen: „audio_download“ → „Sprachausgabe ⬇“ */
+export const artKurz = (art) => `${Object.fromEntries(SPRACH_ARTEN)[String(art).replace(/_download$/, '')] ?? art}${istDownload(art) ? ' ⬇' : ''}`;
 
 export const SPRACHNAMEN = {
   de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es: 'Spanisch', it: 'Italienisch', nl: 'Niederländisch', pt: 'Portugiesisch',
