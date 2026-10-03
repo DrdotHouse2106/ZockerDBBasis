@@ -128,6 +128,23 @@ export function erstelleIgdbDienst({ clientId, clientSecret }, db, { fetchFn = g
     return ergebnis.map(spielZuEintrag);
   }
 
+  /**
+   * Rückfall für die Suche: jedes Wort muss im Namen vorkommen (Groß-/Kleinschreibung egal), beliebte Spiele zuerst.
+   * `woerter`: [{ grenze, varianten }] aus suchwoerter.js – römische Zahlen/Ziffern als Alternativen.
+   */
+  async function sucheSpieleWoerter(woerter, limit = 20) {
+    const teile = woerter.map(({ varianten }) => `(${varianten.map((v) => `name ~ *"${suchtext(v)}"*`).join(' | ')})`);
+    if (!teile.length) return [];
+    const ergebnis = await abfrage(
+      'games',
+      `fields ${SPIEL_FELDER};
+       where ${teile.join(' & ')};
+       sort total_rating_count desc;
+       limit ${limit};`,
+    );
+    return ergebnis.map(spielZuEintrag);
+  }
+
   /** Konsolen/Systeme per Name suchen (IGDB-Endpunkt „platforms“). */
   async function sucheKonsolen(begriff, limit = 20, offset = 0) {
     const ergebnis = await abfrage(
@@ -152,5 +169,5 @@ export function erstelleIgdbDienst({ clientId, clientSecret }, db, { fetchFn = g
   }
 
   // `abfrage` und `hole` für Zusatzmodule, die weitere IGDB-Daten nutzen
-  return { konfiguriert, sucheSpiele, sucheKonsolen, abfrage, hole };
+  return { konfiguriert, sucheSpiele, sucheSpieleWoerter, sucheKonsolen, abfrage, hole };
 }

@@ -9,6 +9,7 @@ import { Andockpunkt } from '../erweiterungen.jsx';
 import StatusAbzeichen from './StatusAbzeichen.jsx';
 import Symbol from './Symbole.jsx';
 import { useHinweis } from './Hinweise.jsx';
+import Zuschnitt, { formatFuer, zuschneiden } from './Zuschnitt.jsx';
 
 export const FOTOARTEN = MEDIENARTEN.filter((a) => a.foto);
 export const fotoKurz = (art) => beschriftung(MEDIENARTEN, art, 'kurz');
@@ -21,13 +22,14 @@ function gemerkt() {
 function merke(werte) {
   try { localStorage.setItem(SPEICHER, JSON.stringify(werte)); } catch { /* egal */ }
 }
-// Nach dem Hinzufügen schon nach Fotos gefragt (je Spiel einmal) bzw. „Nicht mehr fragen“
+// Nach dem Hinzufügen schon nach Fotos gefragt (je Spiel einmal, in diesem Browser). „Nicht mehr fragen“ steht am Konto
+// (Konto → „Nach dem Hinzufügen nach fehlenden Fotos fragen“).
 const GEFRAGT = 'fotos-gefragt';
 function gefragteSpiele() {
   try {
     const w = JSON.parse(localStorage.getItem(GEFRAGT) ?? '{}') ?? {};
-    return { aus: Boolean(w.aus), ids: Array.isArray(w.ids) ? w.ids : [] };
-  } catch { return { aus: false, ids: [] }; }
+    return { ids: Array.isArray(w.ids) ? w.ids : [] };
+  } catch { return { ids: [] }; }
 }
 function merkeGefragt(werte) {
   try { localStorage.setItem(GEFRAGT, JSON.stringify(werte)); } catch { /* egal */ }
@@ -40,12 +42,13 @@ function merkeGefragt(werte) {
  * `varianten`: bekannte Varianten des Eintrags (Auswahl beim Hochladen). `variante`: Variante des eigenen Exemplars –
  * die Checkliste zählt dann nur Fotos dieser Variante (z. B. „PAL-Modul fehlt“). `standardVariante`: Vorauswahl im Formular.
  * `neu`: gerade hinzugefügt – einmal je Spiel fragen, ob ein fehlendes Foto gemacht werden soll.
+ * `versiegelt` (Zustand „Neu/OVP“) und `beilagen` des eigenen Exemplars bestimmen, welche Fotos dafür gesucht werden.
  */
 export default function Fotos({
   katalogId, typ, plattform, artikelId = null, oeffentliche = [], vorauswahl = null, hinscrollen = false, onKatalogVerknuepft,
-  varianten = [], variante = null, standardVariante = null, neu = false,
+  varianten = [], variante = null, standardVariante = null, neu = false, versiegelt = false, beilagen = null,
 }) {
-  const { status, benutzer } = useSitzung();
+  const { status, benutzer, aktualisiere } = useSitzung();
   const zeigeHinweis = useHinweis();
   const abschnitt = useRef(null);
   const [fotos, setFotos] = useState(benutzer && katalogId ? null : []);
@@ -60,7 +63,8 @@ export default function Fotos({
 
   // Angemeldet: alle sichtbaren Fotos (eigene, freigegebene); sonst nur die öffentlichen
   const liste = benutzer ? fotos : oeffentliche.map((f) => ({ ...f, darf_bearbeiten: false, eigenes: false, sichtbarkeit: 'freigegeben', oeffentlich: true }));
-  const gesucht = gesuchteFotos(typ, plattform);
+  // Für ein eigenes Exemplar: eingeschweißt → nichts, wofür man es öffnen müsste; mit Beilagen auch ein Foto davon
+  const gesucht = gesuchteFotos(typ, plattform, artikelId ? { versiegelt, beilagen } : {});
   const varianteName = variante ? varianten.find((v) => v.id === variante)?.bezeichnung ?? null : null;
   const stand = (art) => {
     const passend = (liste ?? []).filter((f) => f.art === art && (!varianteName || f.variante_id === variante));
@@ -80,7 +84,7 @@ export default function Fotos({
   useEffect(() => {
     if (!neu || !artikelId || !katalogId || !geladen || !ersteFehlende || !status?.fotosTeilenErlaubt) return;
     const gefragt = gefragteSpiele();
-    if (gefragt.aus || gefragt.ids.includes(katalogId)) return;
+    if (benutzer?.fotos_nachfragen === false || gefragt.ids.includes(katalogId)) return;
     merkeGefragt({ ...gefragt, ids: [...gefragt.ids, katalogId].slice(-500) });
     setFrage(ersteFehlende);
   }, [neu, artikelId, katalogId, geladen, Boolean(status?.fotosTeilenErlaubt)]);
@@ -131,7 +135,14 @@ export default function Fotos({
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button type="button" className="knopf-primaer px-3 py-1.5" onClick={() => fotografieren(frage)}>Jetzt fotografieren</button>
             <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setFrage(null)}>Später</button>
-            <button type="button" className="text-xs text-leise underline" onClick={() => { merkeGefragt({ ...gefragteSpiele(), aus: true }); setFrage(null); }}>
+            <button type="button" className="text-xs text-leise underline" onClick={async () => {
+              setFrage(null);
+              try {
+                await api.kontoAendern({ fotos_nachfragen: false });
+                aktualisiere();
+                zeigeHinweis('Wir fragen nicht mehr. Wieder einschalten kannst du das unter „Konto“.');
+              } catch (e) { zeigeHinweis(e.message, 'fehler'); }
+            }}>
               Nicht mehr fragen
             </button>
           </div>
@@ -264,13 +275,7 @@ const OEFFENTLICH_TEXT = 'Foto öffentlich zeigen?\n\nNach der Prüfung erschein
 function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeffentlichMoeglich, moderator, maxMb, onFertig }) {
   const vorher = gemerkt();
   const [datei, setDatei] = useState(null);
-  const [vorschau, setVorschau] = useState(null);
-  useEffect(() => {
-    if (!datei) return setVorschau(null);
-    const url = URL.createObjectURL(datei);
-    setVorschau(url);
-    return () => URL.revokeObjectURL(url);
-  }, [datei]);
+  const zuschnitt = useRef(null); // { bild, zuschnitt } aus <Zuschnitt>
   const [werte, setWerte] = useState({
     art, titel: '', variante_id: variante ? String(variante) : '',
     teilen: teilenErlaubt && vorher.teilen !== false,
@@ -291,6 +296,7 @@ function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeff
     const oeffentlich = teilen && oeffentlichMoeglich && werte.oeffentlich;
     merke({ teilen: werte.teilen, oeffentlich: werte.oeffentlich, name: werte.name });
     try {
+      const hochladen = await zuschneiden(datei, zuschnitt.current?.bild, zuschnitt.current?.zuschnitt);
       onFertig(await api.mediumHochladen(artikelId, {
         art: werte.art,
         titel: werte.titel.trim(),
@@ -298,7 +304,7 @@ function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeff
         sichtbarkeit: teilen ? 'eingereicht' : 'privat',
         oeffentlich_erlaubt: oeffentlich ? 'true' : 'false',
         name_nennen: oeffentlich && werte.name ? 'true' : 'false',
-      }, datei, setFortschritt));
+      }, hochladen, setFortschritt));
     } catch (err) {
       setFehler(Object.values(err.felder ?? {})[0] ?? err.message);
       setFortschritt(null);
@@ -314,7 +320,6 @@ function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeff
         </select>
       </label>
       <div className="flex items-center gap-3">
-        {vorschau && <img src={vorschau} alt="Ausgewähltes Foto" className="size-16 shrink-0 rounded-lg border border-rand object-cover" />}
         <label className="knopf-sekundaer min-w-0 flex-1 cursor-pointer justify-center focus-within:ring-2 focus-within:ring-akzent">
           <Symbol name="kamera" className="size-4 shrink-0" />
           <span className="truncate">{datei ? datei.name : 'Foto aufnehmen oder auswählen'}</span>
@@ -323,6 +328,7 @@ function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeff
         </label>
       </div>
       <p className="-mt-2 text-xs text-leise">JPG, PNG oder WebP{maxMb ? `, max. ${maxMb} MB` : ''}. Standort und Kameradaten werden beim Hochladen entfernt.</p>
+      {datei && <Zuschnitt datei={datei} startFormat={formatFuer(werte.art)} onAenderung={(z) => { zuschnitt.current = z; }} />}
       {varianten.length > 0 && (
         <label className="block">
           <span className="beschriftung">Variante (optional)</span>

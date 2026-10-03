@@ -5,6 +5,7 @@
 //  - „freigegeben“ (IGDB-Treffer oder vom Moderationsteam geprüft) → für alle sichtbar
 //  - „privat“, „eingereicht“, „abgelehnt“ → nur für den Ersteller (und Moderatoren)
 
+import { suchWoerter, wortVarianten, woerterBedingung } from './suchwoerter.js';
 import crypto from 'node:crypto';
 import { istModerator } from '../../shared/konstanten.js';
 import { bereinigeProduktname, barcodeVarianten, suchbegriffe, plattformImNamen, rangiereTreffer, vergleichsTitel } from './titel.js';
@@ -64,12 +65,6 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
     RETURNING *`);
   const perQuelle = db.prepare('SELECT * FROM katalog WHERE quelle = ? AND externe_id = ?');
   const perId = db.prepare('SELECT * FROM katalog WHERE id = ?');
-  const lokaleSuche = db.prepare(`
-    SELECT k.* FROM katalog k
-    WHERE (k.titel LIKE @muster ESCAPE '\\' OR k.titel_original LIKE @muster ESCAPE '\\') AND (@typ IS NULL OR k.typ = @typ) AND ${SICHTBAR_SQL}
-    ORDER BY (k.erstellt_von = @benutzer) DESC, (k.quelle = 'eigen') DESC, (k.titel LIKE @anfang ESCAPE '\\') DESC,
-      (COALESCE(k.spieltyp, '') IN (${NEBENTYPEN_SQL})), length(k.titel)
-    LIMIT 15`);
   const barcodeLesen = db.prepare('SELECT * FROM barcodes WHERE code = ?');
   const barcodeSchreiben = db.prepare(`
     INSERT INTO barcodes (code, produktname, quelle) VALUES (@code, @produktname, @quelle)
@@ -135,10 +130,24 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
     return istSichtbar(eintrag, benutzer) ? eintrag : null;
   }
 
+  // Wortweise und fehlertolerant (siehe suchwoerter.js); Abfragen je Wortzahl zwischengespeichert
+  const lokaleSucheJeAnzahl = new Map();
   function sucheLokal(begriff, typ, benutzer) {
-    const bereinigt = begriff.replace(/[\\%_]/g, (z) => `\\${z}`);
-    return lokaleSuche
-      .all({ muster: `%${bereinigt}%`, anfang: `${bereinigt}%`, typ: typ ?? null, ...sichtbarParameter(benutzer) })
+    const woerter = suchWoerter(begriff);
+    if (!woerter.length) return [];
+    const { sql, parameter } = woerterBedingung(woerter, ['k.titel', 'k.titel_original']);
+    const schluessel = woerter.map((w) => (wortVarianten(w).grenze ? 'z' : 'w')).join('');
+    if (!lokaleSucheJeAnzahl.has(schluessel)) {
+      lokaleSucheJeAnzahl.set(schluessel, db.prepare(`
+        SELECT k.* FROM katalog k
+        WHERE ${sql} AND (@typ IS NULL OR k.typ = @typ) AND ${SICHTBAR_SQL}
+        ORDER BY (k.erstellt_von = @benutzer) DESC, (k.quelle = 'eigen') DESC, (k.titel LIKE @anfang ESCAPE '\\') DESC,
+          (COALESCE(k.spieltyp, '') IN (${NEBENTYPEN_SQL})), length(k.titel)
+        LIMIT 15`));
+    }
+    const anfang = `${begriff.trim().replace(/[\\%_]/g, (z) => `\\${z}`)}%`;
+    return lokaleSucheJeAnzahl.get(schluessel)
+      .all({ ...parameter, anfang, typ: typ ?? null, ...sichtbarParameter(benutzer) })
       .map(katalogZeileZuObjekt);
   }
 
@@ -156,11 +165,17 @@ export function erstelleKatalogDienst(db, { igdb, barcode, cache, plattformen, e
   /** Online bei IGDB suchen (mit Cache, seitenweise) und Treffer im lokalen Katalog ablegen. */
   async function sucheOnline(begriff, typ = 'spiel', seite = 0) {
     if (!igdb.konfiguriert || typ === 'zubehoer') return [];
-    const schluessel = `igdb:${typ}:${begriff.toLowerCase()}:${seite}`;
+    const schluessel = `igdb2:${typ}:${begriff.toLowerCase()}:${seite}`; // „2“: mit wortweisem Rückfall (alte, leere Treffer nicht weiterverwenden)
     const offset = seite * ONLINE_JE_SEITE;
-    const treffer = await cache.merke(schluessel, () =>
-      typ === 'konsole' ? igdb.sucheKonsolen(begriff, ONLINE_JE_SEITE, offset) : igdb.sucheSpiele(begriff, ONLINE_JE_SEITE, offset),
-    );
+    const treffer = await cache.merke(schluessel, async () => {
+      if (typ === 'konsole') return igdb.sucheKonsolen(begriff, ONLINE_JE_SEITE, offset);
+      const gefunden = await igdb.sucheSpiele(begriff, ONLINE_JE_SEITE, offset);
+      // Die Volltextsuche von IGDB verzeiht keine fehlenden Apostrophe („assassins black flag“) – dann wortweise nachsehen
+      if (seite > 0 || gefunden.length >= 3 || suchWoerter(begriff).length < 2) return gefunden;
+      const woertlich = await igdb.sucheSpieleWoerter(suchWoerter(begriff).map((w) => wortVarianten(w)), ONLINE_JE_SEITE).catch(() => []);
+      const bekannt = new Set(gefunden.map((e) => e.externe_id));
+      return [...gefunden, ...woertlich.filter((e) => !bekannt.has(e.externe_id))];
+    });
     return db.transaction(() => treffer.map(deutscherKonsolenname).map(speichere))();
   }
 

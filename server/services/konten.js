@@ -45,6 +45,7 @@ export function oeffentlichesProfil(b) {
     sammlung_oeffentlich: Boolean(b.sammlung_oeffentlich),
     funktionen: leseFunktionen(b.funktionen),
     touren: leseTouren(b.touren),
+    fotos_nachfragen: b.fotos_nachfragen !== 0,
     erstellt_am: b.erstellt_am,
     letzte_anmeldung: b.letzte_anmeldung,
   };

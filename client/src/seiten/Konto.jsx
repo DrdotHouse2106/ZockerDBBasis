@@ -12,7 +12,7 @@ import { Andockpunkt } from '../erweiterungen.jsx';
 import { KontoZockerdb } from '../komponenten/Zockerdb.jsx';
 
 export default function Konto({ route }) {
-  const { auth, aktualisiere, abmelden } = useSitzung();
+  const { auth, status, aktualisiere, abmelden } = useSitzung();
   const zeigeHinweis = useHinweis();
   const [konto, setKonto] = useState(null);
   const pflicht = route.parameter.pflicht === '1' && !konto?.totp_aktiv;
@@ -48,6 +48,7 @@ export default function Konto({ route }) {
             {!pflicht && (
               <>
                 <Sichtbarkeit konto={konto} onSpeichern={speichereProfil} />
+                {status?.fotosTeilenErlaubt && <FotosNachfragen konto={konto} onSpeichern={speichereProfil} />}
                 <ZusatzFelder konto={konto} onSpeichern={speichereProfil} />
                 <KontoZockerdb konto={konto} onSpeichern={speichereProfil} />
                 <Andockpunkt name="konto.einstellungen" konto={konto} onSpeichern={speichereProfil} />
@@ -114,6 +115,22 @@ function ZusatzFelder({ konto, onSpeichern }) {
           <span><span className="font-medium">{f.label}</span><span className="block text-sm text-leise">{f.beschreibung}</span></span>
         </label>
       ))}
+    </section>
+  );
+}
+
+/** Nach dem Hinzufügen nach fehlenden Fotos fragen – sofort umschalten, gespeichert wird im Hintergrund. */
+function FotosNachfragen({ konto, onSpeichern }) {
+  const [an, setAn] = useState(konto.fotos_nachfragen !== false);
+  useEffect(() => { setAn(konto.fotos_nachfragen !== false); }, [konto.fotos_nachfragen]);
+  return (
+    <section className="karte space-y-2 p-4">
+      <h2 className="flex items-center gap-2 font-semibold"><Symbol name="kamera" className="size-5" />Fotos beitragen</h2>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-1 size-4 accent-akzent" checked={an}
+          onChange={(e) => { setAn(e.target.checked); onSpeichern({ fotos_nachfragen: e.target.checked }); }} />
+        <span>Nach dem Hinzufügen nach fehlenden Fotos fragen (z. B. Disc, Verpackung) – je Spiel nur einmal</span>
+      </label>
     </section>
   );
 }

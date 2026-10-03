@@ -675,6 +675,10 @@ const MIGRATIONEN = [
   `
   ALTER TABLE benutzer ADD COLUMN neuigkeiten_gesehen TEXT;
   `,
+  // 41: Nach dem Hinzufügen nach fehlenden Fotos fragen (am Konto statt nur im Browser – wieder einschaltbar)
+  `
+  ALTER TABLE benutzer ADD COLUMN fotos_nachfragen INTEGER NOT NULL DEFAULT 1;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

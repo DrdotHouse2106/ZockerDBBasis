@@ -11,6 +11,16 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Fehlertolerante Suche
+- Die Suche findet Titel jetzt auch mit fehlendem Apostroph, in anderer Wortreihenfolge und mit Ziffern statt römischer Zahlen: „assassins black flag“ findet „Assassin's Creed IV Black Flag“, „final fantasy 7“ auch „Final Fantasy VII“
+- Gilt für den eigenen Katalog und die Online-Suche (findet IGDB nichts, wird wortweise nachgesehen)
+
+## 03.10.2026 – Fotos: Zuschnitt, eingeschweißte Spiele, Beilagen
+- Nach der Fotoauswahl lässt sich das Format wählen (Original, 1:1, 4:3, 3:4) und der Ausschnitt mit dem Finger verschieben – für Discs ist 1:1 voreingestellt
+- Eingeschweißte Spiele (Zustand „Neu/OVP“): Es wird nur noch nach Fotos der Verpackung gefragt, nicht nach Disc, Modul oder Inhalt
+- Beilagen lassen sich zählen (+ / −), z. B. „3× Werbebeilagen“; mit zusätzlichen Beilagen wird ein Foto „Beilagen (was drin ist)“ vorgeschlagen
+- „Nicht mehr fragen“ bei der Foto-Nachfrage nach dem Hinzufügen gilt jetzt fürs ganze Konto und lässt sich unter „Konto“ → „Fotos beitragen“ wieder einschalten
+
 ## 03.10.2026 – Menü „Weitere Aktionen“ im Bild
 - Auf schmalen Handys ragte das Menü „Weitere Aktionen“ auf der Detailseite eines Exemplars links aus dem Bildschirm – es klappt jetzt in die Richtung auf, in der Platz ist
 

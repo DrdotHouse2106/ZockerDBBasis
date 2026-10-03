@@ -143,7 +143,10 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     if (typeof roh === 'string') { try { roh = roh ? JSON.parse(roh) : null; } catch { roh = undefined; } }
     if (roh !== null && (typeof roh !== 'object' || Array.isArray(roh))) fehler.beilagen = 'Ungültige Beilagen-Liste.';
     else {
-      const liste = Object.fromEntries(Object.entries(roh ?? {}).filter(([k, v]) => BEILAGEN_SCHLUESSEL.has(k) && typeof v === 'boolean'));
+      // Werte: true/false oder Anzahl (1 = vorhanden, bis 99 – z. B. drei Werbebeilagen)
+      const liste = Object.fromEntries(Object.entries(roh ?? {})
+        .filter(([k, v]) => BEILAGEN_SCHLUESSEL.has(k) && (typeof v === 'boolean' || (Number.isInteger(v) && v >= 1 && v <= 99)))
+        .map(([k, v]) => [k, v === 1 ? true : v]));
       daten.beilagen = Object.keys(liste).length ? JSON.stringify(liste) : null;
     }
   }

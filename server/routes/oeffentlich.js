@@ -108,8 +108,9 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
         .all({ b: b.id, k: eintrag.id }).map((r) => ({ ...r, eigener: Boolean(r.eigener) }))
       : [];
     const meineExemplare = b
-      ? db.prepare(`SELECT a.id, a.titel, a.plattform, a.region, a.zustand, a.vollstaendigkeit, a.farbe, a.edition, a.modellnummer, a.variante_id, a.anzahl, a.bestand
+      ? db.prepare(`SELECT a.id, a.titel, a.plattform, a.region, a.zustand, a.vollstaendigkeit, a.farbe, a.edition, a.modellnummer, a.variante_id, a.anzahl, a.bestand, a.beilagen
           FROM artikel a WHERE a.katalog_id = ? AND a.benutzer_id = ? ORDER BY a.bestand <> 'besitz', a.id`).all(eintrag.id, b.id)
+        .map((a) => { try { return { ...a, beilagen: a.beilagen ? JSON.parse(a.beilagen) : null }; } catch { return { ...a, beilagen: null }; } })
       : [];
     // Nur Anzahl und Art der Dateien – die Dateien selbst sind erst nach Anmeldung sichtbar
     // (öffentlich gezeigte Fotos liefert ein Zusatzmodul direkt mit)

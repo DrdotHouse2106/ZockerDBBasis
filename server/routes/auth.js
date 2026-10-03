@@ -303,6 +303,9 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     if (req.body?.datenspende !== undefined) {
       db.prepare('UPDATE benutzer SET datenspende = ? WHERE id = ?').run(req.body.datenspende ? 1 : 0, req.benutzer.id);
     }
+    if (req.body?.fotos_nachfragen !== undefined) {
+      db.prepare('UPDATE benutzer SET fotos_nachfragen = ? WHERE id = ?').run(req.body.fotos_nachfragen ? 1 : 0, req.benutzer.id);
+    }
     if (perEmail !== undefined) {
       db.prepare('UPDATE benutzer SET benachrichtigung_email = ? WHERE id = ?').run(perEmail ? 1 : 0, req.benutzer.id);
     }

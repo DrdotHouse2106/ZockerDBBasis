@@ -188,7 +188,8 @@ test('Barcode mit Händlertitel („… - Bonus Edition - Ps3 Boxed + Instructio
       await admin.api('/api/katalog', { methode: 'POST', daten: { typ: 'spiel', titel, plattformen: [plattform], veroeffentlichen: true } });
     }
     const { json } = await admin.api('/api/katalog/barcode/3307215704943');
-    assert.equal(json.suchbegriff, "Assassin's Creed IV Black Flag");
+    // Die fehlertolerante Suche findet schon mit „4“ statt „IV“
+    assert.equal(json.suchbegriff, "Assassin's Creed 4: Black Flag");
     assert.equal(json.treffer.length, 2);
     assert.deepEqual(json.treffer[0].plattformen, ['PlayStation 3'], 'Plattform aus dem Produktnamen zuerst');
   } finally {

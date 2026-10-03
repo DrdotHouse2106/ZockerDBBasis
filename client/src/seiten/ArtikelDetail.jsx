@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung, beilageText, beilageVorhanden,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
@@ -386,6 +386,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
               hinscrollen={Boolean(route.parameter?.foto)}
               varianten={katalogDaten?.varianten ?? []} variante={artikel.variante_id ?? null}
               neu={eigener && route.parameter?.neu === '1'}
+              versiegelt={artikel.zustand === 'neu_ovp'} beilagen={artikel.beilagen}
               onKatalogVerknuepft={() => laden()} />
           )}
 
@@ -427,11 +428,11 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
 function beilagenText(a) {
   if (!a.beilagen || typeof a.beilagen !== 'object') return null;
   const liste = BEILAGEN[a.typ] ?? BEILAGEN.spiel;
-  const teile = liste.filter((b) => b.value in a.beilagen).map((b) => `${a.beilagen[b.value] ? '✓' : '✗'} ${b.label}`);
+  const teile = liste.filter((b) => b.value in a.beilagen).map((b) => beilageText(b.label, a.beilagen[b.value]));
   if (!teile.length) return null;
   // Automatisch: vollständig (CIB), wenn OVP und Anleitung da sind und nichts als fehlend markiert ist
   const werte = Object.values(a.beilagen);
-  const cib = a.beilagen.ovp === true && a.beilagen.anleitung === true && !werte.includes(false);
+  const cib = beilageVorhanden(a.beilagen.ovp) && beilageVorhanden(a.beilagen.anleitung) && !werte.includes(false);
   return `${cib ? 'Vollständig (CIB) – ' : werte.includes(false) ? 'Unvollständig – ' : ''}${teile.join(', ')}`;
 }
 

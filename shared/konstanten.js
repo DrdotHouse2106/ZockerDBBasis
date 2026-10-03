@@ -228,6 +228,19 @@ export const BEILAGEN = {
   ],
 };
 
+/**
+ * Beilagen-Werte: true = vorhanden, false = fehlt, Zahl ≥ 2 = so viele Stück vorhanden (z. B. drei Werbebeilagen).
+ * Als Text: „✓ Anleitung“, „✓ 3× Werbebeilagen / Kataloge“, „✗ Poster / Karte“.
+ */
+export const beilageVorhanden = (wert) => wert === true || (Number.isInteger(wert) && wert > 0);
+export function beilageText(label, wert) {
+  if (!beilageVorhanden(wert)) return `✗ ${label}`;
+  return `✓ ${Number.isInteger(wert) && wert > 1 ? `${wert}× ` : ''}${label}`;
+}
+/** Hat das Exemplar Beilagen außer Hülle/OVP und Anleitung? Dann lohnt ein Foto „Beilagen (Inhalt)“. */
+export const hatExtraBeilagen = (beilagen) => Boolean(beilagen && typeof beilagen === 'object'
+  && Object.entries(beilagen).some(([k, w]) => !['ovp', 'anleitung'].includes(k) && beilageVorhanden(w)));
+
 /** Seriennummern vergleichen (ohne Leerzeichen, Bindestriche, Groß-/Kleinschreibung): true, false oder null (nicht beide angegeben). */
 export function seriennummerPasst(geraet, ovp) {
   const norm = (s) => String(s ?? '').replace(/[\s\-_.]/g, '').toUpperCase();
@@ -273,6 +286,7 @@ export const MEDIENARTEN = [
   { value: 'foto_vorne', label: 'Foto: Verpackung vorne', kurz: 'Verpackung vorne', slug: 'verpackung-vorne', foto: true },
   { value: 'foto_hinten', label: 'Foto: Verpackung hinten', kurz: 'Verpackung hinten', slug: 'verpackung-hinten', foto: true },
   { value: 'foto_komplett', label: 'Foto: Komplett mit Inhalt', kurz: 'Komplett (CIB)', slug: 'komplett-cib', foto: true },
+  { value: 'foto_beilagen', label: 'Foto: Beilagen (was drin ist)', kurz: 'Beilagen', slug: 'beilagen', foto: true },
   { value: 'foto_geraet', label: 'Foto: Gerät', kurz: 'Gerät', slug: 'geraet', foto: true },
   { value: 'foto_detail', label: 'Foto: Detail (Typenschild, Anschlüsse …)', kurz: 'Detail', slug: 'detail', foto: true },
 ];
@@ -294,12 +308,18 @@ export function datentraegerVon(plattform) {
   return null;
 }
 
-/** Welche Fotos wünschen wir uns zu einem Eintrag? (Reihenfolge = Wichtigkeit) */
-export function gesuchteFotos(typ, plattform = null) {
+/**
+ * Welche Fotos wünschen wir uns zu einem Eintrag? (Reihenfolge = Wichtigkeit)
+ * Für ein bestimmtes Exemplar: `versiegelt` (Zustand „Neu/OVP“) – dann nichts, wofür man es öffnen müsste;
+ * `beilagen` (Beilagen-Liste des Exemplars) – mit zusätzlichen Beilagen auch ein Foto davon.
+ */
+export function gesuchteFotos(typ, plattform = null, { versiegelt = false, beilagen = null } = {}) {
   if (typ === 'spiel') {
     const traeger = datentraegerVon(plattform);
-    return [...(traeger ? [`foto_${traeger}`] : []), 'foto_vorne', 'foto_hinten', 'foto_komplett'];
+    if (versiegelt) return ['foto_vorne', 'foto_hinten'];
+    return [...(traeger ? [`foto_${traeger}`] : []), 'foto_vorne', 'foto_hinten', 'foto_komplett', ...(hatExtraBeilagen(beilagen) ? ['foto_beilagen'] : [])];
   }
+  if (versiegelt) return ['foto_vorne'];
   if (typ === 'konsole') return ['foto_geraet', 'foto_vorne', 'foto_detail'];
   return ['foto_geraet', 'foto_vorne'];
 }
