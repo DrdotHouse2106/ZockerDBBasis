@@ -240,7 +240,7 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
     const bestand = db.prepare(`SELECT CAST(k.externe_id AS INTEGER) AS id, COUNT(DISTINCT a.benutzer_id) AS sammler,
         SUM(COALESCE(a.anzahl, 1)) AS exemplare
       FROM artikel a JOIN katalog k ON k.id = a.katalog_id JOIN benutzer b ON b.id = a.benutzer_id
-      WHERE k.quelle = 'zockerdb' AND b.datenspende = 1 AND a.bestand = 'besitz'
+      WHERE k.quelle = 'zockerdb' AND b.datenspende = 1 AND a.bestand = 'besitz' AND a.privat = 0
       GROUP BY k.externe_id ORDER BY id`).all();
     const barcodes = db.prepare(`SELECT DISTINCT z.code, CAST(k.externe_id AS INTEGER) AS id
       FROM barcode_zuordnungen z JOIN katalog k ON k.id = z.katalog_id JOIN benutzer b ON b.id = z.benutzer_id

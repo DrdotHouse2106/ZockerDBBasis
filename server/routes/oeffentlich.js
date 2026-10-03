@@ -66,7 +66,7 @@ export function oeffentlichRouter({ db, plattformen, konfiguration, erweiterunge
     const where = bedingungen.join(' AND ');
     const gesamt = db.prepare(`SELECT COUNT(*) AS n FROM katalog k WHERE ${where}`).get(parameter).n;
     const zeilen = db.prepare(`
-      SELECT k.*, (SELECT COUNT(DISTINCT a.benutzer_id) FROM artikel a WHERE a.katalog_id = k.id AND a.bestand = 'besitz') AS besitzer
+      SELECT k.*, (SELECT COUNT(DISTINCT a.benutzer_id) FROM artikel a WHERE a.katalog_id = k.id AND a.bestand = 'besitz' AND a.privat = 0) AS besitzer
       FROM katalog k WHERE ${where}
       ORDER BY besitzer DESC, k.titel COLLATE NOCASE LIMIT ${SEITENGROESSE} OFFSET ${(seite - 1) * SEITENGROESSE}`).all(parameter);
     res.json({

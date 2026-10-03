@@ -26,7 +26,7 @@ const LEER = {
   typ: 'spiel', titel: '', plattform: '', plattform_id: null, variante_id: null, katalog_id: null, barcode: '', cover_url: '', zustand: '', vollstaendigkeit: '',
   region: 'pal_de', farbe: '', edition: '', modellnummer: '', seriennummer: '', notizen: '', kaufpreis: '', kaufdatum: '', anzahl: 1,
   marktwert: '', herkunft: '', konvolut_id: null, bestand: 'besitz', digital_quelle: null,
-  lagerort_ort: '', lagerort_regal: '', lagerort_fach: '', beilagen: null, seriennummer_ovp: '',
+  lagerort_ort: '', lagerort_regal: '', lagerort_fach: '', beilagen: null, seriennummer_ovp: '', privat: false,
 };
 
 export default function ArtikelFormular({ route, artikelId }) {
@@ -410,6 +410,14 @@ export default function ArtikelFormular({ route, artikelId }) {
             {(id) => <textarea id={id} rows={4} className="eingabe" value={werte.notizen} onChange={setze('notizen')}
               placeholder="z. B. Modul mit Aufkleber-Kratzer, gekauft auf dem Flohmarkt …" />}
           </Feld>
+          <label className="flex items-start gap-3 text-sm sm:col-span-2">
+            <input type="checkbox" className="mt-1 size-4 accent-akzent" checked={Boolean(werte.privat)}
+              onChange={(e) => setWerte((w) => ({ ...w, privat: e.target.checked }))} />
+            <span>
+              <span className="flex items-center gap-1 font-medium"><Symbol name="schloss" className="size-4" />Privat – nur für mich sichtbar</span>
+              <span className="block text-leise">Erscheint nicht in der geteilten oder öffentlichen Sammlung, nicht bei Freunden, in Trends oder Statistiken.</span>
+            </span>
+          </label>
           <details className="sm:col-span-2">
             <summary className="cursor-pointer text-sm text-leise">Coverbild-Adresse (optional)</summary>
             <input className="eingabe mt-2" value={werte.cover_url} onChange={setze('cover_url')} placeholder="https://…" inputMode="url" />

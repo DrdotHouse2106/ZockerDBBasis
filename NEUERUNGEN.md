@@ -9,6 +9,12 @@ Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachtr�
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
 -->
 
+## 03.10.2026 – Exemplare als privat markieren
+- Beim Bearbeiten eines Exemplars gibt es den Schalter „Privat – nur für mich sichtbar“
+- Private Exemplare erscheinen nicht im geteilten Sammlungslink (auch nicht im angezeigten Wert) und zählen nicht in der anonymen Datenspende an zockerdb.de
+- In der eigenen Sammlung und auf der Detailseite zeigt ein Schloss, was privat ist
+- Die Markierung wird beim Abgleich mit dem zockerdb.de-Konto mit übertragen und ist im Datenexport enthalten
+
 ## 02.10.2026 – Kopfleiste am Desktop aufgeräumt
 - Bei mittleren Fensterbreiten schob sich die Menüleiste über den Schriftzug oben links – jetzt stehen die Menüpunkte erst ab ausreichender Breite mit Text, sonst als Symbole
 

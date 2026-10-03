@@ -661,6 +661,11 @@ const MIGRATIONEN = [
   `
   ALTER TABLE benutzer ADD COLUMN benachrichtigung_auswahl TEXT;
   `,
+  // 38: Einzelne Exemplare als privat markieren – nur für den Besitzer sichtbar (nicht im geteilten Link, in der Community,
+  //     in Trends oder öffentlichen Statistiken)
+  `
+  ALTER TABLE artikel ADD COLUMN privat INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

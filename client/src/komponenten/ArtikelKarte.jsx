@@ -1,6 +1,7 @@
 import { DIGITAL_QUELLEN } from '../../../shared/konstanten.js';
 import Cover from './Cover.jsx';
 import Abzeichen from './Abzeichen.jsx';
+import Symbol from './Symbole.jsx';
 
 /** Schriftzug für digitale Spiele: „DIGITAL · STEAM“, „DIGITAL · PLAYSTATION“ … */
 export const digitalBand = (a) => {
@@ -18,7 +19,10 @@ export default function ArtikelKarte({ artikel, href, exemplare }) {
     >
       <Cover url={artikel.bild_url} typ={artikel.typ} alt={artikel.titel} className="aspect-[3/4] w-full" band={digitalBand(artikel)} />
       <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <h3 className="line-clamp-2 text-sm leading-snug font-semibold">{artikel.titel}</h3>
+        <h3 className="line-clamp-2 text-sm leading-snug font-semibold">
+          {Boolean(artikel.privat) && <Symbol name="schloss" className="mr-1 inline size-3.5 align-[-2px] text-leise" titel="Privat – nur für dich sichtbar" />}
+          {artikel.titel}
+        </h3>
         {artikel.plattform && (
           <p className="flex items-center gap-1.5 truncate text-xs text-leise">
             {artikel.plattform_kurz && <span className="abzeichen shrink-0 px-1 py-0 text-akzent-hell">{artikel.plattform_kurz}</span>}

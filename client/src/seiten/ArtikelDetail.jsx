@@ -291,6 +291,9 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
               </p>
             )}
             <h2 className="text-2xl font-bold">{artikel.titel}</h2>
+            {Boolean(artikel.privat) && (
+              <p className="flex items-center gap-1 text-sm text-leise"><Symbol name="schloss" className="size-4" />Privat – nur für dich sichtbar</p>
+            )}
             <div className="flex flex-wrap items-center gap-1.5 text-sm">
               {artikel.plattform && <span className="abzeichen text-akzent-hell" title={artikel.plattform}>{artikel.plattform_kurz || artikel.plattform}</span>}
               {artikel.variante_bezeichnung && <span className="abzeichen">{artikel.variante_bezeichnung}</span>}

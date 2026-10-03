@@ -50,7 +50,7 @@ export function teilenRouter({ db, erweiterungen, konfiguration }) {
       p.kurz AS plattform_kurz, p.name AS plattform_name, v.bezeichnung AS variante
     FROM artikel a LEFT JOIN katalog k ON k.id = a.katalog_id LEFT JOIN plattformen p ON p.id = a.plattform_id
     LEFT JOIN katalog_varianten v ON v.id = a.variante_id AND v.status = 'freigegeben'
-    WHERE a.benutzer_id = ? AND a.bestand = 'besitz' ORDER BY COALESCE(p.name, a.plattform, 'zzz') COLLATE NOCASE, a.titel COLLATE NOCASE LIMIT 5000`);
+    WHERE a.benutzer_id = ? AND a.bestand = 'besitz' AND a.privat = 0 ORDER BY COALESCE(p.name, a.plattform, 'zzz') COLLATE NOCASE, a.titel COLLATE NOCASE LIMIT 5000`);
   const symbol = (typ) => ARTIKELTYPEN.find((t) => t.value === typ)?.icon ?? '🎮';
 
   // Zusatzmodule können einen genaueren Wert schätzen („wert.schaetzen“ → { wert }) und auf öffentliche

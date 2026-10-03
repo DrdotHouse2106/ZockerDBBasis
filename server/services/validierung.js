@@ -148,6 +148,9 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     }
   }
 
+  // Privat: nur für den Besitzer sichtbar (auch aus Formularen als „true“/„1“/„on“)
+  if (!teilweise || hat('privat')) daten.privat = [true, 1, '1', 'true', 'on'].includes(eingabe.privat) ? 1 : 0;
+
   if (!teilweise || hat('anzahl')) {
     const anzahl = eingabe.anzahl === undefined || eingabe.anzahl === '' || eingabe.anzahl === null ? 1 : Number(eingabe.anzahl);
     if (!Number.isInteger(anzahl) || anzahl < 1 || anzahl > 9999) fehler.anzahl = 'Die Anzahl muss eine ganze Zahl ab 1 sein.';
