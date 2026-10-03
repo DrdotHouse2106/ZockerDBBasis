@@ -98,7 +98,16 @@ function pruefeMetadaten(eingabe, { teilweise = false, teilenErlaubt, moderator 
   return daten;
 }
 
-export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) {
+export function medienRouter({ db, konfiguration, dateien, katalog, speicher, erweiterungen }) {
+  // Andockpunkt „medien.eingereicht“ (id): ein Foto/Scan wartet (wieder) auf Prüfung – z. B. für eine automatische Vorprüfung
+  const meldeEingereicht = (id) => {
+    const m = db.prepare('SELECT sichtbarkeit, oeffentlich_offen FROM medien WHERE id = ?').get(id);
+    if (m && (m.sichtbarkeit === 'eingereicht' || m.oeffentlich_offen === 1)) {
+      for (const fn of erweiterungen?.alle('medien.eingereicht') ?? []) {
+        try { fn(id); } catch (e) { console.warn('[medien.eingereicht]', e.message); }
+      }
+    }
+  };
   const router = Router();
   // Fotos und Scans getrennt teilbar (Fotos des Gegenstands sind keine Kopien geschützter Werke)
   const teilen = (art) => (istFotoArt(art) ? konfiguration.fotosTeilenErlaubt : konfiguration.medienTeilenErlaubt);
@@ -201,6 +210,7 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
         benutzer_id: req.benutzer.id,
         originalname: Buffer.from(req.file.originalname, 'latin1').toString('utf8').slice(0, 200),
       });
+      meldeEingereicht(id);
       res.status(201).json(medienZuObjekt(perId(id, req.benutzer), req.benutzer));
     } catch (fehler) {
       // Beim Umwandeln kann die Datei eine neue Endung bekommen haben (.webp/.jpg)
@@ -250,6 +260,7 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher }) 
     else if (moderator && daten.sichtbarkeit === 'freigegeben' && m.sichtbarkeit !== 'freigegeben') Object.assign(daten, { oeffentlich: 1, oeffentlich_offen: 0 });
     const felder = Object.keys(daten);
     if (felder.length) db.prepare(`UPDATE medien SET ${felder.map((f) => `${f} = @${f}`).join(', ')} WHERE id = @id`).run({ ...daten, id: m.id });
+    if (daten.sichtbarkeit === 'eingereicht' || daten.oeffentlich_offen === 1) meldeEingereicht(m.id);
     res.json(medienZuObjekt(perId(m.id, req.benutzer), req.benutzer));
   });
 
