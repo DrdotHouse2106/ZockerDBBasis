@@ -23,9 +23,11 @@ const TEXTFELDER = {
   lagerort_regal: 80,
   lagerort_fach: 80,
   notizen: 5000,
+  erstkauf_quelle: 100,
+  beilagen_notiz: 500,
 };
 
-const AUSWAHLFELDER = ['zustand', 'zustand_ovp', 'vollstaendigkeit', 'region', 'herkunft', 'spielstatus'];
+const AUSWAHLFELDER = ['zustand', 'zustand_ovp', 'vollstaendigkeit', 'region', 'herkunft', 'spielstatus', 'kauf_quelle'];
 
 /** Datum TT.MM.JJJJ-frei: JJJJ-MM-TT, plausibel. */
 const gueltigerTag = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d)) && Number(d.slice(0, 4)) >= 1950 && Number(d.slice(0, 4)) <= 2100;
@@ -85,7 +87,7 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     daten[feld] = wert;
   }
 
-  for (const feld of ['kaufpreis', 'marktwert', 'verkaufspreis']) {
+  for (const feld of ['kaufpreis', 'marktwert', 'verkaufspreis', 'neupreis']) {
     if (teilweise && !hat(feld)) continue;
     const roh = leerZuNull(eingabe[feld]);
     if (roh === null) daten[feld] = null;
@@ -96,14 +98,15 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     }
   }
 
-  if (!teilweise || hat('kaufdatum')) {
-    const datum = leerZuNull(eingabe.kaufdatum);
-    // Auch ungefähr: nur Jahr (1995) oder Monat und Jahr (1995-03) – oft weiß man den Tag nicht mehr
+  // Kaufdatum und Erstkaufdatum (laut Beleg): auch ungefähr – nur Jahr (1995) oder Monat und Jahr (1995-03)
+  for (const feld of ['kaufdatum', 'erstkauf_datum']) {
+    if (teilweise && !hat(feld)) continue;
+    const datum = leerZuNull(eingabe[feld]);
     if (datum && (!/^\d{4}(-\d{2}(-\d{2})?)?$/.test(datum) || Number.isNaN(Date.parse(datum.length === 4 ? `${datum}-01-01` : datum.length === 7 ? `${datum}-01` : datum))
       || Number(datum.slice(0, 4)) < 1950 || Number(datum.slice(0, 4)) > 2100)) {
-      fehler.kaufdatum = 'Bitte ein gültiges Datum angeben (auch nur Jahr oder Monat.Jahr).';
+      fehler[feld] = 'Bitte ein gültiges Datum angeben (auch nur Jahr oder Monat.Jahr).';
     }
-    daten.kaufdatum = datum;
+    daten[feld] = datum;
   }
 
   // Bestand: im Besitz, verkauft oder abgegeben (mit Datum); Verkaufspreis nur bei „verkauft“

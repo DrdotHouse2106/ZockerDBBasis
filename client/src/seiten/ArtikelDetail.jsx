@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung, beilageText, beilageVorhanden, zustandBeschriftung,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung, beilageText, beilageVorhanden, zustandBeschriftung, KAUFQUELLEN,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
@@ -243,6 +243,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     ['Seriennummer', artikel.seriennummer],
     ['Seriennummer OVP', artikel.seriennummer_ovp ? <>{artikel.seriennummer_ovp} <SeriennummerAbgleich geraet={artikel.seriennummer} ovp={artikel.seriennummer_ovp} /></> : null],
     ['Beilagen', beilagenText(artikel)],
+    ['Beilagen genau', artikel.beilagen_notiz],
     ['Lagerort', eigener && lagerortText(artikel)
       ? <a className="underline" href={`#/?lagerort_ort=${encodeURIComponent(artikel.lagerort_ort)}${artikel.lagerort_regal ? `&lagerort_regal=${encodeURIComponent(artikel.lagerort_regal)}` : ''}`}>{lagerortText(artikel)}</a> : null],
     ['Barcode', artikel.barcode],
@@ -374,6 +375,8 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
             ))}
           </dl>
 
+          {eigener && <Preisgeschichte artikel={artikel} />}
+
           {artikel.notizen && (
             <section className="karte p-4">
               <h3 className="mb-1 text-sm font-semibold text-leise">Eigene Notizen</h3>
@@ -422,6 +425,54 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
         </div>
       </div>
     </Layout>
+  );
+}
+
+/**
+ * Preisgeschichte des eigenen Exemplars als Zeitstrahl: Erstkauf laut Beleg (Neupreis), eigener Kauf, Verkauf und
+ * die eigene Wertschätzung von heute – mit Veränderung gegenüber dem ersten bekannten Preis. Nur für den Besitzer.
+ */
+function Preisgeschichte({ artikel: a }) {
+  const schritte = [
+    (a.neupreis != null || a.erstkauf_datum) && {
+      datum: a.erstkauf_datum, preis: a.neupreis,
+      text: `Neu gekauft${a.erstkauf_quelle ? ` bei ${a.erstkauf_quelle}` : ''}`, hinweis: 'laut Beleg',
+    },
+    (a.kaufpreis != null || a.kaufdatum) && a.herkunft !== 'schon_immer' && {
+      datum: a.kaufdatum, preis: a.kaufpreis,
+      text: a.herkunft === 'geschenk' ? 'Geschenkt bekommen' : a.herkunft === 'getauscht' ? 'Eingetauscht'
+        : `Von dir gekauft${a.kauf_quelle ? ` – ${beschriftung(KAUFQUELLEN, a.kauf_quelle)}` : ''}`,
+      hinweis: a.kaufpreis_anteilig ? 'Anteil am Konvolut' : null,
+    },
+    a.bestand !== 'besitz' && a.abgang_am && {
+      datum: a.abgang_am, preis: a.verkaufspreis, text: a.bestand === 'verkauft' ? 'Verkauft' : 'Abgegeben',
+    },
+    a.bestand === 'besitz' && a.marktwert != null && { datum: null, preis: a.marktwert, text: 'Heute (deine Schätzung)', heute: true },
+  ].filter(Boolean);
+  // Erst ab zwei Stationen – sonst steht alles schon in den Angaben oben
+  if (schritte.length < 2) return null;
+  const sortiert = [...schritte].sort((x, y) => (x.heute ? 1 : y.heute ? -1 : (x.datum ?? '9999').localeCompare(y.datum ?? '9999')));
+  const erster = sortiert.find((x) => x.preis != null)?.preis;
+  return (
+    <section className="karte space-y-2 p-4">
+      <h3 className="flex items-center gap-2 font-semibold"><Symbol name="statistik" className="size-5" />Preisgeschichte</h3>
+      <ol className="space-y-2 border-l-2 border-akzent/40 pl-4">
+        {sortiert.map((x, i) => (
+          <li key={i} className="relative text-sm">
+            <span className="absolute top-1.5 -left-[1.3rem] size-2.5 rounded-full bg-akzent" aria-hidden="true" />
+            <span className="text-leise">{x.heute ? 'Heute' : x.datum ? datumDe(x.datum) : 'Datum unbekannt'}</span>
+            {' · '}{x.text}
+            {x.preis != null && <> für <strong>{euro(x.preis)}</strong></>}
+            {x.preis != null && erster && x.preis !== erster && (
+              <span className={`ml-1 text-xs ${x.preis > erster ? 'text-erfolg' : 'text-leise'}`}>
+                ({x.preis > erster ? '+' : ''}{Math.round(((x.preis - erster) / erster) * 100)} %)
+              </span>
+            )}
+            {x.hinweis && <span className="ml-1 text-xs text-leise">({x.hinweis})</span>}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

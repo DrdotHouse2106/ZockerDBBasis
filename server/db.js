@@ -685,6 +685,15 @@ const MIGRATIONEN = [
   ALTER TABLE artikel ADD COLUMN zustand_ovp TEXT;
   ALTER TABLE benutzer ADD COLUMN ausgeblendete_felder TEXT;
   `,
+  // 43: Preisgeschichte am Exemplar – Erstkauf laut Beleg (z. B. Kassenbon des Vorbesitzers: Neupreis, Datum, Händler),
+  //     wo man selbst gekauft hat, und welche Beilagen genau dabei sind (z. B. „Club-Nintendo-Katalog 1998“)
+  `
+  ALTER TABLE artikel ADD COLUMN neupreis REAL;
+  ALTER TABLE artikel ADD COLUMN erstkauf_datum TEXT;
+  ALTER TABLE artikel ADD COLUMN erstkauf_quelle TEXT;
+  ALTER TABLE artikel ADD COLUMN kauf_quelle TEXT;
+  ALTER TABLE artikel ADD COLUMN beilagen_notiz TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

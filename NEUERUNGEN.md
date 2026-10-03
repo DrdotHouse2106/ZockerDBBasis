@@ -11,6 +11,13 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Preisgeschichte am Exemplar
+- Neu beim Kauf: „Gekauft bei/auf“ (Laden, Online-Shop, eBay, Kleinanzeigen, Flohmarkt …)
+- Neu: „Erstkauf laut Beleg“ – z. B. vom Kassenbon des Vorbesitzers: Neupreis, Datum und Händler
+- Auf der Detailseite zeigt die „Preisgeschichte“ alles als Zeitstrahl: neu gekauft, von dir gekauft, verkauft, heutige Schätzung – mit Veränderung in Prozent
+- Alles bleibt privat: nicht für Freunde, nicht im geteilten Link; im Datenexport enthalten
+- Bei den Beilagen lässt sich jetzt aufschreiben, welche es genau sind (z. B. „Club-Nintendo-Katalog 1998, Poster“)
+
 ## 03.10.2026 – Zustand von Disc und Hülle getrennt, Felder ausblenden
 - Neben dem Zustand von Disc, Modul bzw. Gerät lässt sich jetzt der Zustand der Hülle bzw. OVP getrennt angeben – oft ist die Disc gut, die Hülle nicht
 - Unter „Konto“ → „Zusätzliche Felder“ → „Felder beim Eintragen ausblenden“ lassen sich Felder abschalten, die man nie braucht (z. B. Seriennummer, Modellnummer, Barcode)

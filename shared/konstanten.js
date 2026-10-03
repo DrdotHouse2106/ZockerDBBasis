@@ -100,6 +100,18 @@ export const HERKUNFT = [
   { value: 'unbekannt', label: 'Weiß ich nicht mehr', kurz: 'Unbekannt' },
 ];
 
+/** Wo man selbst gekauft hat (für die Preisgeschichte des Exemplars). */
+export const KAUFQUELLEN = [
+  { value: 'laden', label: 'Laden / Händler vor Ort' },
+  { value: 'online', label: 'Online-Shop' },
+  { value: 'ebay', label: 'eBay' },
+  { value: 'kleinanzeigen', label: 'Kleinanzeigen' },
+  { value: 'flohmarkt', label: 'Flohmarkt / Trödelmarkt' },
+  { value: 'boerse', label: 'Sammlerbörse / Messe' },
+  { value: 'privat', label: 'Von privat (Freunde, Bekannte)' },
+  { value: 'sonstiges', label: 'Sonstiges' },
+];
+
 /** Wie wird der Gesamtpreis eines Konvoluts auf die Artikel verteilt? */
 export const KONVOLUT_AUFTEILUNG = [
   { value: 'gleich', label: 'Gleichmäßig je Stück' },
@@ -167,6 +179,8 @@ export const AUSBLENDBARE_FELDER = [
   { value: 'modellnummer', label: 'Modellnummer' },
   { value: 'seriennummer', label: 'Seriennummer' },
   { value: 'kaufdatum', label: 'Kaufdatum' },
+  { value: 'kauf_quelle', label: 'Gekauft bei/auf' },
+  { value: 'erstkauf', label: 'Erstkauf laut Beleg (Neupreis)' },
   { value: 'marktwert', label: 'Marktwert (eigene Schätzung)' },
   { value: 'barcode', label: 'Barcode' },
   { value: 'notizen', label: 'Eigene Notizen' },
@@ -305,6 +319,7 @@ export const ALLE_WERTE = {
   typ: ARTIKELTYPEN.map((e) => e.value),
   zustand: ZUSTAENDE.map((e) => e.value),
   zustand_ovp: ZUSTAENDE.map((e) => e.value),
+  kauf_quelle: KAUFQUELLEN.map((e) => e.value),
   vollstaendigkeit: VOLLSTAENDIGKEITEN.map((e) => e.value),
   region: REGIONEN.map((e) => e.value),
   pruefstatus: ['privat', 'eingereicht', 'freigegeben', 'abgelehnt'],

@@ -20,7 +20,8 @@ import { zentralZuEintrag } from './zentrale.js';
 const SEITE = 500;
 const FELDER = ['typ', 'titel', 'plattform', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region', 'farbe', 'edition',
   'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'herkunft', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
-  'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'zustand_ovp'];
+  'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'zustand_ovp',
+  'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz'];
 const ZEIT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 const UUID = /^[0-9a-f]{32}$/;
 const IMPORTARTEN = ['csv', 'sicherung', 'steam'];
@@ -133,7 +134,8 @@ export function wendeAn(db, benutzer, { artikel = [], geloescht = [] }, { katalo
         const eingabe = Object.fromEntries(FELDER.map((f) => [f, roh[f]]));
         if (roh.bestand === undefined && vorhanden) Object.assign(eingabe, { bestand: vorhanden.bestand, abgang_am: vorhanden.abgang_am, verkaufspreis: vorhanden.verkaufspreis, digital_quelle: vorhanden.digital_quelle });
         // Ebenso Lagerort, Beilagen und Seriennummer der OVP (neuere Felder)
-        if (vorhanden) for (const f of ['lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'zustand_ovp']) if (roh[f] === undefined) eingabe[f] = vorhanden[f];
+        if (vorhanden) for (const f of ['lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'zustand_ovp',
+          'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz']) if (roh[f] === undefined) eingabe[f] = vorhanden[f];
         daten = pruefeArtikel(eingabe);
       } catch (e) {
         ergebnis.fehler.push({ sync_uuid: uuid, fehler: e instanceof ValidierungsFehler ? Object.values(e.fehler ?? {}).join(' ') || e.message : e.message });

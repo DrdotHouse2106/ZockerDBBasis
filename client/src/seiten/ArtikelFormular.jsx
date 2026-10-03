@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
   ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, DIGITAL_QUELLEN, istModerator,
-  beilagenAusVollstaendigkeit, vollstaendigkeitAusBeilagen, zustandBeschriftung,
+  beilagenAusVollstaendigkeit, vollstaendigkeitAusBeilagen, zustandBeschriftung, KAUFQUELLEN,
 } from '../../../shared/konstanten.js';
 import { usePlattformen } from '../plattformen.js';
 import { useSitzung } from '../sitzung.js';
@@ -28,6 +28,7 @@ const LEER = {
   region: 'pal_de', farbe: '', edition: '', modellnummer: '', seriennummer: '', notizen: '', kaufpreis: '', kaufdatum: '', anzahl: 1,
   marktwert: '', herkunft: '', konvolut_id: null, bestand: 'besitz', digital_quelle: null,
   lagerort_ort: '', lagerort_regal: '', lagerort_fach: '', beilagen: null, seriennummer_ovp: '', privat: false, zustand_ovp: '',
+  neupreis: '', erstkauf_datum: '', erstkauf_quelle: '', kauf_quelle: '', beilagen_notiz: '',
 };
 
 export default function ArtikelFormular({ route, artikelId }) {
@@ -63,6 +64,7 @@ export default function ArtikelFormular({ route, artikelId }) {
             ...LEER, ...Object.fromEntries(Object.entries(a).map(([k, v]) => [k, v ?? ''])),
             kaufpreis: a.kaufpreis_anteilig ? '' : preisFeld(a.kaufpreis), marktwert: preisFeld(a.marktwert),
             kaufdatum: datumFeld(a.kaufdatum), konvolut_id: a.konvolut_id,
+            neupreis: preisFeld(a.neupreis), erstkauf_datum: datumFeld(a.erstkauf_datum),
             katalog_id: a.katalog_id, plattform_id: a.plattform_id, variante_id: a.variante_id,
           });
           if (a.katalog_id) {
@@ -181,6 +183,7 @@ export default function ArtikelFormular({ route, artikelId }) {
       const felder = Object.keys(LEER);
       const nutzdaten = Object.fromEntries(felder.map((f) => [f, daten[f]]));
       nutzdaten.kaufdatum = leseDatum(daten.kaufdatum);
+      nutzdaten.erstkauf_datum = leseDatum(daten.erstkauf_datum);
       if (daten.herkunft !== 'konvolut') nutzdaten.konvolut_id = null;
       // Ohne Katalogeintrag legt der Server einen eigenen an: privat, eingereicht oder (Moderation) veröffentlicht
       if (!bearbeiten && !daten.katalog_id) {
@@ -339,8 +342,14 @@ export default function ArtikelFormular({ route, artikelId }) {
             <p className="-mt-1 text-xs text-leise sm:col-span-2">{ZUSTAENDE.find((z) => z.value === werte.zustand)?.beschreibung}</p>
           )}
           {beilagenSichtbar && (
-            <BeilagenCheckliste typ={werte.typ} wert={werte.beilagen}
-              onChange={(b) => setWerte((w) => ({ ...w, beilagen: b, vollstaendigkeit: vollstaendigkeitAusBeilagen(b) ?? w.vollstaendigkeit }))} />
+            <>
+              <BeilagenCheckliste typ={werte.typ} wert={werte.beilagen}
+                onChange={(b) => setWerte((w) => ({ ...w, beilagen: b, vollstaendigkeit: vollstaendigkeitAusBeilagen(b) ?? w.vollstaendigkeit }))} />
+              <Feld label="Welche Beilagen genau? (optional)" fehler={fehler.beilagen_notiz} breit>
+                {(id) => <input id={id} className="eingabe" value={werte.beilagen_notiz} onChange={setze('beilagen_notiz')} maxLength={500}
+                  placeholder="z. B. Club-Nintendo-Katalog 1998, Poster Ocarina of Time, Garantiekarte" />}
+              </Feld>
+            </>
           )}
         </Abschnitt>
 
@@ -423,6 +432,28 @@ export default function ArtikelFormular({ route, artikelId }) {
                 </>
               )}
             </Feld>
+          )}
+          {zeige('kauf_quelle') && werte.bestand !== 'digital' && (
+            <Feld label="Gekauft bei/auf" fehler={fehler.kauf_quelle}>
+              {(id) => <Auswahl id={id} wert={werte.kauf_quelle} onChange={setze('kauf_quelle')} optionen={KAUFQUELLEN} />}
+            </Feld>
+          )}
+          {(zeige('erstkauf') || werte.neupreis || werte.erstkauf_datum || werte.erstkauf_quelle) && werte.bestand !== 'digital' && (
+            <details className="rounded-xl border border-rand p-3 sm:col-span-2" open={Boolean(werte.neupreis || werte.erstkauf_datum || werte.erstkauf_quelle)}>
+              <summary className="cursor-pointer text-sm font-medium">Erstkauf laut Beleg (z. B. Kassenbon vom Vorbesitzer)</summary>
+              <p className="mt-1 text-xs text-leise">Für die Preisgeschichte deines Exemplars – nur für dich sichtbar. Namen oder Kartennummern vom Beleg gehören nicht hierher.</p>
+              <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                <Feld label="Neupreis (€)" fehler={fehler.neupreis}>
+                  {(id) => <input id={id} className="eingabe" value={werte.neupreis} onChange={setze('neupreis')} inputMode="decimal" placeholder="z. B. 59,99" />}
+                </Feld>
+                <Feld label="Datum" fehler={fehler.erstkauf_datum}>
+                  {(id) => <input id={id} className="eingabe" value={werte.erstkauf_datum} onChange={setze('erstkauf_datum')} inputMode="numeric" placeholder="TT.MM.JJJJ oder JJJJ" />}
+                </Feld>
+                <Feld label="Händler" fehler={fehler.erstkauf_quelle}>
+                  {(id) => <input id={id} className="eingabe" value={werte.erstkauf_quelle} onChange={setze('erstkauf_quelle')} maxLength={100} placeholder="z. B. Media Markt" />}
+                </Feld>
+              </div>
+            </details>
           )}
           {zeige('marktwert') && (
             <Feld label="Marktwert (€, eigene Schätzung)" fehler={fehler.marktwert}>
