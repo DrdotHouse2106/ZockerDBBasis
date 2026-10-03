@@ -177,6 +177,7 @@ export const AUSBLENDBARE_FELDER = [
   { value: 'farbe', label: 'Farbe / Sonderfarbe' },
   { value: 'edition', label: 'Edition / Variante' },
   { value: 'modellnummer', label: 'Modellnummer' },
+  { value: 'drucknummer', label: 'Drucknummer (Cover, nur Spiele)' },
   { value: 'seriennummer', label: 'Seriennummer' },
   { value: 'kaufdatum', label: 'Kaufdatum' },
   { value: 'kauf_quelle', label: 'Gekauft bei/auf' },

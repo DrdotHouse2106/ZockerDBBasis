@@ -22,7 +22,7 @@ const FELDER = [
   'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert',
   'plattform_id', 'variante_id', 'herkunft', 'konvolut_id', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
   'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'zustand_ovp',
-  'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz',
+  'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer',
 ];
 
 export function artikelZuObjekt(zeile) {
@@ -144,7 +144,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     if (sprache) bedingungen.push(sprache);
     if (typeof q === 'string' && q.trim()) {
       parameter.q = `%${q.trim().replace(/[\\%_]/g, (z) => `\\${z}`)}%`;
-      bedingungen.push(`(${['titel', 'plattform', 'edition', 'farbe', 'modellnummer', 'seriennummer', 'seriennummer_ovp', 'notizen', 'barcode', 'lagerort_ort', 'lagerort_regal', 'lagerort_fach']
+      bedingungen.push(`(${['titel', 'plattform', 'edition', 'farbe', 'modellnummer', 'drucknummer', 'seriennummer', 'seriennummer_ovp', 'notizen', 'barcode', 'lagerort_ort', 'lagerort_regal', 'lagerort_fach']
         .map((f) => `a.${f} LIKE @q ESCAPE '\\'`).join(' OR ')})`);
     }
     const sortierung = SORTIERUNGEN[req.query.sortierung] ?? SORTIERUNGEN.neueste;

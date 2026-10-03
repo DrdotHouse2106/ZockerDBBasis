@@ -28,7 +28,7 @@ const LEER = {
   region: 'pal_de', farbe: '', edition: '', modellnummer: '', seriennummer: '', notizen: '', kaufpreis: '', kaufdatum: '', anzahl: 1,
   marktwert: '', herkunft: '', konvolut_id: null, bestand: 'besitz', digital_quelle: null,
   lagerort_ort: '', lagerort_regal: '', lagerort_fach: '', beilagen: null, seriennummer_ovp: '', privat: false, zustand_ovp: '',
-  neupreis: '', erstkauf_datum: '', erstkauf_quelle: '', kauf_quelle: '', beilagen_notiz: '',
+  neupreis: '', erstkauf_datum: '', erstkauf_quelle: '', kauf_quelle: '', beilagen_notiz: '', drucknummer: '',
 };
 
 export default function ArtikelFormular({ route, artikelId }) {
@@ -47,6 +47,8 @@ export default function ArtikelFormular({ route, artikelId }) {
   // Im Konto ausgeblendete Felder (bereits ausgefüllte bleiben sichtbar, damit nichts unbemerkt verloren geht)
   const ausgeblendet = new Set(benutzer?.ausgeblendete_felder ?? []);
   const zeige = (feld) => !ausgeblendet.has(feld) || Boolean(werte?.[feld]);
+  // Spiele haben praktisch nie Seriennummern (die gibt es bei Geräten) – dafür eine Drucknummer auf dem Cover
+  const spiel = werte?.typ === 'spiel';
   const [fehler, setFehler] = useState({});
   const [allgemeinerFehler, setAllgemeinerFehler] = useState(null);
   const [speichert, setSpeichert] = useState(false);
@@ -360,7 +362,7 @@ export default function ArtikelFormular({ route, artikelId }) {
           )}
         </Abschnitt>
 
-        {(['farbe', 'edition', 'modellnummer', 'seriennummer'].some(zeige) || beilagenSichtbar) && (
+        {(['farbe', 'edition', 'modellnummer', 'seriennummer', 'drucknummer'].some(zeige) || beilagenSichtbar) && (
         <Abschnitt titel="Variante" hinweis="Sonderfarben, Editionen und Modellrevisionen unterscheiden">
           {zeige('farbe') && (
             <Feld label="Farbe / Sonderfarbe" fehler={fehler.farbe}>
@@ -379,15 +381,25 @@ export default function ArtikelFormular({ route, artikelId }) {
           )}
           {zeige('modellnummer') && (
             <Feld label="Modellnummer" fehler={fehler.modellnummer}>
-              {(id) => <input id={id} className="eingabe" value={werte.modellnummer} onChange={setze('modellnummer')} placeholder="z. B. SCPH-1002, HEG-001 (OLED)" />}
+              {(id) => <input id={id} className="eingabe" value={werte.modellnummer} onChange={setze('modellnummer')} placeholder={spiel ? 'z. B. CUSA-03067, SLES-00972' : 'z. B. SCPH-1002, HEG-001 (OLED)'} />}
             </Feld>
           )}
-          {zeige('seriennummer') && (
+          {spiel && zeige('drucknummer') && (
+            <Feld label="Drucknummer (Cover)" fehler={fehler.drucknummer}>
+              {(id) => (
+                <>
+                  <input id={id} className="eingabe" value={werte.drucknummer} onChange={setze('drucknummer')} maxLength={40} placeholder="z. B. 8826161" autoComplete="off" />
+                  <p className="mt-1 text-xs text-leise">Kleine Nummer auf dem Cover-Rücken, meist unter der CUSA-/SLES-Nummer – unterscheidet Nachdrucke.</p>
+                </>
+              )}
+            </Feld>
+          )}
+          {zeige('seriennummer') && (!spiel || werte.seriennummer) && (
             <Feld label="Seriennummer" fehler={fehler.seriennummer}>
               {(id) => <input id={id} className="eingabe" value={werte.seriennummer} onChange={setze('seriennummer')} autoComplete="off" />}
             </Feld>
           )}
-          {beilagenSichtbar && (
+          {beilagenSichtbar && (!spiel || werte.seriennummer_ovp) && (
             <>
               <Feld label="Seriennummer der OVP" fehler={fehler.seriennummer_ovp}>
                 {(id) => (

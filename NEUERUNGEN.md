@@ -11,6 +11,12 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Drucknummer auf dem Cover
+- Neues Feld „Drucknummer (Cover)“ bei Spielen – die kleine Nummer auf dem Cover-Rücken, meist unter der CUSA-/SLES-Nummer (z. B. „8826161“); sie unterscheidet Nachdrucke
+- Die Modellnummer schlägt bei Spielen jetzt passende Beispiele vor (z. B. „CUSA-03067“)
+- Seriennummer und Seriennummer der OVP erscheinen bei Spielen nur noch, wenn schon etwas drinsteht – die gibt es praktisch nur bei Geräten
+- Die Drucknummer ist durchsuchbar, im Export enthalten und lässt sich im Konto ausblenden
+
 ## 03.10.2026 – „Zurück“ führt zur vorherigen Seite
 - Beim Foto-Hochladen lässt sich die Seite jetzt auch über der Bildvorschau scrollen – nur der Zuschnitt-Rahmen reagiert aufs Ziehen
 - Der Zurück-Pfeil oben links bringt dich jetzt dorthin, wo du vorher warst – z. B. von einem Spiel zurück zu „Fotos gesucht“ statt zur Sammlung

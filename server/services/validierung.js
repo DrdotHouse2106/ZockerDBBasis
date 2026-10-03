@@ -17,6 +17,7 @@ const TEXTFELDER = {
   farbe: 100,
   edition: 200,
   modellnummer: 100,
+  drucknummer: 40,
   seriennummer: 100,
   seriennummer_ovp: 100,
   lagerort_ort: 80,

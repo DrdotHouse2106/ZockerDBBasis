@@ -702,6 +702,10 @@ const MIGRATIONEN = [
   `
   ALTER TABLE benutzer ADD COLUMN fotos_oeffentlich INTEGER NOT NULL DEFAULT 0;
   `,
+  // 46: Drucknummer des Covers bei Spielen (z. B. „8826161“ unter der CUSA-Nummer) – gleich für alle Exemplare eines Drucks
+  `
+  ALTER TABLE artikel ADD COLUMN drucknummer TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

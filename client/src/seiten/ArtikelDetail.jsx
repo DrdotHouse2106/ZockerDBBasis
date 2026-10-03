@@ -242,6 +242,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     ['Farbe', artikel.farbe],
     ['Edition/Variante', artikel.edition],
     ['Modellnummer', artikel.modellnummer],
+    ['Drucknummer (Cover)', artikel.drucknummer],
     ['Seriennummer', artikel.seriennummer],
     ['Seriennummer OVP', artikel.seriennummer_ovp ? <>{artikel.seriennummer_ovp} <SeriennummerAbgleich geraet={artikel.seriennummer} ovp={artikel.seriennummer_ovp} /></> : null],
     ['Beilagen', beilagenText(artikel)],
