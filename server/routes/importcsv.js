@@ -8,7 +8,7 @@ const MAX_ZEILEN = 5000;
 export function importCsvRouter({ db, plattformen, erweiterungen }) {
   const router = Router();
   const felder = ['benutzer_id', 'typ', 'titel', 'plattform', 'plattform_id', 'katalog_id', 'barcode', 'zustand', 'vollstaendigkeit', 'region',
-    'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert'];
+    'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'importiert_aus'];
   const einfuegen = db.prepare(`INSERT INTO artikel (${felder.join(', ')}) VALUES (${felder.map((f) => `@${f}`).join(', ')})`);
   // Abgleich mit dem öffentlichen Katalog: gleicher Titel, möglichst gleiche Plattform – nur bei eindeutigem Treffer
   const katalogTreffer = db.prepare(`SELECT k.id FROM katalog k
@@ -66,7 +66,7 @@ export function importCsvRouter({ db, plattformen, erweiterungen }) {
             const treffer = katalogTreffer.all({ titel: artikel.titel, typ: artikel.typ, plattform: artikel.plattform_id });
             if (treffer.length === 1) { artikel.katalog_id = treffer[0].id; verknuepft++; }
           }
-          einfuegen.run({ ...artikel, benutzer_id: req.benutzer.id });
+          einfuegen.run({ ...artikel, benutzer_id: req.benutzer.id, importiert_aus: 'csv' });
           importiert++;
         } catch (fehler) {
           if (!(fehler instanceof ValidierungsFehler)) throw fehler;

@@ -51,6 +51,7 @@ test('Import über die API: Analyse, Katalogabgleich, fehlerhafte Zeilen', async
   assert.equal(r.json.fehlerhaft[0].zeile, 3);
   const liste = (await nutzer.api('/api/artikel')).json;
   const metroid = (liste.artikel ?? liste).find((a) => a.titel === 'Super Metroid');
+  assert.equal(metroid.importiert_aus, 'csv', 'Importe sind markiert und zählen nicht als Neuzugang');
   assert.ok(metroid.katalog_id);
   assert.equal(metroid.kaufpreis, 49.99);
   assert.equal(metroid.zustand, 'gut');

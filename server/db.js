@@ -666,6 +666,11 @@ const MIGRATIONEN = [
   `
   ALTER TABLE artikel ADD COLUMN privat INTEGER NOT NULL DEFAULT 0;
   `,
+  // 39: Wie ein Exemplar angelegt wurde – NULL = von Hand, sonst Import (csv, sicherung, steam). Importe sind keine
+  //     Neuzugänge und zählen nicht für Trends und „Zuletzt aufgenommen“.
+  `
+  ALTER TABLE artikel ADD COLUMN importiert_aus TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

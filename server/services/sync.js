@@ -23,6 +23,7 @@ const FELDER = ['typ', 'titel', 'plattform', 'barcode', 'cover_url', 'zustand', 
   'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat'];
 const ZEIT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 const UUID = /^[0-9a-f]{32}$/;
+const IMPORTARTEN = ['csv', 'sicherung', 'steam'];
 const jetzt = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
 
 export const dateiHash = (puffer) => crypto.createHash('sha256').update(puffer).digest('hex');
@@ -67,6 +68,7 @@ export function aenderungenSeit(db, benutzerId, stand, { zockerdbId, bildHash = 
       zockerdb_id: zockerdbId(z),
       erstellt_am: z.erstellt_am,
       aktualisiert_am: z.aktualisiert_am,
+      importiert_aus: z.importiert_aus ?? null,
       bild: z.bild_datei ? bildHash(z) : null,
       // Foto wurde entfernt – die Gegenseite entfernt ihre Kopie ebenfalls
       bild_entfernt: !z.bild_datei && z.sync_bild_hash === 'geloescht',
@@ -155,9 +157,11 @@ export function wendeAn(db, benutzer, { artikel = [], geloescht = [] }, { katalo
         }
         ergebnis.geaendert += 1;
       } else {
-        const neu = db.prepare(`INSERT INTO artikel (benutzer_id, sync_uuid, ${felder.join(', ')}, erstellt_am, aktualisiert_am)
-          VALUES (@benutzer_id, @sync_uuid, ${felder.map((f) => `@${f}`).join(', ')}, @erstellt_am, @aktualisiert_am) RETURNING id`)
-          .get({ ...daten, benutzer_id: benutzer.id, sync_uuid: uuid, erstellt_am: zeit(roh.erstellt_am) ?? geaendert, aktualisiert_am: geaendert });
+        // Importierte Exemplare bleiben auch auf der Gegenseite als Import markiert (zählen nicht als Neuzugang)
+        const importiertAus = IMPORTARTEN.includes(roh.importiert_aus) ? roh.importiert_aus : null;
+        const neu = db.prepare(`INSERT INTO artikel (benutzer_id, sync_uuid, ${felder.join(', ')}, erstellt_am, aktualisiert_am, importiert_aus)
+          VALUES (@benutzer_id, @sync_uuid, ${felder.map((f) => `@${f}`).join(', ')}, @erstellt_am, @aktualisiert_am, @importiert_aus) RETURNING id`)
+          .get({ ...daten, benutzer_id: benutzer.id, sync_uuid: uuid, erstellt_am: zeit(roh.erstellt_am) ?? geaendert, aktualisiert_am: geaendert, importiert_aus: importiertAus });
         if (!daten.katalog_id) katalog.stelleSicherFuerArtikel({ ...daten, id: neu.id }, benutzer);
         // Das Anlegen des privaten Katalogeintrags ändert den Zeitstempel nicht
         db.prepare('UPDATE artikel SET aktualisiert_am = ? WHERE id = ?').run(geaendert, neu.id);

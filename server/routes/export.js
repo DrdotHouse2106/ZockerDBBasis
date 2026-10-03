@@ -123,7 +123,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
     const felder = ['benutzer_id', 'typ', 'titel', 'plattform', 'katalog_id', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region',
       'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'plattform_id',
       'herkunft', 'konvolut_id', 'kaufpreis_anteilig', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
-      'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat'];
+      'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'importiert_aus'];
     const einfuegen = db.prepare(`INSERT INTO artikel (${felder.join(', ')}) VALUES (${felder.map((f) => `@${f}`).join(', ')}) RETURNING id`);
     const wartungEinfuegen = db.prepare('INSERT INTO wartungen (artikel_id, benutzer_id, art, datum, notiz) VALUES (?, ?, ?, ?, ?)');
     const wartungenJe = new Map();
@@ -179,7 +179,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
           artikel.katalog_id = katalogIds.get(alteKatalogId) ?? (katalogVorhanden.get(alteKatalogId ?? -1, req.benutzer.id)?.id ?? null);
           if (artikel.cover_url?.startsWith('/')) artikel.cover_url = null; // Fotos werden nicht mit exportiert
           const plattform = plattformen.zuordnen(artikel.plattform);
-          const { id } = einfuegen.get({ ...artikel, benutzer_id: req.benutzer.id, plattform_id: plattform?.id ?? null, plattform: plattform?.name ?? artikel.plattform });
+          const { id } = einfuegen.get({ ...artikel, benutzer_id: req.benutzer.id, plattform_id: plattform?.id ?? null, plattform: plattform?.name ?? artikel.plattform, importiert_aus: 'sicherung' });
           for (const w of (roh?.id != null && wartungenJe.get(roh.id)) || []) {
             wartungEinfuegen.run(id, req.benutzer.id, w.art, w.datum, w.notiz ? String(w.notiz).slice(0, 1000) : null);
           }

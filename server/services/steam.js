@@ -101,8 +101,8 @@ export function erstelleSteamDienst(db, { konfiguration, fetchFn = globalThis.fe
         const k = katalogFuer(s, benutzer, pc?.id ?? null);
         if (k.eigen) ergebnis.eigene += 1;
         else ergebnis.katalog += 1;
-        db.prepare(`INSERT INTO artikel (benutzer_id, typ, titel, plattform, plattform_id, katalog_id, bestand, digital_quelle, digital_id, spielzeit_minuten)
-          VALUES (?, 'spiel', ?, ?, ?, ?, 'digital', 'steam', ?, ?)`).run(benutzer.id, k.titel, pc?.name ?? 'PC', pc?.id ?? null, k.id, String(appid), minuten);
+        db.prepare(`INSERT INTO artikel (benutzer_id, typ, titel, plattform, plattform_id, katalog_id, bestand, digital_quelle, digital_id, spielzeit_minuten, importiert_aus)
+          VALUES (?, 'spiel', ?, ?, ?, ?, 'digital', 'steam', ?, ?, 'steam')`).run(benutzer.id, k.titel, pc?.name ?? 'PC', pc?.id ?? null, k.id, String(appid), minuten);
         ergebnis.neu += 1;
       }
       db.prepare("UPDATE benutzer SET steam_id = ?, steam_import_am = datetime('now') WHERE id = ?").run(steamId, benutzer.id);
