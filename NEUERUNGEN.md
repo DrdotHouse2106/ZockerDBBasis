@@ -11,6 +11,9 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Menü „Weitere Aktionen“ im Bild
+- Auf schmalen Handys ragte das Menü „Weitere Aktionen“ auf der Detailseite eines Exemplars links aus dem Bildschirm – es klappt jetzt in die Richtung auf, in der Platz ist
+
 ## 03.10.2026 – Barcode-Scanner deutlich schneller
 - Neue Erkennung: auf Android die eingebaute des Browsers, auf dem iPhone und in anderen Browsern ein schneller Decoder (ZXing) – statt des bisherigen, langsamen
 - Höhere Kameraauflösung, Dauer-Autofokus (wo das Gerät es kann) und gelesen wird nur der Bereich im Rahmen

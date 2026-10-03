@@ -438,16 +438,23 @@ function beilagenText(a) {
 /** Menü „Weitere Aktionen“ – hält die Seite übersichtlich; schließt nach einer Auswahl. */
 function AktionenMenue({ children }) {
   const [offen, setOffen] = useState(false);
+  // Nach rechts aufklappen, wenn rechts vom Knopf genug Platz ist (Handy: Knopf steht links) – sonst nach links
+  const [rechtsbuendig, setRechtsbuendig] = useState(false);
+  const umschalten = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setRechtsbuendig(r.left + 256 > window.innerWidth - 8);
+    setOffen(!offen);
+  };
   return (
     <div className="relative">
-      <button type="button" className="knopf-sekundaer px-3 py-1.5" aria-haspopup="menu" aria-expanded={offen} onClick={() => setOffen(!offen)} data-tour="artikel-aktionen">
+      <button type="button" className="knopf-sekundaer px-3 py-1.5" aria-haspopup="menu" aria-expanded={offen} onClick={umschalten} data-tour="artikel-aktionen">
         Weitere Aktionen <span aria-hidden="true">▾</span>
       </button>
       {offen && (
         <>
           <button type="button" className="fixed inset-0 z-30 cursor-default" aria-label="Menü schließen" onClick={() => setOffen(false)} />
           <div role="menu" onClick={(e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') setOffen(false); }}
-            className="karte absolute right-0 z-40 mt-1 flex w-64 flex-col overflow-hidden py-1 text-sm shadow-lg [&>*]:px-4 [&>*]:py-2.5 [&>*]:text-left [&>*:hover]:bg-karte-hover">
+            className={`karte absolute ${rechtsbuendig ? 'right-0' : 'left-0'} z-40 mt-1 flex w-64 max-w-[calc(100vw-1rem)] flex-col overflow-hidden py-1 text-sm shadow-lg [&>*]:px-4 [&>*]:py-2.5 [&>*]:text-left [&>*:hover]:bg-karte-hover`}>
             {children}
           </div>
         </>
