@@ -23,9 +23,14 @@ test('Gesuchte Fotos richten sich nach Art und Datenträger der Plattform', () =
   assert.equal(datentraegerVon({ kurz: 'Amiga' }), 'diskette');
   assert.equal(datentraegerVon({ name: 'Sega Dreamcast (JP)' }), 'disc', 'unbekanntes Kürzel: aus dem Namen');
   assert.equal(datentraegerVon({ kurz: 'Sonst.', name: 'Sonstige' }), null);
-  assert.deepEqual(gesuchteFotos('spiel', { kurz: 'N64' }), ['foto_modul', 'foto_vorne', 'foto_hinten', 'foto_komplett']);
+  assert.deepEqual(gesuchteFotos('spiel', { kurz: 'N64' }), ['foto_modul', 'foto_vorne', 'foto_hinten']);
   assert.deepEqual(gesuchteFotos('spiel', { kurz: 'PS1' }).slice(0, 1), ['foto_disc']);
-  assert.deepEqual(gesuchteFotos('spiel', null), ['foto_vorne', 'foto_hinten', 'foto_komplett'], 'ohne Plattform kein Datenträger');
+  assert.deepEqual(gesuchteFotos('spiel', null), ['foto_vorne', 'foto_hinten'], 'ohne Plattform kein Datenträger');
+  // „Alles zusammen“ wird nicht gesucht; Anleitung und Beilagen nur, wenn am Exemplar angehakt
+  assert.deepEqual(gesuchteFotos('spiel', { kurz: 'PS4' }, { beilagen: { ovp: true, anleitung: true } }), ['foto_disc', 'foto_vorne', 'foto_hinten', 'foto_anleitung']);
+  assert.deepEqual(gesuchteFotos('spiel', { kurz: 'PS4' }, { beilagen: { ovp: true, anleitung: false, poster: true } }), ['foto_disc', 'foto_vorne', 'foto_hinten', 'foto_beilagen']);
+  assert.deepEqual(gesuchteFotos('spiel', { kurz: 'PS4' }, { beilagen: {} }), ['foto_disc', 'foto_vorne', 'foto_hinten']);
+  assert.ok(!gesuchteFotos('spiel', { kurz: 'PS4' }, { versiegelt: true, beilagen: { anleitung: true } }).includes('foto_anleitung'), 'eingeschweißt: kein Anleitungsfoto');
   assert.deepEqual(gesuchteFotos('konsole', { kurz: 'SNES' }), ['foto_geraet', 'foto_vorne', 'foto_detail']);
   assert.equal(istFotoArt('foto_modul'), true);
   assert.equal(istFotoArt('cover_vorne'), false);

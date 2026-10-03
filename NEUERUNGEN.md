@@ -11,6 +11,11 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Fotos gesucht: Anleitung statt „Alles zusammen“
+- „Alles zusammen (CIB)“ steht nicht mehr in „Fotos gesucht“ – Disc, Verpackung und Beilagen zeigen schon alles (hochladen lässt es sich weiterhin)
+- Neu: ein eigenes Foto der Anleitung – gefragt wird nur, wenn bei „Was ist dabei?“ die Anleitung angehakt ist
+- Nach einem Beilagen-Foto wird weiterhin nur gefragt, wenn etwas außer Hülle und Anleitung angehakt ist (z. B. Poster, Werbebeilagen)
+
 ## 03.10.2026 – Verständlichere Foto-Bezeichnungen
 - Das Foto „Komplett (CIB)“ heißt jetzt „Alles zusammen (CIB)“: gemeint ist ein Foto von Hülle, Disc bzw. Modul und Anleitung zusammen
 - Beim Foto „Beilagen“ schlägt die Bezeichnung jetzt vor, je Beilage ein eigenes Foto zu machen (z. B. „Club-Nintendo-Katalog 1998“)

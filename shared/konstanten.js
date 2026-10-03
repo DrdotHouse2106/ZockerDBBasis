@@ -350,6 +350,7 @@ export const MEDIENARTEN = [
   { value: 'foto_diskette', label: 'Foto: Diskette / Kassette', kurz: 'Diskette', slug: 'diskette', foto: true },
   { value: 'foto_vorne', label: 'Foto: Verpackung vorne', kurz: 'Verpackung vorne', slug: 'verpackung-vorne', foto: true },
   { value: 'foto_hinten', label: 'Foto: Verpackung hinten', kurz: 'Verpackung hinten', slug: 'verpackung-hinten', foto: true },
+  { value: 'foto_anleitung', label: 'Foto: Anleitung', kurz: 'Anleitung', slug: 'anleitung', foto: true },
   { value: 'foto_komplett', label: 'Foto: Alles zusammen (Hülle, Disc, Anleitung)', kurz: 'Alles zusammen (CIB)', slug: 'komplett-cib', foto: true },
   { value: 'foto_beilagen', label: 'Foto: Beilagen (was drin ist)', kurz: 'Beilagen', slug: 'beilagen', foto: true },
   { value: 'foto_geraet', label: 'Foto: Gerät', kurz: 'Gerät', slug: 'geraet', foto: true },
@@ -376,13 +377,15 @@ export function datentraegerVon(plattform) {
 /**
  * Welche Fotos wünschen wir uns zu einem Eintrag? (Reihenfolge = Wichtigkeit)
  * Für ein bestimmtes Exemplar: `versiegelt` (Zustand „Neu/OVP“) – dann nichts, wofür man es öffnen müsste;
- * `beilagen` (Beilagen-Liste des Exemplars) – mit zusätzlichen Beilagen auch ein Foto davon.
+ * `beilagen` (Beilagen-Liste des Exemplars) – mit Anleitung ein Foto der Anleitung, mit zusätzlichen Beilagen auch eins davon.
+ * „Alles zusammen (CIB)“ wird nicht eigens gesucht – die Einzelfotos zeigen dasselbe (hochladen lässt es sich weiterhin).
  */
 export function gesuchteFotos(typ, plattform = null, { versiegelt = false, beilagen = null } = {}) {
   if (typ === 'spiel') {
     const traeger = datentraegerVon(plattform);
     if (versiegelt) return ['foto_vorne', 'foto_hinten'];
-    return [...(traeger ? [`foto_${traeger}`] : []), 'foto_vorne', 'foto_hinten', 'foto_komplett', ...(hatExtraBeilagen(beilagen) ? ['foto_beilagen'] : [])];
+    return [...(traeger ? [`foto_${traeger}`] : []), 'foto_vorne', 'foto_hinten',
+      ...(beilageVorhanden(beilagen?.anleitung) ? ['foto_anleitung'] : []), ...(hatExtraBeilagen(beilagen) ? ['foto_beilagen'] : [])];
   }
   if (versiegelt) return ['foto_vorne'];
   if (typ === 'konsole') return ['foto_geraet', 'foto_vorne', 'foto_detail'];
