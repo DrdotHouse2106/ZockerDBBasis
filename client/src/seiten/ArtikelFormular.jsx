@@ -8,7 +8,7 @@ import { useSitzung } from '../sitzung.js';
 import PlattformAuswahl from '../komponenten/PlattformAuswahl.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import { api, ApiFehler } from '../api.js';
-import { navigiere } from '../router.js';
+import { navigiere, zurueck, vorherigeSeite } from '../router.js';
 import { preisFeld, datumFeld, leseDatum, euro } from '../format.js';
 import Layout from '../komponenten/Layout.jsx';
 import Cover from '../komponenten/Cover.jsx';
@@ -170,6 +170,13 @@ export default function ArtikelFormular({ route, artikelId }) {
     }));
   }
 
+  // Nach dem Speichern: zurück zur Artikelseite, von der man kam (statt sie ein zweites Mal in den Verlauf zu legen);
+  // sonst das Formular im Verlauf ersetzen – „Zurück“ landet so nie wieder im Formular
+  const nachSpeichern = (pfad, parameter) => {
+    if (bearbeiten && vorherigeSeite() === pfad) zurueck(pfad);
+    else navigiere(pfad, parameter, { ersetzen: true });
+  };
+
   async function speichern(e) {
     e.preventDefault();
     if (!werte.titel.trim()) {
@@ -196,7 +203,7 @@ export default function ArtikelFormular({ route, artikelId }) {
         : await api.artikelAnlegen(nutzdaten, { beschreibung });
       if (artikel?.offline) {
         zeigeHinweis('Offline gespeichert – die Änderung wird übertragen, sobald du wieder online bist.');
-        navigiere(bearbeiten ? `/artikel/${artikelId}` : '/');
+        nachSpeichern(bearbeiten ? `/artikel/${artikelId}` : '/');
         return;
       }
       if (bildDatei) {
@@ -210,7 +217,7 @@ export default function ArtikelFormular({ route, artikelId }) {
       // Konvolut erfassen: gleich mit dem nächsten Artikel aus dem Paket weitermachen
       if (!bearbeiten && p.konvolut && artikel.konvolut_id) navigiere('/neu', { konvolut: artikel.konvolut_id });
       // Neu hinzugefügt: die Artikelseite fragt einmal nach einem fehlenden Foto
-      else navigiere(`/artikel/${artikel.id}`, bearbeiten ? undefined : { neu: 1 });
+      else nachSpeichern(`/artikel/${artikel.id}`, bearbeiten ? undefined : { neu: 1 });
     } catch (fehlerObjekt) {
       if (fehlerObjekt instanceof ApiFehler && Object.keys(fehlerObjekt.felder).length) setFehler(fehlerObjekt.felder);
       setAllgemeinerFehler(fehlerObjekt.message);

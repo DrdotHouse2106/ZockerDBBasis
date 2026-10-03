@@ -11,6 +11,11 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – „Zurück“ führt zur vorherigen Seite
+- Der Zurück-Pfeil oben links bringt dich jetzt dorthin, wo du vorher warst – z. B. von einem Spiel zurück zu „Fotos gesucht“ statt zur Sammlung
+- Nach dem Speichern eines Artikels landest du mit „Zurück“ nicht wieder im Formular
+- Hast du die Seite direkt über einen Link geöffnet, geht es wie bisher zur Sammlung
+
 ## 03.10.2026 – Fotos standardmäßig öffentlich zeigen
 - Unter „Konto“ → „Fotos beitragen“ lässt sich einschalten, dass neue Fotos standardmäßig auch öffentlich gezeigt werden dürfen (Spieleseite, Google-Bildersuche)
 - Beim Hochladen ist das Häkchen dann schon gesetzt – je Foto lässt es sich abwählen; gezeigt wird jedes Foto erst nach der Prüfung

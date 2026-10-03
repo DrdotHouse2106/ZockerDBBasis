@@ -1,6 +1,6 @@
 import Symbol from './Symbole.jsx';
 import { MARKE } from '../../../shared/marke.js';
-import { navigiere } from '../router.js';
+import { navigiere, zurueck as zurueckZu } from '../router.js';
 import { useSitzung } from '../sitzung.js';
 import Fusszeile from './Fusszeile.jsx';
 import Glocke from './Glocke.jsx';
@@ -63,7 +63,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
           {zurueck ? (
             <button
               type="button"
-              onClick={() => (typeof zurueck === 'string' ? navigiere(zurueck) : window.history.back())}
+              onClick={() => (typeof zurueck === 'string' ? zurueckZu(zurueck) : window.history.back())}
               className="-ml-2 rounded-lg p-2 text-leise hover:bg-karte hover:text-text"
               aria-label="Zurück"
             >
