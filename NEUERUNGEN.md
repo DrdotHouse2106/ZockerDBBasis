@@ -11,9 +11,6 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
-## 03.10.2026 – Fußleiste bleibt unten (zweiter Anlauf)
-- Rutscht die Menüleiste auf dem iPhone trotzdem nach oben, weil iOS sich die Höhe mit offener Tastatur merkt, misst die App jetzt den Versatz und schiebt Menü- und Kopfleiste an die richtige Stelle
-
 ## 03.10.2026 – Fußleiste bleibt unten
 - In der installierten App auf dem iPhone rutschte die Menüleiste manchmal in die Bildmitte und die Kopfleiste verschwand – etwa nach dem Tippen in ein Feld, nach dem Schließen einer Bildansicht oder beim Zurückkehren in die App
 - Die Ansicht wird in diesen Fällen jetzt zuverlässig zurückgesetzt; kleine Auswahl- und Eingabefelder lösen kein automatisches Hineinzoomen mehr aus

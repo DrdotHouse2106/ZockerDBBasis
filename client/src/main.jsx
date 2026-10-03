@@ -28,37 +28,39 @@ window.addEventListener('popstate', spaeterZuruecksetzen);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') spaeterZuruecksetzen();
 });
-// Bleibt die Ansicht trotzdem verschoben (iOS merkt sich teils die Höhe mit offener Tastatur), wird der Versatz
-// gemessen und Fuß- und Kopfleiste werden passend verschoben (CSS-Variablen --vv-unten und --vv-oben).
-// Bei offener Tastatur und beim Hineinzoomen bleibt alles, wie der Browser es macht.
-function versatzMessen() {
-  const vv = window.visualViewport;
-  let unten = 0;
-  let oben = 0;
-  if (vv && !eingabeAktiv() && vv.scale <= 1.01) {
-    unten = Math.round(vv.offsetTop + vv.height - window.innerHeight);
-    oben = Math.round(vv.offsetTop);
-    if (Math.abs(unten) <= 1) unten = 0;
-    if (Math.abs(oben) <= 1) oben = 0;
+// Messanzeige zur Fehlersuche (Fußleiste auf dem iPhone): einschalten mit „?ansicht=messen“ in der Adresse,
+// ausschalten mit „?ansicht=aus“. Zeigt die Maße, die der Browser meldet – sonst bleibt alles unverändert.
+try {
+  const wahl = new URLSearchParams(window.location.search).get('ansicht');
+  if (wahl === 'messen') localStorage.setItem('ansicht-messen', '1');
+  if (wahl === 'aus') localStorage.removeItem('ansicht-messen');
+  if (localStorage.getItem('ansicht-messen') === '1') {
+    const box = document.createElement('div');
+    box.setAttribute('aria-hidden', 'true');
+    box.style.cssText = 'position:fixed;left:50%;top:40%;transform:translateX(-50%);z-index:9999;pointer-events:none;'
+      + 'background:rgba(0,0,0,.8);color:#fff;font:12px/1.4 monospace;padding:6px 8px;border-radius:6px;white-space:pre';
+    const zeigen = () => {
+      const vv = window.visualViewport;
+      const nav = document.querySelector('nav.fixed');
+      const r = nav?.getBoundingClientRect();
+      box.textContent = [
+        `innerHeight ${window.innerHeight}  clientHeight ${document.documentElement.clientHeight}`,
+        `vv.height ${vv?.height?.toFixed(1)}  vv.offsetTop ${vv?.offsetTop?.toFixed(1)}  scale ${vv?.scale?.toFixed(2)}`,
+        `screen ${window.screen.height}  scrollY ${Math.round(window.scrollY)}  body ${document.documentElement.scrollHeight}`,
+        `Leiste oben ${r ? Math.round(r.top) : '–'} unten ${r ? Math.round(r.bottom) : '–'}  Fokus ${document.activeElement?.tagName}`,
+      ].join('\n');
+    };
+    const anhaengen = () => { document.body.appendChild(box); zeigen(); };
+    if (document.body) anhaengen(); else window.addEventListener('DOMContentLoaded', anhaengen);
+    window.visualViewport?.addEventListener('resize', zeigen);
+    window.visualViewport?.addEventListener('scroll', zeigen);
+    window.addEventListener('scroll', zeigen, { passive: true });
+    window.addEventListener('resize', zeigen);
+    document.addEventListener('focusin', zeigen);
+    document.addEventListener('focusout', () => setTimeout(zeigen, 500));
+    setInterval(zeigen, 1000);
   }
-  const stil = document.documentElement.style;
-  stil.setProperty('--vv-unten', `${unten}px`);
-  stil.setProperty('--vv-oben', `${oben}px`);
-}
-let messungGeplant = false;
-function versatzPlanen() {
-  if (messungGeplant) return;
-  messungGeplant = true;
-  requestAnimationFrame(() => { messungGeplant = false; versatzMessen(); });
-}
-window.visualViewport?.addEventListener('resize', versatzPlanen);
-window.visualViewport?.addEventListener('scroll', versatzPlanen);
-window.addEventListener('scroll', versatzPlanen, { passive: true });
-window.addEventListener('resize', versatzPlanen);
-document.addEventListener('focusin', versatzPlanen);
-document.addEventListener('focusout', () => setTimeout(versatzPlanen, 450));
-document.addEventListener('visibilitychange', versatzPlanen);
-window.addEventListener('pageshow', versatzPlanen);
+} catch { /* Speicher gesperrt – keine Messanzeige */ }
 
 if (window.visualViewport) {
   let zeitgeber;
