@@ -6,6 +6,7 @@ test('Seriennummer ausblenden, Zustand Disc und Hülle getrennt', async ({ page 
   await anmelden(page, 'felder_e2e');
   const a = await (await page.request.post('/api/artikel', { data: { typ: 'spiel', titel: 'Black Flag', plattform: 'PlayStation 4' } })).json();
 
+  await page.request.put('/api/konto', { data: { ausgeblendete_felder: [] } }); // wiederholbar: Ausgangszustand
   await page.goto('/?app=1#/konto');
   await page.getByText('Felder beim Eintragen ausblenden').click();
   await page.getByRole('checkbox', { name: 'Seriennummer', exact: true }).uncheck();
@@ -16,6 +17,9 @@ test('Seriennummer ausblenden, Zustand Disc und Hülle getrennt', async ({ page 
   await page.getByLabel('Zustand Disc / Modul').selectOption('sehr_gut');
   await page.getByLabel('Zustand Hülle / OVP').selectOption('akzeptabel');
   await page.getByRole('button', { name: 'Speichern' }).click();
+  // Erst warten, bis die Artikelseite da ist – sonst findet die Suche noch die Auswahllisten des Formulars
+  await expect(page).toHaveURL(new RegExp(`#/artikel/${a.id}$`));
+  await expect(page.getByRole('combobox')).toHaveCount(0);
   await expect(page.getByText('Zustand Hülle / OVP')).toBeVisible();
-  await expect(page.getByText('Akzeptabel')).toBeVisible();
+  await expect(page.getByText('Akzeptabel', { exact: true })).toBeVisible();
 });
