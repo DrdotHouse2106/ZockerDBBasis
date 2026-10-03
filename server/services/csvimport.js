@@ -89,8 +89,15 @@ export function regionVon(wert) {
   const hat = (...namen) => namen.some((n) => w.has(n));
   if (enthaelt(t, 'ntsc-j', 'ntsc j') || hat('jp', 'jpn', 'japan', 'j')) return 'ntsc_j';
   if (enthaelt(t, 'ntsc', 'north america', 'nordamerika') || hat('us', 'usa', 'na', 'canada', 'kanada')) return 'ntsc_u';
-  if (enthaelt(t, 'pal-de', 'pal de') || hat('de', 'usk', 'deutschland', 'germany', 'deutsch', 'german', 'österreich', 'austria')) return 'pal_de';
-  if (hat('pal', 'eu', 'europe', 'europa', 'uk', 'au', 'australia', 'australien')) return 'pal_eu';
+  if (enthaelt(t, 'pal-de', 'pal de') || hat('de', 'usk', 'deutschland', 'germany', 'deutsch', 'german')) return 'pal_de';
+  if (hat('at', 'ch', 'österreich', 'austria', 'schweiz', 'switzerland')) return 'pal_at';
+  if (hat('uk', 'gb', 'england', 'britain', 'großbritannien')) return 'pal_uk';
+  if (hat('fr', 'france', 'frankreich')) return 'pal_fr';
+  if (hat('benelux', 'nl', 'be', 'niederlande', 'netherlands', 'holland', 'belgien', 'belgium')) return 'pal_benelux';
+  if (hat('es', 'pt', 'spanien', 'spain', 'portugal')) return 'pal_es';
+  if (hat('it', 'italien', 'italy')) return 'pal_it';
+  if (hat('nordic', 'skandinavien', 'scandinavia', 'se', 'dk', 'no', 'fi', 'schweden', 'dänemark', 'norwegen', 'finnland')) return 'pal_nordic';
+  if (hat('pal', 'eu', 'europe', 'europa', 'au', 'australia', 'australien')) return 'pal_eu';
   return null;
 }
 

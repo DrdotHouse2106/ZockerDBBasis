@@ -28,9 +28,20 @@ export const VOLLSTAENDIGKEITEN = [
 export const REGIONEN = [
   { value: 'pal_de', label: 'PAL (DE / USK)', kurz: 'PAL-DE' },
   { value: 'pal_eu', label: 'PAL (EU)', kurz: 'PAL-EU' },
+  // Genauere europäische Fassungen (Sprachen, Cover, Alterskennzeichen unterscheiden sich) – zählen im Filter „PAL (EU)“ mit
+  { value: 'pal_at', label: 'PAL – Österreich/Schweiz', kurz: 'PAL-AT/CH', gruppe: 'pal_eu' },
+  { value: 'pal_uk', label: 'PAL – UK', kurz: 'PAL-UK', gruppe: 'pal_eu' },
+  { value: 'pal_fr', label: 'PAL – Frankreich', kurz: 'PAL-FR', gruppe: 'pal_eu' },
+  { value: 'pal_benelux', label: 'PAL – Benelux', kurz: 'PAL-BNL', gruppe: 'pal_eu' },
+  { value: 'pal_es', label: 'PAL – Spanien/Portugal', kurz: 'PAL-ES/PT', gruppe: 'pal_eu' },
+  { value: 'pal_it', label: 'PAL – Italien', kurz: 'PAL-IT', gruppe: 'pal_eu' },
+  { value: 'pal_nordic', label: 'PAL – Skandinavien', kurz: 'PAL-NOR', gruppe: 'pal_eu' },
   { value: 'ntsc_u', label: 'NTSC-U', kurz: 'NTSC-U' },
   { value: 'ntsc_j', label: 'NTSC-J', kurz: 'NTSC-J' },
 ];
+
+/** Region samt genauerer Fassungen – für Filter: „pal_eu“ → pal_eu, pal_uk, pal_fr … */
+export const regionUmfang = (wert) => [wert, ...REGIONEN.filter((r) => r.gruppe === wert).map((r) => r.value)];
 
 // Stammdaten der Plattformen (werden beim ersten Start in die Datenbank übernommen und
 // können danach von Admins/Moderatoren gepflegt werden). „aliase“ dienen der Zuordnung

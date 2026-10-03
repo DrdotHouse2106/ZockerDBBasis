@@ -11,6 +11,12 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Genauere europäische Fassungen
+- Neben „PAL (DE)“ und „PAL (EU)“ gibt es jetzt: Österreich/Schweiz, UK, Frankreich, Benelux, Spanien/Portugal, Italien und Skandinavien – Fassungen unterscheiden sich oft bei Sprachen, Cover und Alterskennzeichen
+- Der Filter „PAL (EU)“ findet weiterhin alle europäischen Fassungen, auch die genaueren
+- Beim CSV-Import werden Angaben wie „UK“, „Benelux“ oder „Österreich“ erkannt
+- Belegte Sprachen gelten je Fassung – die Benelux- und die UK-Fassung eines Spiels stehen getrennt
+
 ## 03.10.2026 – Fotos in der App ansehen
 - Ein Tipp auf ein Foto oder einen Scan öffnet jetzt eine Bildansicht innerhalb der App – vorher landete man in der installierten App auf der nackten Bilddatei und kam ohne Neustart nicht mehr zurück
 - Schließen mit ✕, Tippen neben das Bild oder der Zurück-Geste; mehrere Fotos lassen sich mit ‹ › oder Wischen durchblättern

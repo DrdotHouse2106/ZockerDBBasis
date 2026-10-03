@@ -5,6 +5,7 @@ import multer from 'multer';
 import { pruefeArtikel, ValidierungsFehler } from '../services/validierung.js';
 import { speichereEinheitlich } from '../services/medien.js';
 import { sprachBedingung, normSprachen } from '../../shared/sprachen.js';
+import { regionUmfang } from '../../shared/konstanten.js';
 
 const SORTIERUNGEN = {
   neueste: 'a.erstellt_am DESC, a.id DESC',
@@ -124,7 +125,13 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
       parameter.plattform_id = plattformId;
     }
     const { spielstatus } = req.query;
-    for (const [feld, wert] of Object.entries({ typ, plattform, region, zustand, vollstaendigkeit, herkunft, spielstatus })) {
+    // Region: „PAL (EU)“ schließt die genaueren europäischen Fassungen ein
+    if (typeof region === 'string' && region) {
+      const umfang = regionUmfang(region);
+      bedingungen.push(`a.region IN (${umfang.map((_, i) => `@region${i}`).join(', ')})`);
+      umfang.forEach((r, i) => { parameter[`region${i}`] = r; });
+    }
+    for (const [feld, wert] of Object.entries({ typ, plattform, zustand, vollstaendigkeit, herkunft, spielstatus })) {
       if (typeof wert === 'string' && wert) {
         bedingungen.push(`a.${feld} = @${feld}`);
         parameter[feld] = wert;
