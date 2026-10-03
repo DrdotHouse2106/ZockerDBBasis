@@ -11,6 +11,11 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Vollständigkeit und Beilagen hängen zusammen
+- Die Beilagen-Liste steht jetzt direkt unter „Vollständigkeit“ (wenn das Zusatzfeld eingeschaltet ist)
+- „CIB“ hakt OVP und Anleitung gleich mit an, „Fehlt Anleitung“ markiert die Anleitung als fehlend usw. – nur noch ergänzen, was sonst dabei ist
+- Umgekehrt stellt die Beilagen-Liste die Vollständigkeit passend ein (OVP + Anleitung = CIB)
+
 ## 03.10.2026 – Fehlertolerante Suche
 - Die Suche findet Titel jetzt auch mit fehlendem Apostroph, in anderer Wortreihenfolge und mit Ziffern statt römischer Zahlen: „assassins black flag“ findet „Assassin's Creed IV Black Flag“, „final fantasy 7“ auch „Final Fantasy VII“
 - Gilt für den eigenen Katalog und die Online-Suche (findet IGDB nichts, wird wortweise nachgesehen)

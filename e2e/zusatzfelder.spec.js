@@ -18,9 +18,17 @@ test('Zusatzfelder einschalten, Lagerort vergeben und Wartung eintragen', async 
   await page.getByRole('checkbox', { name: /Beilagen & Seriennummern/ }).check();
 
   await page.goto(`/?app=1#/artikel/${a.id}/bearbeiten`);
+  // Vollständigkeit und Beilagen füllen sich gegenseitig vor
+  await page.getByLabel('Vollständigkeit').selectOption('cib');
+  await expect(page.getByRole('button', { name: '✓ OVP', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: '✓ Anleitung', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: '✓ Anleitung', exact: true }).click(); // → fehlt
+  await expect(page.getByLabel('Vollständigkeit')).toHaveValue('fehlt_anleitung');
+  await page.getByRole('button', { name: '✗ Anleitung', exact: true }).click(); // → keine Angabe
+  await page.getByRole('button', { name: 'Anleitung', exact: true }).click(); // → vorhanden
+  await expect(page.getByLabel('Vollständigkeit')).toHaveValue('cib');
   await page.getByPlaceholder('z. B. Wohnzimmer').fill('Keller');
   await page.getByPlaceholder('z. B. Kallax links').fill('Regal A');
-  await page.getByRole('button', { name: 'OVP', exact: true }).click();
   await page.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByText('Keller › Regal A')).toBeVisible();
   await expect(page.getByText('✓ OVP')).toBeVisible();

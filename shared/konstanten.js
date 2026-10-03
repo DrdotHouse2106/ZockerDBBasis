@@ -237,6 +237,29 @@ export function beilageText(label, wert) {
   if (!beilageVorhanden(wert)) return `✗ ${label}`;
   return `✓ ${Number.isInteger(wert) && wert > 1 ? `${wert}× ` : ''}${label}`;
 }
+/**
+ * Vollständigkeit und Beilagen-Liste hängen zusammen (OVP + Anleitung = CIB …): aus dem einen das andere vorbelegen.
+ * Andere Beilagen (Poster, Werbebeilagen …) bleiben unverändert.
+ */
+export function beilagenAusVollstaendigkeit(vollstaendigkeit, beilagen) {
+  const setzen = { cib: { ovp: true, anleitung: true }, nur_geraet: { ovp: false, anleitung: false }, nur_ovp: { ovp: true }, fehlt_anleitung: { ovp: true, anleitung: false } }[vollstaendigkeit];
+  if (!setzen) return beilagen ?? null;
+  const neu = { ...(beilagen ?? {}) };
+  // Eine schon eingetragene Anzahl (z. B. 2 Anleitungen) bleibt, wenn „vorhanden“ verlangt ist
+  for (const [k, w] of Object.entries(setzen)) if (!(w === true && beilageVorhanden(neu[k]))) neu[k] = w;
+  return neu;
+}
+/** Aus OVP und Anleitung die Vollständigkeit ableiten – null, wenn sich nichts sicher sagen lässt. */
+export function vollstaendigkeitAusBeilagen(beilagen) {
+  if (!beilagen || typeof beilagen !== 'object') return null;
+  const ovp = beilagen.ovp;
+  const anleitung = beilagen.anleitung;
+  if (beilageVorhanden(ovp) && beilageVorhanden(anleitung)) return 'cib';
+  if (beilageVorhanden(ovp) && anleitung === false) return 'fehlt_anleitung';
+  if (ovp === false) return 'nur_geraet';
+  return null;
+}
+
 /** Hat das Exemplar Beilagen außer Hülle/OVP und Anleitung? Dann lohnt ein Foto „Beilagen (Inhalt)“. */
 export const hatExtraBeilagen = (beilagen) => Boolean(beilagen && typeof beilagen === 'object'
   && Object.entries(beilagen).some(([k, w]) => !['ovp', 'anleitung'].includes(k) && beilageVorhanden(w)));

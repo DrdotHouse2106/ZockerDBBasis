@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
   ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, DIGITAL_QUELLEN, istModerator,
+  beilagenAusVollstaendigkeit, vollstaendigkeitAusBeilagen,
 } from '../../../shared/konstanten.js';
 import { usePlattformen } from '../plattformen.js';
 import { useSitzung } from '../sitzung.js';
@@ -40,6 +41,8 @@ export default function ArtikelFormular({ route, artikelId }) {
   const plattformen = usePlattformen();
   const { benutzer, status } = useSitzung();
   const funktionen = benutzer?.funktionen ?? {};
+  // Beilagen-Liste (Zusatzfeld) – steht direkt unter der Vollständigkeit, beide füllen sich gegenseitig vor
+  const beilagenSichtbar = Boolean(funktionen.beilagen) && werte?.bestand !== 'digital';
   const [fehler, setFehler] = useState({});
   const [allgemeinerFehler, setAllgemeinerFehler] = useState(null);
   const [speichert, setSpeichert] = useState(false);
@@ -313,10 +316,21 @@ export default function ArtikelFormular({ route, artikelId }) {
             {(id) => <Auswahl id={id} wert={werte.zustand} onChange={setze('zustand')} optionen={ZUSTAENDE} />}
           </Feld>
           <Feld label="Vollständigkeit" fehler={fehler.vollstaendigkeit}>
-            {(id) => <Auswahl id={id} wert={werte.vollstaendigkeit} onChange={setze('vollstaendigkeit')} optionen={VOLLSTAENDIGKEITEN} />}
+            {(id) => (
+              <Auswahl id={id} wert={werte.vollstaendigkeit} optionen={VOLLSTAENDIGKEITEN}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  // Mit Beilagen-Liste: OVP und Anleitung gleich mit ankreuzen (nur noch ergänzen, was sonst dabei ist)
+                  setWerte((w) => ({ ...w, vollstaendigkeit: v, beilagen: beilagenSichtbar ? beilagenAusVollstaendigkeit(v, w.beilagen) : w.beilagen }));
+                }} />
+            )}
           </Feld>
           {werte.zustand && (
             <p className="-mt-1 text-xs text-leise sm:col-span-2">{ZUSTAENDE.find((z) => z.value === werte.zustand)?.beschreibung}</p>
+          )}
+          {beilagenSichtbar && (
+            <BeilagenCheckliste typ={werte.typ} wert={werte.beilagen}
+              onChange={(b) => setWerte((w) => ({ ...w, beilagen: b, vollstaendigkeit: vollstaendigkeitAusBeilagen(b) ?? w.vollstaendigkeit }))} />
           )}
         </Abschnitt>
 
@@ -338,7 +352,7 @@ export default function ArtikelFormular({ route, artikelId }) {
           <Feld label="Seriennummer" fehler={fehler.seriennummer}>
             {(id) => <input id={id} className="eingabe" value={werte.seriennummer} onChange={setze('seriennummer')} autoComplete="off" />}
           </Feld>
-          {funktionen.beilagen && werte.bestand !== 'digital' && (
+          {beilagenSichtbar && (
             <>
               <Feld label="Seriennummer der OVP" fehler={fehler.seriennummer_ovp}>
                 {(id) => (
@@ -348,8 +362,6 @@ export default function ArtikelFormular({ route, artikelId }) {
                   </>
                 )}
               </Feld>
-              <div className="hidden sm:block" />
-              <BeilagenCheckliste typ={werte.typ} wert={werte.beilagen} onChange={(b) => setWerte((w) => ({ ...w, beilagen: b }))} />
             </>
           )}
         </Abschnitt>
