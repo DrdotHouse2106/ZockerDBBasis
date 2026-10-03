@@ -341,7 +341,7 @@ function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeff
       <label className="block">
         <span className="beschriftung">Bezeichnung (optional)</span>
         <input className="eingabe" value={werte.titel} onChange={(e) => setWerte((w) => ({ ...w, titel: e.target.value }))}
-          placeholder="z. B. PAL-Version, Players Choice, Platinum" maxLength={200} />
+          placeholder={werte.art === 'foto_beilagen' ? 'z. B. Club-Nintendo-Katalog 1998, Poster – je Beilage ein eigenes Foto' : 'z. B. PAL-Version, Players Choice, Platinum'} maxLength={200} />
       </label>
       <details className="rounded-lg bg-karte-hover/50 px-3 py-2 text-xs text-leise">
         <summary className="cursor-pointer font-semibold text-text">Tipps für gute Fotos</summary>

@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Verständlichere Foto-Bezeichnungen
+- Das Foto „Komplett (CIB)“ heißt jetzt „Alles zusammen (CIB)“: gemeint ist ein Foto von Hülle, Disc bzw. Modul und Anleitung zusammen
+- Beim Foto „Beilagen“ schlägt die Bezeichnung jetzt vor, je Beilage ein eigenes Foto zu machen (z. B. „Club-Nintendo-Katalog 1998“)
+
 ## 03.10.2026 – Sprachen der Spiele
 - Auf der Seite eines Spiels steht jetzt, in welchen Sprachen es Sprachausgabe, Untertitel und Menüs gibt – Deutsch und Englisch zuerst
 - Im Katalog und in der Sammlung (Filter) lässt sich nach „Deutsche Sprachausgabe“, „Deutsche Texte/Untertitel“ oder „Irgendetwas auf Deutsch“ filtern

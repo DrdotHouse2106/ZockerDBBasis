@@ -350,7 +350,7 @@ export const MEDIENARTEN = [
   { value: 'foto_diskette', label: 'Foto: Diskette / Kassette', kurz: 'Diskette', slug: 'diskette', foto: true },
   { value: 'foto_vorne', label: 'Foto: Verpackung vorne', kurz: 'Verpackung vorne', slug: 'verpackung-vorne', foto: true },
   { value: 'foto_hinten', label: 'Foto: Verpackung hinten', kurz: 'Verpackung hinten', slug: 'verpackung-hinten', foto: true },
-  { value: 'foto_komplett', label: 'Foto: Komplett mit Inhalt', kurz: 'Komplett (CIB)', slug: 'komplett-cib', foto: true },
+  { value: 'foto_komplett', label: 'Foto: Alles zusammen (Hülle, Disc, Anleitung)', kurz: 'Alles zusammen (CIB)', slug: 'komplett-cib', foto: true },
   { value: 'foto_beilagen', label: 'Foto: Beilagen (was drin ist)', kurz: 'Beilagen', slug: 'beilagen', foto: true },
   { value: 'foto_geraet', label: 'Foto: Gerät', kurz: 'Gerät', slug: 'geraet', foto: true },
   { value: 'foto_detail', label: 'Foto: Detail (Typenschild, Anschlüsse …)', kurz: 'Detail', slug: 'detail', foto: true },
