@@ -11,6 +11,7 @@ import { spaeter } from './spaeter.js';
 import { MODUL } from './erweiterungen.jsx';
 import { TourAnbieter } from './tour.jsx';
 import Neuigkeiten from './komponenten/Neuigkeiten.jsx';
+import BildAnsicht from './komponenten/BildAnsicht.jsx';
 
 // ── Code-Splitting ─────────────────────────────────────────────
 // Die Sammlung und die Anmeldung stecken im Start-Bundle, alle anderen Seiten werden erst bei Bedarf geladen.
@@ -204,6 +205,7 @@ export default function App() {
         <TourAnbieter>
           <OfflineLeiste offline={offline} />
           <Suspense fallback={<Laden />}>{inhalt}</Suspense>
+          <BildAnsicht />
         </TourAnbieter>
       </HinweisAnbieter>
     </SitzungKontext.Provider>

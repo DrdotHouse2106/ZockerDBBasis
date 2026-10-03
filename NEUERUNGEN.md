@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Fotos in der App ansehen
+- Ein Tipp auf ein Foto oder einen Scan öffnet jetzt eine Bildansicht innerhalb der App – vorher landete man in der installierten App auf der nackten Bilddatei und kam ohne Neustart nicht mehr zurück
+- Schließen mit ✕, Tippen neben das Bild oder der Zurück-Geste; mehrere Fotos lassen sich mit ‹ › oder Wischen durchblättern
+
 ## 03.10.2026 – Vom Exemplar zur Katalogseite
 - Ein Tipp auf das Bild eines Exemplars öffnet die Katalogseite des Spiels (Infos, Sprachen, Fotos, Preise)
 
