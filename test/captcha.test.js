@@ -57,7 +57,7 @@ test('reCAPTCHA v3: Score und Aktion werden serverseitig geprüft, CSP erlaubt G
     assert.equal((await registrieren(gast, 'mensch', 'mensch')).status, 201);
     assert.equal(anfragen[0].get('secret'), 'geheim-456');
     const csp = (await fetch(`${server.basis}/api/health`)).headers.get('content-security-policy');
-    assert.match(csp, /script-src 'self' https:\/\/www\.google\.com/);
+    assert.match(csp, /script-src 'self' 'wasm-unsafe-eval' https:\/\/www\.google\.com/);
   } finally {
     await server.stoppe();
   }

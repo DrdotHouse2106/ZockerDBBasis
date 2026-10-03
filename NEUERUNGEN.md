@@ -11,6 +11,12 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Barcode-Scanner deutlich schneller
+- Neue Erkennung: auf Android die eingebaute des Browsers, auf dem iPhone und in anderen Browsern ein schneller Decoder (ZXing) – statt des bisherigen, langsamen
+- Höhere Kameraauflösung, Dauer-Autofokus (wo das Gerät es kann) und gelesen wird nur der Bereich im Rahmen
+- Neuer Knopf „Licht an“ für dunkle Ecken, sofern das Handy eine Taschenlampe hat
+- Jeder gelesene Code wird anhand der Prüfziffer kontrolliert – Fehllesungen werden verworfen
+
 ## 03.10.2026 – Neu seit deinem letzten Besuch
 - Nach einem Update zeigt ZockerDB beim nächsten Öffnen kurz, was sich für dich geändert hat – nur Punkte, die Sammler betreffen
 - „Alles klar“ blendet die Hinweise aus, „Später“ zeigt sie beim nächsten Mal wieder

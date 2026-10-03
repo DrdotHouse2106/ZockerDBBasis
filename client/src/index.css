@@ -106,12 +106,6 @@ body {
   padding-bottom: calc(env(safe-area-inset-bottom) * 0.6);
 }
 
-/* html5-qrcode bringt eigene Bedienelemente mit – wir nutzen nur die Kameraansicht. */
-#barcode-leser video {
-  border-radius: 1rem;
-  object-fit: cover;
-}
-
 /* Geführte Touren: pulsierender Rahmen und hüpfender Finger bei „Hier tippen“ */
 @keyframes tour-puls {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-akzent) 60%, transparent); }

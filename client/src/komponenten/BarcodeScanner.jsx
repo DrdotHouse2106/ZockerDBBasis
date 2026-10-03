@@ -1,9 +1,14 @@
-// Barcode-Scanner im Browser (html5-qrcode). Erkennt EAN-13, EAN-8, UPC-A und UPC-E.
+// Barcode-Scanner im Browser. Erkennt EAN-13, EAN-8, UPC-A und UPC-E – mit der eingebauten Erkennung des Browsers oder
+// ZXing (WebAssembly), siehe ../barcode.js. Gelesen wird nur der Streifen im Rahmen, in hoher Auflösung.
 // Hinweis: Browser erlauben den Kamerazugriff nur über HTTPS oder auf localhost.
 import { useEffect, useRef, useState } from 'react';
 import Symbol from './Symbole.jsx';
+import { holeErkenner } from '../barcode.js';
 
-const LESER_ID = 'barcode-leser';
+// Ausschnitt, der gelesen wird (Anteil am Videobild) – entspricht dem sichtbaren Rahmen
+const RAHMEN = { breite: 0.86, hoehe: 0.42 };
+const MAX_BREITE = 1280; // größer bringt bei Strichcodes kaum mehr, kostet aber Rechenzeit
+const PAUSE_MS = 60; // zwischen zwei Leseversuchen
 
 // iPhone/iPad (auch iPad im Desktop-Modus): iOS merkt sich die Kamera-Freigabe nur für die laufende Sitzung.
 const IST_IOS = typeof navigator !== 'undefined'
@@ -43,6 +48,7 @@ export default function BarcodeScanner({ onErkannt, onSchliessen }) {
   const [fehler, setFehler] = useState(null);
   const [laedt, setLaedt] = useState(true);
   const [manuell, setManuell] = useState('');
+  const [licht, setLicht] = useState(null); // null = Taschenlampe nicht verfügbar
   // Bild spiegeln: Frontkameras (z. B. MacBook, Laptop) wie ein Spiegel anzeigen, sonst bewegt sich der Code „falsch herum“.
   // Nur die Anzeige wird gespiegelt, erkannt wird weiterhin das Originalbild. Eigene Wahl wird gemerkt.
   const [spiegeln, setSpiegeln] = useState(() => {
@@ -56,54 +62,86 @@ export default function BarcodeScanner({ onErkannt, onSchliessen }) {
   };
   const erkanntRef = useRef(onErkannt);
   erkanntRef.current = onErkannt;
+  const videoRef = useRef(null);
+  const spurRef = useRef(null);
 
   useEffect(() => {
-    let scanner;
     let beendet = false;
-    let gemeldet = false;
+    let strom = null;
+    let zeitgeber = null;
+    const leinwand = document.createElement('canvas');
+    const zeichnen = leinwand.getContext('2d', { willReadFrequently: true });
 
     (async () => {
       try {
-        const { Html5Qrcode, Html5QrcodeSupportedFormats: F } = await import('html5-qrcode');
-        if (beendet) return;
-        scanner = new Html5Qrcode(LESER_ID, {
-          formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E],
-          useBarCodeDetectorIfSupported: true,
-          verbose: false,
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('NotFound');
+        // Erkenner (ggf. WASM) und Kamera parallel vorbereiten
+        const erkennerBereit = holeErkenner();
+        strom = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         });
-        await scanner.start(
-          { facingMode: 'environment' },
-          {
-            fps: 12,
-            qrbox: (breite, hoehe) => ({ width: Math.floor(breite * 0.85), height: Math.floor(Math.min(hoehe * 0.5, breite * 0.45)) }),
-            aspectRatio: 1.333,
-          },
-          (code) => {
-            if (gemeldet) return;
-            gemeldet = true;
-            navigator.vibrate?.(80);
-            erkanntRef.current(code);
-          },
-          () => {},
-        );
-        if (beendet) await scanner.stop().catch(() => {});
-        else {
-          // Rückkamera meldet „environment“; Laptop-Kameras melden „user“ oder gar nichts
-          const spur = document.querySelector(`#${LESER_ID} video`)?.srcObject?.getVideoTracks?.()[0];
-          setFrontkamera(spur?.getSettings?.().facingMode !== 'environment');
-        }
+        if (beendet) return;
+        const spur = strom.getVideoTracks()[0];
+        spurRef.current = spur;
+        // Dauer-Autofokus, wo möglich (vor allem Android); iOS fokussiert ohnehin selbst
+        const faehig = spur.getCapabilities?.() ?? {};
+        if (faehig.focusMode?.includes('continuous')) await spur.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+        if (faehig.torch) setLicht(false);
+        setFrontkamera(spur.getSettings?.().facingMode !== 'environment');
+        const video = videoRef.current;
+        video.srcObject = strom;
+        await video.play().catch(() => {});
+        const { lies } = await erkennerBereit;
+        if (beendet) return;
+        setLaedt(false);
+
+        const versuch = async () => {
+          if (beendet) return;
+          try {
+            const vb = video.videoWidth;
+            const vh = video.videoHeight;
+            if (vb && vh) {
+              const sb = Math.round(vb * RAHMEN.breite);
+              const sh = Math.round(vh * RAHMEN.hoehe);
+              const faktor = Math.min(1, MAX_BREITE / sb);
+              leinwand.width = Math.round(sb * faktor);
+              leinwand.height = Math.round(sh * faktor);
+              zeichnen.drawImage(video, (vb - sb) / 2, (vh - sh) / 2, sb, sh, 0, 0, leinwand.width, leinwand.height);
+              const code = await lies(zeichnen.getImageData(0, 0, leinwand.width, leinwand.height));
+              if (code && !beendet) {
+                beendet = true;
+                navigator.vibrate?.(80);
+                erkanntRef.current(code);
+                return;
+              }
+            }
+          } catch { /* einzelnes Bild nicht lesbar – weiter */ }
+          zeitgeber = setTimeout(versuch, PAUSE_MS);
+        };
+        versuch();
       } catch (e) {
-        if (!beendet) setFehler(fehlerText(e));
-      } finally {
-        if (!beendet) setLaedt(false);
+        if (!beendet) {
+          setFehler(fehlerText(e));
+          setLaedt(false);
+        }
       }
     })();
 
     return () => {
       beendet = true;
-      if (scanner?.isScanning) scanner.stop().then(() => scanner.clear()).catch(() => {});
+      clearTimeout(zeitgeber);
+      strom?.getTracks().forEach((t) => t.stop());
     };
   }, []);
+
+  const lichtUmschalten = async () => {
+    const an = !licht;
+    try {
+      await spurRef.current?.applyConstraints({ advanced: [{ torch: an }] });
+      setLicht(an);
+    } catch { setLicht(null); }
+  };
 
   function absenden(e) {
     e.preventDefault();
@@ -122,12 +160,29 @@ export default function BarcodeScanner({ onErkannt, onSchliessen }) {
 
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4">
         <div className="relative w-full max-w-lg">
-          <div id={LESER_ID} className={`w-full overflow-hidden rounded-2xl bg-black ${gespiegelt ? '[&_video]:-scale-x-100' : ''}`} />
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-black">
+            <video ref={videoRef} playsInline muted autoPlay className={`size-full object-cover ${gespiegelt ? '-scale-x-100' : ''}`} />
+            {!laedt && !fehler && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                <div className="relative rounded-xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
+                  style={{ width: `${RAHMEN.breite * 100}%`, height: `${RAHMEN.hoehe * 100}%` }}>
+                  <div className="absolute inset-x-[5%] top-1/2 h-0.5 -translate-y-1/2 animate-pulse bg-gefahr/80" />
+                </div>
+              </div>
+            )}
+          </div>
           {!laedt && !fehler && (
-            <button type="button" onClick={umschalten} className="absolute right-2 bottom-2 rounded-full bg-black/60 px-3 py-1.5 text-xs text-white hover:bg-black/80"
-              aria-pressed={gespiegelt}>
-              {gespiegelt ? 'Nicht spiegeln' : 'Bild spiegeln'}
-            </button>
+            <div className="absolute right-2 bottom-2 flex gap-2">
+              {licht !== null && (
+                <button type="button" onClick={lichtUmschalten} className="rounded-full bg-black/60 px-3 py-1.5 text-xs text-white hover:bg-black/80" aria-pressed={licht}>
+                  {licht ? 'Licht aus' : 'Licht an'}
+                </button>
+              )}
+              <button type="button" onClick={umschalten} className="rounded-full bg-black/60 px-3 py-1.5 text-xs text-white hover:bg-black/80"
+                aria-pressed={gespiegelt}>
+                {gespiegelt ? 'Nicht spiegeln' : 'Bild spiegeln'}
+              </button>
+            </div>
           )}
           {laedt && !fehler && <p className="absolute inset-0 flex items-center justify-center text-sm text-white/70">Kamera wird gestartet …</p>}
         </div>

@@ -155,7 +155,8 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
         "default-src 'self'",
         "img-src 'self' data: blob: https:",
         "style-src 'self' 'unsafe-inline'",
-        `script-src 'self'${google}`,
+        // 'wasm-unsafe-eval': nur WebAssembly kompilieren (Barcode-Erkennung mit ZXing) – kein eval() für JavaScript
+        `script-src 'self' 'wasm-unsafe-eval'${google}`,
         // Der Service-Worker lädt Coverbilder von IGDB selbst (Offline-Zwischenspeicher) – das zählt als Verbindung, nicht als Bild
         `connect-src 'self' https://images.igdb.com${google}`,
         "object-src 'self'",
