@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Fußleiste bleibt unten
+- In der installierten App auf dem iPhone rutschte die Menüleiste manchmal in die Bildmitte und die Kopfleiste verschwand – etwa nach dem Tippen in ein Feld, nach dem Schließen einer Bildansicht oder beim Zurückkehren in die App
+- Die Ansicht wird in diesen Fällen jetzt zuverlässig zurückgesetzt; kleine Auswahl- und Eingabefelder lösen kein automatisches Hineinzoomen mehr aus
+
 ## 03.10.2026 – Genauere europäische Fassungen
 - Neben „PAL (DE)“ und „PAL (EU)“ gibt es jetzt: Österreich/Schweiz, UK, Frankreich, Benelux, Spanien/Portugal, Italien und Skandinavien – Fassungen unterscheiden sich oft bei Sprachen, Cover und Alterskennzeichen
 - Der Filter „PAL (EU)“ findet weiterhin alle europäischen Fassungen, auch die genaueren

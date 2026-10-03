@@ -120,3 +120,11 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .tour-puls, .tour-zeiger { animation: none; }
 }
+
+/* iOS zoomt beim Antippen in Felder mit weniger als 16px Schrift hinein und lässt die Ansicht danach oft verschoben
+   (Fußleiste mitten im Bild, Kopfleiste weg). Auf Touch-Geräten deshalb mindestens 16px. */
+@media (pointer: coarse) {
+  input, select, textarea {
+    font-size: max(16px, 1em);
+  }
+}
