@@ -405,7 +405,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
           )}
 
           {eigener && benutzer?.funktionen?.wartung && artikel.bestand !== 'digital' && <Wartung artikel={artikel} />}
-          <Andockpunkt name="artikel.details" artikel={artikel} eigenerArtikel={eigener} />
+          <Andockpunkt name="artikel.details" artikel={artikel} eigenerArtikel={eigener} onGeaendert={laden} />
 
           <Andockpunkt name="artikel.wert" artikel={artikel} eigenerArtikel={eigener} />
 
