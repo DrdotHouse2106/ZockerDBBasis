@@ -11,6 +11,11 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Zustand von Disc und Hülle getrennt, Felder ausblenden
+- Neben dem Zustand von Disc, Modul bzw. Gerät lässt sich jetzt der Zustand der Hülle bzw. OVP getrennt angeben – oft ist die Disc gut, die Hülle nicht
+- Unter „Konto“ → „Zusätzliche Felder“ → „Felder beim Eintragen ausblenden“ lassen sich Felder abschalten, die man nie braucht (z. B. Seriennummer, Modellnummer, Barcode)
+- Ein ausgeblendetes Feld erscheint trotzdem, wenn bei einem Exemplar schon etwas darin steht
+
 ## 03.10.2026 – Vollständigkeit und Beilagen hängen zusammen
 - Die Beilagen-Liste steht jetzt direkt unter „Vollständigkeit“ (wenn das Zusatzfeld eingeschaltet ist)
 - „CIB“ hakt OVP und Anleitung gleich mit an, „Fehlt Anleitung“ markiert die Anleitung als fehlend usw. – nur noch ergänzen, was sonst dabei ist

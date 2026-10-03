@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung, beilageText, beilageVorhanden,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung, beilageText, beilageVorhanden, zustandBeschriftung,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
@@ -234,7 +234,8 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     ['Artikeltyp', beschriftung(ARTIKELTYPEN, artikel.typ)],
     ['Plattform', artikel.plattform],
     ['Region', beschriftung(REGIONEN, artikel.region)],
-    ['Zustand', beschriftung(ZUSTAENDE, artikel.zustand)],
+    [artikel.zustand_ovp ? zustandBeschriftung(artikel.typ).traeger : 'Zustand', beschriftung(ZUSTAENDE, artikel.zustand)],
+    [zustandBeschriftung(artikel.typ).ovp, artikel.zustand_ovp ? beschriftung(ZUSTAENDE, artikel.zustand_ovp) : null],
     ['Vollständigkeit', beschriftung(VOLLSTAENDIGKEITEN, artikel.vollstaendigkeit)],
     ['Farbe', artikel.farbe],
     ['Edition/Variante', artikel.edition],

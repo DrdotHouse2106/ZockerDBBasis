@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MARKE } from '../../../shared/marke.js';
-import { FUNKTIONEN } from '../../../shared/konstanten.js';
+import { FUNKTIONEN, AUSBLENDBARE_FELDER } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { useSitzung } from '../sitzung.js';
 import { datumDe } from '../format.js';
@@ -115,7 +115,33 @@ function ZusatzFelder({ konto, onSpeichern }) {
           <span><span className="font-medium">{f.label}</span><span className="block text-sm text-leise">{f.beschreibung}</span></span>
         </label>
       ))}
+      <FelderAusblenden konto={konto} onSpeichern={onSpeichern} />
     </section>
+  );
+}
+
+/** Felder, die man beim Eintragen nie braucht (z. B. Seriennummer) – ausgefüllte bleiben trotzdem sichtbar. */
+function FelderAusblenden({ konto, onSpeichern }) {
+  const [aus, setAus] = useState(konto.ausgeblendete_felder ?? []);
+  useEffect(() => { setAus(konto.ausgeblendete_felder ?? []); }, [konto.ausgeblendete_felder]);
+  const umschalten = (feld, zeigen) => {
+    const neu = zeigen ? aus.filter((f) => f !== feld) : [...aus, feld];
+    setAus(neu);
+    onSpeichern({ ausgeblendete_felder: neu });
+  };
+  return (
+    <details className="rounded-lg border border-rand/60 p-3" open={aus.length > 0}>
+      <summary className="cursor-pointer text-sm font-medium">Felder beim Eintragen ausblenden{aus.length ? ` (${aus.length})` : ''}</summary>
+      <p className="mt-2 text-sm text-leise">Abgehakte Felder werden angezeigt. Ein ausgeblendetes Feld erscheint trotzdem, wenn bei einem Exemplar schon etwas darin steht.</p>
+      <div className="mt-2 grid gap-1 sm:grid-cols-2">
+        {AUSBLENDBARE_FELDER.map((f) => (
+          <label key={f.value} className="flex items-center gap-2 text-sm">
+            <input type="checkbox" className="size-4 accent-akzent" checked={!aus.includes(f.value)} onChange={(e) => umschalten(f.value, e.target.checked)} />
+            {f.label}
+          </label>
+        ))}
+      </div>
+    </details>
   );
 }
 

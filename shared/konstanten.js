@@ -153,6 +153,32 @@ export const FUNKTIONEN = [
   { value: 'beilagen', label: 'Beilagen & Seriennummern', beschreibung: 'Checkliste der Beilagen und Abgleich der Seriennummer von Gerät und OVP.' },
 ];
 
+/** Beschriftung der beiden Zustände: Datenträger bzw. Gerät und Hülle bzw. OVP. */
+export const zustandBeschriftung = (typ) => (typ === 'spiel'
+  ? { traeger: 'Zustand Disc / Modul', ovp: 'Zustand Hülle / OVP' }
+  : { traeger: 'Zustand Gerät', ovp: 'Zustand OVP' });
+
+/** Felder des Formulars, die man im Konto ausblenden kann (bereits ausgefüllte bleiben sichtbar). */
+export const AUSBLENDBARE_FELDER = [
+  { value: 'region', label: 'Region' },
+  { value: 'zustand_ovp', label: 'Zustand der Hülle / OVP' },
+  { value: 'farbe', label: 'Farbe / Sonderfarbe' },
+  { value: 'edition', label: 'Edition / Variante' },
+  { value: 'modellnummer', label: 'Modellnummer' },
+  { value: 'seriennummer', label: 'Seriennummer' },
+  { value: 'kaufdatum', label: 'Kaufdatum' },
+  { value: 'marktwert', label: 'Marktwert (eigene Schätzung)' },
+  { value: 'barcode', label: 'Barcode' },
+  { value: 'notizen', label: 'Eigene Notizen' },
+];
+export function leseAusgeblendeteFelder(roh) {
+  try {
+    const liste = typeof roh === 'string' ? JSON.parse(roh) : roh;
+    const erlaubt = new Set(AUSBLENDBARE_FELDER.map((f) => f.value));
+    return Array.isArray(liste) ? [...new Set(liste.filter((f) => erlaubt.has(f)))] : [];
+  } catch { return []; }
+}
+
 /** Wartungsmerkmale eines Katalogeintrags – bestimmen, welche Wartungsarten am Exemplar angeboten werden. */
 export const WARTUNGSMERKMALE = [
   { value: 'speicherbatterie', label: 'Speicherbatterie', hinweis: 'Spielstände bzw. Uhr hängen an einer Knopfzelle – sie hält meist 15–25 Jahre.' },
@@ -278,6 +304,7 @@ export const ALLE_WERTE = {
   herkunft: HERKUNFT.map((e) => e.value),
   typ: ARTIKELTYPEN.map((e) => e.value),
   zustand: ZUSTAENDE.map((e) => e.value),
+  zustand_ovp: ZUSTAENDE.map((e) => e.value),
   vollstaendigkeit: VOLLSTAENDIGKEITEN.map((e) => e.value),
   region: REGIONEN.map((e) => e.value),
   pruefstatus: ['privat', 'eingereicht', 'freigegeben', 'abgelehnt'],

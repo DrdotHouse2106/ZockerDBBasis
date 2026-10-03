@@ -679,6 +679,12 @@ const MIGRATIONEN = [
   `
   ALTER TABLE benutzer ADD COLUMN fotos_nachfragen INTEGER NOT NULL DEFAULT 1;
   `,
+  // 42: Zustand der Hülle/OVP getrennt vom Datenträger bzw. Gerät (oft ist die Disc gut, die Hülle nicht);
+  //     Felder, die ein Sammler im Formular nicht sehen möchte (JSON-Liste, z. B. ["seriennummer"])
+  `
+  ALTER TABLE artikel ADD COLUMN zustand_ovp TEXT;
+  ALTER TABLE benutzer ADD COLUMN ausgeblendete_felder TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

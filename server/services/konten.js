@@ -6,7 +6,7 @@ import {
   erzeugeTotpGeheimnis, pruefeTotp, erzeugeWiederherstellungscodes, normalisiereWiederherstellungscode,
 } from './sicherheit.js';
 import { ValidierungsFehler } from './validierung.js';
-import { FUNKTIONEN } from '../../shared/konstanten.js';
+import { FUNKTIONEN, leseAusgeblendeteFelder } from '../../shared/konstanten.js';
 
 export const COOKIE_NAME = 'vss_sitzung';
 const ZWEI_FAKTOR_FRIST_MS = 5 * 60 * 1000;
@@ -46,6 +46,7 @@ export function oeffentlichesProfil(b) {
     funktionen: leseFunktionen(b.funktionen),
     touren: leseTouren(b.touren),
     fotos_nachfragen: b.fotos_nachfragen !== 0,
+    ausgeblendete_felder: leseAusgeblendeteFelder(b.ausgeblendete_felder),
     erstellt_am: b.erstellt_am,
     letzte_anmeldung: b.letzte_anmeldung,
   };

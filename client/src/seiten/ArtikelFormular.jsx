@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
   ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, DIGITAL_QUELLEN, istModerator,
-  beilagenAusVollstaendigkeit, vollstaendigkeitAusBeilagen,
+  beilagenAusVollstaendigkeit, vollstaendigkeitAusBeilagen, zustandBeschriftung,
 } from '../../../shared/konstanten.js';
 import { usePlattformen } from '../plattformen.js';
 import { useSitzung } from '../sitzung.js';
@@ -27,7 +27,7 @@ const LEER = {
   typ: 'spiel', titel: '', plattform: '', plattform_id: null, variante_id: null, katalog_id: null, barcode: '', cover_url: '', zustand: '', vollstaendigkeit: '',
   region: 'pal_de', farbe: '', edition: '', modellnummer: '', seriennummer: '', notizen: '', kaufpreis: '', kaufdatum: '', anzahl: 1,
   marktwert: '', herkunft: '', konvolut_id: null, bestand: 'besitz', digital_quelle: null,
-  lagerort_ort: '', lagerort_regal: '', lagerort_fach: '', beilagen: null, seriennummer_ovp: '', privat: false,
+  lagerort_ort: '', lagerort_regal: '', lagerort_fach: '', beilagen: null, seriennummer_ovp: '', privat: false, zustand_ovp: '',
 };
 
 export default function ArtikelFormular({ route, artikelId }) {
@@ -43,6 +43,9 @@ export default function ArtikelFormular({ route, artikelId }) {
   const funktionen = benutzer?.funktionen ?? {};
   // Beilagen-Liste (Zusatzfeld) – steht direkt unter der Vollständigkeit, beide füllen sich gegenseitig vor
   const beilagenSichtbar = Boolean(funktionen.beilagen) && werte?.bestand !== 'digital';
+  // Im Konto ausgeblendete Felder (bereits ausgefüllte bleiben sichtbar, damit nichts unbemerkt verloren geht)
+  const ausgeblendet = new Set(benutzer?.ausgeblendete_felder ?? []);
+  const zeige = (feld) => !ausgeblendet.has(feld) || Boolean(werte?.[feld]);
   const [fehler, setFehler] = useState({});
   const [allgemeinerFehler, setAllgemeinerFehler] = useState(null);
   const [speichert, setSpeichert] = useState(false);
@@ -309,12 +312,19 @@ export default function ArtikelFormular({ route, artikelId }) {
               )}
             </div>
           )}
-          <Feld label="Region" fehler={fehler.region}>
-            {(id) => <Auswahl id={id} wert={werte.region} onChange={setze('region')} optionen={REGIONEN} />}
-          </Feld>
-          <Feld label="Zustand" fehler={fehler.zustand}>
+          {zeige('region') && (
+            <Feld label="Region" fehler={fehler.region}>
+              {(id) => <Auswahl id={id} wert={werte.region} onChange={setze('region')} optionen={REGIONEN} />}
+            </Feld>
+          )}
+          <Feld label={zeige('zustand_ovp') && werte.bestand !== 'digital' && werte.vollstaendigkeit !== 'nur_geraet' ? zustandBeschriftung(werte.typ).traeger : 'Zustand'} fehler={fehler.zustand}>
             {(id) => <Auswahl id={id} wert={werte.zustand} onChange={setze('zustand')} optionen={ZUSTAENDE} />}
           </Feld>
+          {zeige('zustand_ovp') && werte.bestand !== 'digital' && werte.vollstaendigkeit !== 'nur_geraet' && (
+            <Feld label={zustandBeschriftung(werte.typ).ovp} fehler={fehler.zustand_ovp}>
+              {(id) => <Auswahl id={id} wert={werte.zustand_ovp} onChange={setze('zustand_ovp')} optionen={ZUSTAENDE} />}
+            </Feld>
+          )}
           <Feld label="Vollständigkeit" fehler={fehler.vollstaendigkeit}>
             {(id) => (
               <Auswahl id={id} wert={werte.vollstaendigkeit} optionen={VOLLSTAENDIGKEITEN}
@@ -334,24 +344,33 @@ export default function ArtikelFormular({ route, artikelId }) {
           )}
         </Abschnitt>
 
+        {(['farbe', 'edition', 'modellnummer', 'seriennummer'].some(zeige) || beilagenSichtbar) && (
         <Abschnitt titel="Variante" hinweis="Sonderfarben, Editionen und Modellrevisionen unterscheiden">
-          <Feld label="Farbe / Sonderfarbe" fehler={fehler.farbe}>
-            {(id) => (
-              <>
-                <input id={id} className="eingabe" value={werte.farbe} onChange={setze('farbe')} list="farben" placeholder="z. B. Atomic Purple" />
-                <datalist id="farben">{FARBVORSCHLAEGE.map((f) => <option key={f} value={f} />)}</datalist>
-              </>
-            )}
-          </Feld>
-          <Feld label="Edition / Variante" fehler={fehler.edition}>
-            {(id) => <input id={id} className="eingabe" value={werte.edition} onChange={setze('edition')} placeholder="z. B. Zelda 25th Anniversary" />}
-          </Feld>
-          <Feld label="Modellnummer" fehler={fehler.modellnummer}>
-            {(id) => <input id={id} className="eingabe" value={werte.modellnummer} onChange={setze('modellnummer')} placeholder="z. B. SCPH-1002, HEG-001 (OLED)" />}
-          </Feld>
-          <Feld label="Seriennummer" fehler={fehler.seriennummer}>
-            {(id) => <input id={id} className="eingabe" value={werte.seriennummer} onChange={setze('seriennummer')} autoComplete="off" />}
-          </Feld>
+          {zeige('farbe') && (
+            <Feld label="Farbe / Sonderfarbe" fehler={fehler.farbe}>
+              {(id) => (
+                <>
+                  <input id={id} className="eingabe" value={werte.farbe} onChange={setze('farbe')} list="farben" placeholder="z. B. Atomic Purple" />
+                  <datalist id="farben">{FARBVORSCHLAEGE.map((f) => <option key={f} value={f} />)}</datalist>
+                </>
+              )}
+            </Feld>
+          )}
+          {zeige('edition') && (
+            <Feld label="Edition / Variante" fehler={fehler.edition}>
+              {(id) => <input id={id} className="eingabe" value={werte.edition} onChange={setze('edition')} placeholder="z. B. Zelda 25th Anniversary" />}
+            </Feld>
+          )}
+          {zeige('modellnummer') && (
+            <Feld label="Modellnummer" fehler={fehler.modellnummer}>
+              {(id) => <input id={id} className="eingabe" value={werte.modellnummer} onChange={setze('modellnummer')} placeholder="z. B. SCPH-1002, HEG-001 (OLED)" />}
+            </Feld>
+          )}
+          {zeige('seriennummer') && (
+            <Feld label="Seriennummer" fehler={fehler.seriennummer}>
+              {(id) => <input id={id} className="eingabe" value={werte.seriennummer} onChange={setze('seriennummer')} autoComplete="off" />}
+            </Feld>
+          )}
           {beilagenSichtbar && (
             <>
               <Feld label="Seriennummer der OVP" fehler={fehler.seriennummer_ovp}>
@@ -365,6 +384,7 @@ export default function ArtikelFormular({ route, artikelId }) {
             </>
           )}
         </Abschnitt>
+        )}
 
         {funktionen.lagerort && werte.bestand !== 'digital' && (
           <Abschnitt titel="Lagerort" hinweis="Wo steht das Exemplar? Bereits verwendete Orte werden vorgeschlagen.">
@@ -394,34 +414,42 @@ export default function ArtikelFormular({ route, artikelId }) {
               </>
             )}
           </Feld>
-          <Feld label="Kaufdatum" fehler={fehler.kaufdatum}>
-            {(id) => (
-              <>
-                <input id={id} className="eingabe" value={werte.kaufdatum} onChange={setze('kaufdatum')} inputMode="numeric" placeholder="TT.MM.JJJJ, MM.JJJJ oder nur JJJJ" />
-                <span className="mt-1 block text-xs text-leise">Auch ungefähr – z. B. nur das Jahr.</span>
-              </>
-            )}
-          </Feld>
-          <Feld label="Marktwert (€, eigene Schätzung)" fehler={fehler.marktwert}>
-            {(id) => <input id={id} className="eingabe" value={werte.marktwert} onChange={setze('marktwert')} inputMode="decimal" placeholder="optional, pro Stück" />}
-          </Feld>
-          <Feld label="Barcode (EAN/UPC)" fehler={fehler.barcode}>
-            {(id) => (
-              <div className="flex gap-2">
-                <input id={id} className="eingabe font-mono" value={werte.barcode} onChange={setze('barcode')} inputMode="numeric" autoComplete="off" />
-                <button type="button" className="knopf-sekundaer px-3" onClick={() => setScannerOffen(true)} aria-label="Barcode scannen">
-                  <Symbol name="scan" />
-                </button>
-              </div>
-            )}
-          </Feld>
+          {zeige('kaufdatum') && (
+            <Feld label="Kaufdatum" fehler={fehler.kaufdatum}>
+              {(id) => (
+                <>
+                  <input id={id} className="eingabe" value={werte.kaufdatum} onChange={setze('kaufdatum')} inputMode="numeric" placeholder="TT.MM.JJJJ, MM.JJJJ oder nur JJJJ" />
+                  <span className="mt-1 block text-xs text-leise">Auch ungefähr – z. B. nur das Jahr.</span>
+                </>
+              )}
+            </Feld>
+          )}
+          {zeige('marktwert') && (
+            <Feld label="Marktwert (€, eigene Schätzung)" fehler={fehler.marktwert}>
+              {(id) => <input id={id} className="eingabe" value={werte.marktwert} onChange={setze('marktwert')} inputMode="decimal" placeholder="optional, pro Stück" />}
+            </Feld>
+          )}
+          {zeige('barcode') && (
+            <Feld label="Barcode (EAN/UPC)" fehler={fehler.barcode}>
+              {(id) => (
+                <div className="flex gap-2">
+                  <input id={id} className="eingabe font-mono" value={werte.barcode} onChange={setze('barcode')} inputMode="numeric" autoComplete="off" />
+                  <button type="button" className="knopf-sekundaer px-3" onClick={() => setScannerOffen(true)} aria-label="Barcode scannen">
+                    <Symbol name="scan" />
+                  </button>
+                </div>
+              )}
+            </Feld>
+          )}
           <Feld label="Anzahl" fehler={fehler.anzahl}>
             {(id) => <input id={id} type="number" min="1" max="9999" className="eingabe" value={werte.anzahl} onChange={setze('anzahl')} />}
           </Feld>
-          <Feld label="Eigene Notizen" fehler={fehler.notizen} breit>
-            {(id) => <textarea id={id} rows={4} className="eingabe" value={werte.notizen} onChange={setze('notizen')}
-              placeholder="z. B. Modul mit Aufkleber-Kratzer, gekauft auf dem Flohmarkt …" />}
-          </Feld>
+          {zeige('notizen') && (
+            <Feld label="Eigene Notizen" fehler={fehler.notizen} breit>
+              {(id) => <textarea id={id} rows={4} className="eingabe" value={werte.notizen} onChange={setze('notizen')}
+                placeholder="z. B. Modul mit Aufkleber-Kratzer, gekauft auf dem Flohmarkt …" />}
+            </Feld>
+          )}
           <label className="flex items-start gap-3 text-sm sm:col-span-2">
             <input type="checkbox" className="mt-1 size-4 accent-akzent" checked={Boolean(werte.privat)}
               onChange={(e) => setWerte((w) => ({ ...w, privat: e.target.checked }))} />

@@ -8,7 +8,7 @@ import { ValidierungsFehler } from '../services/validierung.js';
 import { normalisiereEmail } from '../services/kontomail.js';
 import { zufallsToken, erzeugeWiederherstellungscodes, normalisiereWiederherstellungscode, sha256 } from '../services/sicherheit.js';
 import { istInterneAdresse } from '../services/netz.js';
-import { FUNKTIONEN } from '../../shared/konstanten.js';
+import { FUNKTIONEN, leseAusgeblendeteFelder } from '../../shared/konstanten.js';
 
 const ZU_VIELE = 'Zu viele Fehlversuche. Bitte warte 15 Minuten und versuche es dann erneut.';
 
@@ -302,6 +302,10 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     for (const fn of erweiterungen.alle('konto.aendern')) fn(req.benutzer, req.body ?? {});
     if (req.body?.datenspende !== undefined) {
       db.prepare('UPDATE benutzer SET datenspende = ? WHERE id = ?').run(req.body.datenspende ? 1 : 0, req.benutzer.id);
+    }
+    if (req.body?.ausgeblendete_felder !== undefined) {
+      const liste = leseAusgeblendeteFelder(req.body.ausgeblendete_felder);
+      db.prepare('UPDATE benutzer SET ausgeblendete_felder = ? WHERE id = ?').run(liste.length ? JSON.stringify(liste) : null, req.benutzer.id);
     }
     if (req.body?.fotos_nachfragen !== undefined) {
       db.prepare('UPDATE benutzer SET fotos_nachfragen = ? WHERE id = ?').run(req.body.fotos_nachfragen ? 1 : 0, req.benutzer.id);

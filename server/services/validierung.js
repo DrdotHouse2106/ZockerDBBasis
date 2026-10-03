@@ -25,7 +25,7 @@ const TEXTFELDER = {
   notizen: 5000,
 };
 
-const AUSWAHLFELDER = ['zustand', 'vollstaendigkeit', 'region', 'herkunft', 'spielstatus'];
+const AUSWAHLFELDER = ['zustand', 'zustand_ovp', 'vollstaendigkeit', 'region', 'herkunft', 'spielstatus'];
 
 /** Datum TT.MM.JJJJ-frei: JJJJ-MM-TT, plausibel. */
 const gueltigerTag = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d)) && Number(d.slice(0, 4)) >= 1950 && Number(d.slice(0, 4)) <= 2100;
