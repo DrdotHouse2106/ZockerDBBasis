@@ -96,11 +96,12 @@ export default function Zuschnitt({ datei, startFormat = 'original', onAenderung
             onClick={() => { setFormat(f.value); setGroesse(1); setMitte({ x: 0.5, y: 0.5 }); }}>{f.label}</button>
         ))}
       </div>
-      <div ref={flaeche} className="relative mx-auto w-full max-w-sm touch-none select-none overflow-hidden rounded-lg bg-black"
+      {/* Wischen sperren nur auf dem Rahmen – sonst (und bei „Original“) lässt sich die Seite über dem Bild scrollen */}
+      <div ref={flaeche} className="relative mx-auto w-full max-w-sm select-none overflow-hidden rounded-lg bg-black"
         onPointerMove={bewegen} onPointerUp={loslassen} onPointerCancel={loslassen}>
         <img src={bild.url} alt="Ausgewähltes Foto" className="block w-full" draggable={false} />
         {z && (
-          <div className="absolute cursor-move rounded-sm border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
+          <div className="absolute cursor-move touch-none rounded-sm border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
             style={{ left: `${(z.x / bild.width) * 100}%`, top: `${(z.y / bild.height) * 100}%`, width: `${(z.b / bild.width) * 100}%`, height: `${(z.h / bild.height) * 100}%` }}
             onPointerDown={runter} aria-label="Ausschnitt – zum Verschieben ziehen" role="img" />
         )}

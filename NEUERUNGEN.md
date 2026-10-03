@@ -12,6 +12,7 @@ oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bz
 -->
 
 ## 03.10.2026 – „Zurück“ führt zur vorherigen Seite
+- Beim Foto-Hochladen lässt sich die Seite jetzt auch über der Bildvorschau scrollen – nur der Zuschnitt-Rahmen reagiert aufs Ziehen
 - Der Zurück-Pfeil oben links bringt dich jetzt dorthin, wo du vorher warst – z. B. von einem Spiel zurück zu „Fotos gesucht“ statt zur Sammlung
 - Nach dem Speichern eines Artikels landest du mit „Zurück“ nicht wieder im Formular
 - Hast du die Seite direkt über einen Link geöffnet, geht es wie bisher zur Sammlung
