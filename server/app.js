@@ -43,6 +43,8 @@ import { erstelleBenachrichtigungsDienst } from './services/benachrichtigungen.j
 import { ladeSchluessel } from './services/sicherheit.js';
 import { ValidierungsFehler } from './services/validierung.js';
 import { benachrichtigungenRouter } from './routes/benachrichtigungen.js';
+import { neuigkeitenRouter } from './routes/neuigkeiten.js';
+import { erstelleNeuigkeitenDienst } from './services/neuigkeiten.js';
 import { importCsvRouter } from './routes/importcsv.js';
 import { seitenRouter, seitenAdminRouter } from './routes/seiten.js';
 import { teilenRouter } from './routes/teilen.js';
@@ -84,6 +86,7 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const speicher = erstelleSpeicherDienst(db, { standardMb: () => konfiguration.speicherKontingentMb ?? 1024, dateien, erweiterungen });
   const sicherung = erstelleSicherungsDienst(db, konfiguration);
   const aktualisierung = erstelleAktualisierung({ konfiguration, sicherung, build, fetchFn, quellen: neuerungsQuellen(MODULE) });
+  const neuigkeiten = erstelleNeuigkeitenDienst(db, { quellen: neuerungsQuellen(MODULE) });
   const neuesCaptcha = () => erstelleCaptchaDienst(konfiguration.captcha, { schluessel, fetchFn });
   const captcha = neuesCaptcha();
   // Fußzeile jeder E-Mail: Betreiber (Einstellung, sonst aus dem Impressum) und Links zu Impressum und Datenschutz
@@ -109,7 +112,7 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const verleih = erstelleVerleihDienst(db, { benachrichtigungen });
   const wartung = erstelleWartungDienst(db);
   const kontext = {
-    db, cache, igdb, barcode, zentrale, katalog, konten, dateien, speicher, plattformen, einstellungen, sicherung, aktualisierung, mail, kontoMail,
+    db, cache, igdb, barcode, zentrale, katalog, konten, dateien, speicher, plattformen, einstellungen, sicherung, aktualisierung, neuigkeiten, mail, kontoMail,
     benachrichtigungen, sync, konvolute, vorschlaege, ideen, steam, verleih, wartung, captcha, konfiguration, version, build, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
   };
   // Zusatzmodule legen ihre Dienste im Kontext ab und registrieren sich an den Andockpunkten
@@ -198,7 +201,7 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   app.use('/api/admin', angemeldet, erfordereAdmin, adminRouter(kontext), seitenAdminRouter(kontext), zentraleAdminRouter(kontext));
   app.use('/api/moderation/plattformen', angemeldet, plattformenRouter(kontext));
   app.use('/api', angemeldet, vorschlaegeRouter(kontext), ideenRouter(kontext), kalenderRouter(kontext), steamRouter(kontext), verleihRouter(kontext));
-  app.use('/api', angemeldet, katalogUnterRouter(kontext), benachrichtigungenRouter(kontext), importCsvRouter(kontext));
+  app.use('/api', angemeldet, katalogUnterRouter(kontext), benachrichtigungenRouter(kontext), importCsvRouter(kontext), neuigkeitenRouter(kontext));
   app.use('/api', angemeldet, medienRouter(kontext), exportRouter(kontext), zentraleRouter(kontext));
   for (const modul of MODULE) modul.api?.(app, kontext, { angemeldet, erfordereAdmin });
   app.use('/api', (_req, res) => res.status(404).json({ fehler: 'Unbekannter API-Endpunkt.' }));

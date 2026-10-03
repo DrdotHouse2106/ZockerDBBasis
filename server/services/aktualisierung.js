@@ -9,6 +9,8 @@ import { PROJEKT_WURZEL } from '../pfade.js';
 /**
  * Versionshinweise (NEUERUNGEN.md): Jeder Eintrag beginnt mit „## TT.MM.JJJJ – Titel“, darunter Stichpunkte „- …“.
  * Die Überschrift ist zugleich die Kennung – so lässt sich vergleichen, was ein neuer Stand gegenüber dem installierten mitbringt.
+ * Eine Zeile „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ unter der Überschrift richtet den Eintrag nur an diese Rollen
+ * (fehlt sie, gilt er für alle Sammler – wichtig für „Neu seit deinem letzten Besuch“).
  */
 export function leseNeuerungen(text) {
   const eintraege = [];
@@ -21,7 +23,13 @@ export function leseNeuerungen(text) {
         datum: datum ? `${datum[3]}-${datum[2].padStart(2, '0')}-${datum[1].padStart(2, '0')}` : null,
         titel: kopf[1].replace(/^\d{1,2}\.\d{1,2}\.\d{4}\s*[–-]\s*/, '').replace(/\*\*/g, ''),
         punkte: [],
+        fuer: null,
       });
+      continue;
+    }
+    const fuer = /^\s*<!--\s*für:\s*(admin|moderation)\s*-->\s*$/.exec(zeile);
+    if (fuer && eintraege.length) {
+      eintraege.at(-1).fuer = fuer[1];
       continue;
     }
     const punkt = /^\s*[-*]\s+(.+?)\s*$/.exec(zeile);

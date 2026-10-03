@@ -671,6 +671,10 @@ const MIGRATIONEN = [
   `
   ALTER TABLE artikel ADD COLUMN importiert_aus TEXT;
   `,
+  // 40: „Neu seit deinem letzten Besuch“ – Kennungen der Neuerungen, die der Benutzer schon gesehen hat (JSON-Liste)
+  `
+  ALTER TABLE benutzer ADD COLUMN neuigkeiten_gesehen TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

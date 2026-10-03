@@ -7,7 +7,13 @@ automatisch, welche dieser Einträge der neue Stand gegenüber deinem installier
 Pflege: Jede für Nutzer oder Admins sichtbare Änderung bekommt hier einen Eintrag.
 Format: „## TT.MM.JJJJ – Titel“ (die Überschrift ist die Kennung, nachträglich nicht mehr ändern), darunter Stichpunkte „- …“.
 Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de gibt, gehören in die Hinweise des Moduls.
+Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten Besuch“. Betrifft ein Eintrag nur Admins
+oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
+
+## 03.10.2026 – Neu seit deinem letzten Besuch
+- Nach einem Update zeigt ZockerDB beim nächsten Öffnen kurz, was sich für dich geändert hat – nur Punkte, die Sammler betreffen
+- „Alles klar“ blendet die Hinweise aus, „Später“ zeigt sie beim nächsten Mal wieder
 
 ## 03.10.2026 – Exemplare als privat markieren
 - Beim Bearbeiten eines Exemplars gibt es den Schalter „Privat – nur für mich sichtbar“
@@ -30,6 +36,7 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 - An geteilten Fotos (Modul, Disc, Verpackung …) steht der Name des Fotografen nur noch, wenn er beim Hochladen „Namen nennen“ gewählt hat – bei Scans wie bisher
 
 ## 02.10.2026 – Kurzlink /mitmachen für Flyer und QR-Codes
+<!-- für: admin -->
 - Neue Adresse `/mitmachen`: führt zur Registrierung, solange sie offen ist – sonst direkt zum Formular „Zugang anfragen“ (ist auch das abgeschaltet, zur Anmeldung)
 - Ideal für Flyer: der QR-Code bleibt gültig, egal ob die Registrierung gerade offen oder geschlossen ist
 
@@ -39,12 +46,14 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 - „Eigenen Eintrag anlegen“, „Titel vorschlagen“ und „Plattform fehlt?“ sind darunter als kleine Links erreichbar
 
 ## 02.10.2026 – Betreiber in der Fußzeile jeder E-Mail
+<!-- für: admin -->
 - Unten in jeder E-Mail stehen jetzt der Betreiber (Name, Anschrift, Kontakt-E-Mail) und Links zu Impressum und Datenschutz
 - Die Angaben kommen automatisch aus dem Impressum (Abschnitt „Angaben gemäß § 5 DDG“ und die E-Mail unter „Kontakt“); solange dort noch Platzhalter in [eckigen Klammern] stehen, bleibt die Zeile weg
 - Eigene Fassung möglich unter Einstellungen → E-Mail (SMTP) → „Betreiber in der Fußzeile“
 - Die Links brauchen die öffentliche Adresse (PUBLIC_URL)
 
 ## 01.10.2026 – Zugang anfragen bei geschlossener Registrierung
+<!-- für: admin -->
 - Ist die Registrierung geschlossen, zeigt die Anmeldeseite kurz, was dich erwartet (Barcode-Scanner, Varianten, Fotos & Scans, Erfolge …), und darunter „Zugang anfragen“: E-Mail-Adresse, optional Name und Nachricht – mit Spam-Schutz
 - Administratoren bekommen eine Benachrichtigung und finden die Anfragen unter Administration → Benutzer; „Einladen“ verschickt einen Einladungslink an die Adresse (ohne E-Mail-Versand gibt es den Link zum Weitergeben)
 - Anfragen werden nach 90 Tagen automatisch gelöscht; die Datenschutz-Vorlage erklärt das
@@ -70,6 +79,7 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 - E-Mails (Einladung, Passwort vergessen, Bestätigung, Benachrichtigungen) zeigen oben das ZockerDB-Logo – direkt in der Mail eingebettet, damit es auch erscheint, wenn das Mailprogramm externe Bilder blockiert
 
 ## 01.10.2026 – Einladungen: gelöschte Konten verschwinden aus der Liste
+<!-- für: admin -->
 - Wurde das Konto einer eingeladenen Person gelöscht, steht die Einladung nicht mehr als „angenommen von @–“ in der Liste
 - Auch angenommene Einladungen lassen sich jetzt aus der Liste entfernen
 - Die Felder zum Einladen stehen auf dem Handy untereinander statt gequetscht nebeneinander
@@ -96,6 +106,7 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 - Die Tour „Erste Schritte“ zeigt den neuen Fotobereich am Beispielspiel
 
 ## 30.09.2026 – Sicherheitsprüfung: Fotos ohne GPS, Schutz der Ersteinrichtung, bessere Anmelde-Drosselung
+<!-- für: admin -->
 - Fotos und Scans werden ohne Metadaten gespeichert – Handyfotos enthalten sonst oft die GPS-Position (z. B. der eigenen Wohnung), die andere bei öffentlichen Sammlungen oder freigegebenen Scans sehen könnten. JPEG-Scans bleiben dabei verlustfrei; bereits hochgeladene Fotos und Scans werden nach dem Update einmalig im Hintergrund bereinigt
 - Ersteinrichtung über das Internet oder einen Reverse-Proxy: Für das erste Konto (Administrator) braucht es einen Einrichtungscode aus dem Server-Protokoll – so kann niemand eine frisch gestartete Installation übernehmen
 - Anmeldung: Fehlversuche werden jetzt auch je öffentlicher IP-Adresse (viele Benutzernamen durchprobieren) und je Konto über alle IP-Adressen gedrosselt; ebenso das bisherige Passwort beim Passwortwechsel
@@ -228,16 +239,19 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 - Behoben: Coverbilder von IGDB wurden nicht angezeigt, sobald die App im Offline-Zwischenspeicher lief
 
 ## 29.09.2026 – Neuerungen beim Update sehen
+<!-- für: admin -->
 - Ist ein Update verfügbar, zeigt Administration → Übersicht, was der neue Stand mitbringt – im Vergleich zu deiner installierten Version
 - Die Versionshinweise deines installierten Stands lassen sich jederzeit aufklappen
 
 ## 29.09.2026 – Einstellungen übersichtlicher, IGDB-Verbindung testen
+<!-- für: admin -->
 - Die Gruppen unter Administration → Einstellungen lassen sich einklappen; dein Browser merkt sich, welche offen sind
 - Das Änderungsprotokoll ist standardmäßig eingeklappt
 - Neuer Knopf „IGDB-Verbindung testen“: prüft Client-ID und Secret mit einer Beispielsuche
 - Neuer Katalogstatus „Ausgeblendet“ für Einträge, die die Datenquelle entfernt hat
 
 ## 29.09.2026 – Update-Prüfung
+<!-- für: admin -->
 - Die Übersicht zeigt, ob eine neuere Version verfügbar ist oder du auf dem neuesten Stand bist
 - Hinweis mit dem passenden Befehl für einzelne Container (z. B. Plesk, Portainer)
 
@@ -253,6 +267,7 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 - Die Startseite zeigt „Kostenlos registrieren“ nur noch bei offener Registrierung
 
 ## 28.09.2026 – Update per Knopf
+<!-- für: admin -->
 - „Jetzt aktualisieren“ in der Administration (über einen Watchtower-Container), vorher automatische Sicherung
 - Installierter Stand des Images wird angezeigt
 - Verständliche Meldung, wenn der Datenordner nicht beschreibbar ist
@@ -267,6 +282,7 @@ Kurz, verständlich, ohne Technik-Jargon. Funktionen, die es nur auf zockerdb.de
 - Konvolute mit automatischer Verteilung des Kaufpreises
 
 ## 27.09.2026 – Verbindung zu zockerdb.de
+<!-- für: admin -->
 - Gemeinsamer Katalog über zockerdb.de: Suche, gelernte Barcodes, Einreichungen und freiwillige, anonyme Datenspende mit Vorschau
 - Sync der Sammlung mit einem zockerdb.de-Konto in beide Richtungen (auch Varianten und gelöschte Fotos)
 - Titel vorschlagen und korrigieren, Duplikate erkennen, deutsche Konsolennamen

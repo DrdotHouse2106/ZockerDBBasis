@@ -10,6 +10,7 @@ import Sammlung from './seiten/Sammlung.jsx';
 import { spaeter } from './spaeter.js';
 import { MODUL } from './erweiterungen.jsx';
 import { TourAnbieter } from './tour.jsx';
+import Neuigkeiten from './komponenten/Neuigkeiten.jsx';
 
 // ── Code-Splitting ─────────────────────────────────────────────
 // Die Sammlung und die Anmeldung stecken im Start-Bundle, alle anderen Seiten werden erst bei Bedarf geladen.
@@ -194,7 +195,7 @@ export default function App() {
   } else if (auth.zweiFaktorPflicht && !auth.benutzer.totp_aktiv) {
     inhalt = <Konto route={{ pfad: '/konto', parameter: { pflicht: '1' } }} />;
   } else {
-    inhalt = <Seite route={route} />;
+    inhalt = <><Seite route={route} /><Neuigkeiten /></>;
   }
 
   return (

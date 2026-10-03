@@ -142,7 +142,7 @@ test('Update-Prüfung bei GitHub: neuer Stand, aktuell, privates Repository ohne
   assert.equal(p.verfuegbar.commit, 'abcdef1');
   assert.match(anfragen[0].url, /repos\/beispiel\/zockerdb\/actions\/workflows\/ci\.yml\/runs\?branch=main&status=success/);
   // Was ist neu? Nur Einträge, die der installierte Stand noch nicht kennt – vom neuen Stand (ref = Commit des Builds)
-  assert.deepEqual(p.neuerungen, [{ id: '29.09.2026 – Neuerungen sehen', datum: '2026-09-29', titel: 'Neuerungen sehen', punkte: ['Liste der Neuerungen', 'zweiter Punkt'] }]);
+  assert.deepEqual(p.neuerungen, [{ id: '29.09.2026 – Neuerungen sehen', datum: '2026-09-29', titel: 'Neuerungen sehen', punkte: ['Liste der Neuerungen', 'zweiter Punkt'], fuer: null }]);
   assert.ok(anfragen.some((x) => x.url.endsWith('/contents/NEUERUNGEN.md?ref=abcdef1234567') && x.accept === 'application/vnd.github.raw+json'));
   assert.ok(anfragen.some((x) => x.url.endsWith('/compare/1111111...abcdef1234567')));
   assert.equal(p.aenderungen, 7);
