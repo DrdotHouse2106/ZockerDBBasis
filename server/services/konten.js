@@ -46,6 +46,7 @@ export function oeffentlichesProfil(b) {
     funktionen: leseFunktionen(b.funktionen),
     touren: leseTouren(b.touren),
     fotos_nachfragen: b.fotos_nachfragen !== 0,
+    fotos_oeffentlich: b.fotos_oeffentlich === 1,
     ausgeblendete_felder: leseAusgeblendeteFelder(b.ausgeblendete_felder),
     erstellt_am: b.erstellt_am,
     letzte_anmeldung: b.letzte_anmeldung,

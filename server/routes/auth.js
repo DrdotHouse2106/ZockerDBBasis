@@ -307,6 +307,9 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
       const liste = leseAusgeblendeteFelder(req.body.ausgeblendete_felder);
       db.prepare('UPDATE benutzer SET ausgeblendete_felder = ? WHERE id = ?').run(liste.length ? JSON.stringify(liste) : null, req.benutzer.id);
     }
+    if (req.body?.fotos_oeffentlich !== undefined) {
+      db.prepare('UPDATE benutzer SET fotos_oeffentlich = ? WHERE id = ?').run(req.body.fotos_oeffentlich === true ? 1 : 0, req.benutzer.id);
+    }
     if (req.body?.fotos_nachfragen !== undefined) {
       db.prepare('UPDATE benutzer SET fotos_nachfragen = ? WHERE id = ?').run(req.body.fotos_nachfragen ? 1 : 0, req.benutzer.id);
     }

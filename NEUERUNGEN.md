@@ -11,6 +11,11 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 03.10.2026 – Fotos standardmäßig öffentlich zeigen
+- Unter „Konto“ → „Fotos beitragen“ lässt sich einschalten, dass neue Fotos standardmäßig auch öffentlich gezeigt werden dürfen (Spieleseite, Google-Bildersuche)
+- Beim Hochladen ist das Häkchen dann schon gesetzt – je Foto lässt es sich abwählen; gezeigt wird jedes Foto erst nach der Prüfung
+- Die Einstellung ist zunächst aus und gilt auf allen Geräten
+
 ## 03.10.2026 – Fotos gesucht: Anleitung statt „Alles zusammen“
 - „Alles zusammen (CIB)“ steht nicht mehr in „Fotos gesucht“ – Disc, Verpackung und Beilagen zeigen schon alles (hochladen lässt es sich weiterhin)
 - Neu: ein eigenes Foto der Anleitung – gefragt wird nur, wenn bei „Was ist dabei?“ die Anleitung angehakt ist

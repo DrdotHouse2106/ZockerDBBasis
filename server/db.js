@@ -698,6 +698,10 @@ const MIGRATIONEN = [
   `
   ALTER TABLE katalog ADD COLUMN sprachen TEXT;
   `,
+  // 45: Fotos standardmäßig auch öffentlich zeigen (Spieleseite, Suchmaschinen) – bewusst im Konto einzuschalten, Standard aus
+  `
+  ALTER TABLE benutzer ADD COLUMN fotos_oeffentlich INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

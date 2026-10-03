@@ -274,12 +274,14 @@ const OEFFENTLICH_TEXT = 'Foto öffentlich zeigen?\n\nNach der Prüfung erschein
 
 function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeffentlichMoeglich, moderator, maxMb, onFertig }) {
   const vorher = gemerkt();
+  // Im Konto eingeschaltet: „öffentlich zeigen“ ist bei jedem Upload vorausgewählt (je Foto abwählbar)
+  const immerOeffentlich = useSitzung().benutzer?.fotos_oeffentlich === true;
   const [datei, setDatei] = useState(null);
   const zuschnitt = useRef(null); // { bild, zuschnitt } aus <Zuschnitt>
   const [werte, setWerte] = useState({
     art, titel: '', variante_id: variante ? String(variante) : '',
-    teilen: teilenErlaubt && vorher.teilen !== false,
-    oeffentlich: oeffentlichMoeglich && vorher.oeffentlich === true,
+    teilen: teilenErlaubt && (immerOeffentlich || vorher.teilen !== false),
+    oeffentlich: oeffentlichMoeglich && (immerOeffentlich || vorher.oeffentlich === true),
     name: vorher.name === true,
   });
   const [fortschritt, setFortschritt] = useState(null);

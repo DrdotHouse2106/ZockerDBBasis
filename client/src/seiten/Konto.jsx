@@ -48,7 +48,7 @@ export default function Konto({ route }) {
             {!pflicht && (
               <>
                 <Sichtbarkeit konto={konto} onSpeichern={speichereProfil} />
-                {status?.fotosTeilenErlaubt && <FotosNachfragen konto={konto} onSpeichern={speichereProfil} />}
+                {status?.fotosTeilenErlaubt && <FotosNachfragen konto={konto} onSpeichern={speichereProfil} oeffentlichMoeglich={Boolean(status?.oeffentlicheFotos)} />}
                 <ZusatzFelder konto={konto} onSpeichern={speichereProfil} />
                 <KontoZockerdb konto={konto} onSpeichern={speichereProfil} />
                 <Andockpunkt name="konto.einstellungen" konto={konto} onSpeichern={speichereProfil} />
@@ -145,10 +145,22 @@ function FelderAusblenden({ konto, onSpeichern }) {
   );
 }
 
+const FOTOS_OEFFENTLICH_TEXT = 'Neue Fotos standardmäßig öffentlich zeigen?\n\nBeim Hochladen ist „Auch öffentlich zeigen“ dann vorausgewählt. '
+  + 'Nach der Prüfung erscheinen deine Fotos auf der öffentlichen Seite des Spiels – auch für Besucher ohne Konto und in Suchmaschinen wie der Google-Bildersuche. '
+  + 'Du bestätigst, dass du deine Fotos selbst machst und keine Personen darauf zu erkennen sind. Es bleiben deine Fotos – sie werden nur hier gezeigt und nicht verkauft. '
+  + 'Du kannst das je Foto abwählen und die Erlaubnis jederzeit zurücknehmen.';
+
 /** Nach dem Hinzufügen nach fehlenden Fotos fragen – sofort umschalten, gespeichert wird im Hintergrund. */
-function FotosNachfragen({ konto, onSpeichern }) {
+function FotosNachfragen({ konto, onSpeichern, oeffentlichMoeglich }) {
   const [an, setAn] = useState(konto.fotos_nachfragen !== false);
   useEffect(() => { setAn(konto.fotos_nachfragen !== false); }, [konto.fotos_nachfragen]);
+  const [oeffentlich, setOeffentlich] = useState(konto.fotos_oeffentlich === true);
+  useEffect(() => { setOeffentlich(konto.fotos_oeffentlich === true); }, [konto.fotos_oeffentlich]);
+  const oeffentlichSetzen = (wert) => {
+    if (wert && !window.confirm(FOTOS_OEFFENTLICH_TEXT)) return;
+    setOeffentlich(wert);
+    onSpeichern({ fotos_oeffentlich: wert });
+  };
   return (
     <section className="karte space-y-2 p-4">
       <h2 className="flex items-center gap-2 font-semibold"><Symbol name="kamera" className="size-5" />Fotos beitragen</h2>
@@ -157,6 +169,15 @@ function FotosNachfragen({ konto, onSpeichern }) {
           onChange={(e) => { setAn(e.target.checked); onSpeichern({ fotos_nachfragen: e.target.checked }); }} />
         <span>Nach dem Hinzufügen nach fehlenden Fotos fragen (z. B. Disc, Verpackung) – je Spiel nur einmal</span>
       </label>
+      {oeffentlichMoeglich && (
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1 size-4 accent-akzent" checked={oeffentlich} onChange={(e) => oeffentlichSetzen(e.target.checked)} />
+          <span>
+            Neue Fotos standardmäßig auch öffentlich zeigen – auf der Spieleseite und in Suchmaschinen (z. B. Google-Bildersuche)
+            <span className="block text-xs text-leise">Beim Hochladen ist das Häkchen dann schon gesetzt; je Foto lässt es sich abwählen. Gezeigt wird jedes Foto erst nach der Prüfung.</span>
+          </span>
+        </label>
+      )}
     </section>
   );
 }
