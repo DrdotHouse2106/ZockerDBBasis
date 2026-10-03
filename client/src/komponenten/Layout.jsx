@@ -40,7 +40,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
   if (!benutzer) {
     return (
       <div className="min-h-dvh pb-10">
-        <header className="sticky top-0 z-30 border-b border-rand/60 bg-flaeche/85 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <header className="sticky top-0 z-30 border-b border-rand/60 bg-flaeche/85 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)', transform: 'translateY(var(--vv-oben, 0px))' }}>
           <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
             <a href="#/katalog" className="flex items-center gap-2 font-bold" aria-label="Zum Katalog">
               <img src="/icons/icon.svg" alt="" className="size-8" />
@@ -57,7 +57,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
   }
   return (
     <div className="min-h-dvh pb-24 md:pb-10">
-      <header className="sticky top-0 z-30 border-b border-rand/60 bg-flaeche/85 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="sticky top-0 z-30 border-b border-rand/60 bg-flaeche/85 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)', transform: 'translateY(var(--vv-oben, 0px))' }}>
         {/* Etwas breiter als der Inhalt, damit die beschrifteten Menüpunkte am Desktop neben Logo und Symbolen Platz haben */}
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4">
           {zurueck ? (
@@ -110,6 +110,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
       <nav
         className="unten-sicher fixed inset-x-0 bottom-0 z-40 border-t border-rand/60 bg-flaeche/95 backdrop-blur-md md:hidden"
         aria-label="Hauptnavigation"
+        style={{ transform: 'translateY(var(--vv-unten, 0px))' }}
       >
         <div className="mx-auto grid h-14 max-w-md grid-cols-5">
           {NAVIGATION.map((eintrag) => {

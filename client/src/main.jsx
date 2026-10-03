@@ -28,6 +28,38 @@ window.addEventListener('popstate', spaeterZuruecksetzen);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') spaeterZuruecksetzen();
 });
+// Bleibt die Ansicht trotzdem verschoben (iOS merkt sich teils die Höhe mit offener Tastatur), wird der Versatz
+// gemessen und Fuß- und Kopfleiste werden passend verschoben (CSS-Variablen --vv-unten und --vv-oben).
+// Bei offener Tastatur und beim Hineinzoomen bleibt alles, wie der Browser es macht.
+function versatzMessen() {
+  const vv = window.visualViewport;
+  let unten = 0;
+  let oben = 0;
+  if (vv && !eingabeAktiv() && vv.scale <= 1.01) {
+    unten = Math.round(vv.offsetTop + vv.height - window.innerHeight);
+    oben = Math.round(vv.offsetTop);
+    if (Math.abs(unten) <= 1) unten = 0;
+    if (Math.abs(oben) <= 1) oben = 0;
+  }
+  const stil = document.documentElement.style;
+  stil.setProperty('--vv-unten', `${unten}px`);
+  stil.setProperty('--vv-oben', `${oben}px`);
+}
+let messungGeplant = false;
+function versatzPlanen() {
+  if (messungGeplant) return;
+  messungGeplant = true;
+  requestAnimationFrame(() => { messungGeplant = false; versatzMessen(); });
+}
+window.visualViewport?.addEventListener('resize', versatzPlanen);
+window.visualViewport?.addEventListener('scroll', versatzPlanen);
+window.addEventListener('scroll', versatzPlanen, { passive: true });
+window.addEventListener('resize', versatzPlanen);
+document.addEventListener('focusin', versatzPlanen);
+document.addEventListener('focusout', () => setTimeout(versatzPlanen, 450));
+document.addEventListener('visibilitychange', versatzPlanen);
+window.addEventListener('pageshow', versatzPlanen);
+
 if (window.visualViewport) {
   let zeitgeber;
   window.visualViewport.addEventListener('resize', () => {
