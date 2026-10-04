@@ -6,6 +6,8 @@ test('Händler-Produktnamen werden zu Suchbegriffen bereinigt', () => {
   assert.equal(bereinigeProduktname('Super Mario Odyssey - [Nintendo Switch] USK 6'), 'Super Mario Odyssey');
   assert.equal(bereinigeProduktname('FIFA 23 - PS4 - Standard Edition'), 'FIFA 23');
   assert.equal(bereinigeProduktname('The Legend of Zelda: Breath of the Wild (Nintendo Switch)'), 'The Legend of Zelda: Breath of the Wild');
+  // Händlertitel aus upcitemdb mit Versandfloskeln und Währungsresten
+  assert.equal(bereinigeProduktname('Playstation 4 : Battlefield 4 [german Version] Videogames Free Shipping, Save £s'), 'Battlefield 4');
   assert.equal(bereinigeProduktname('Gran Turismo 7 PS5 USK 0'), 'Gran Turismo 7');
 });
 

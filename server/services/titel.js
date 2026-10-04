@@ -25,7 +25,7 @@ const FUELLWOERTER = [
   // Verkaufsfloskeln („Brand New And Sealed - In Stock - Quick Dispatch“)
   'brand\\s+new', 'brand(\\s+and)?', 'and\\s+sealed', 'factory\\s+sealed', 'versiegelt', 'mint', 'neuwertig', 'in\\s+stock',
   '(quick|fast|free|same\\s+day)\\s+(dispatch|delivery|shipping|postage|p\\s*&\\s*p)', 'free\\s+uk\\s+(delivery|postage)', 'uk\\s+seller',
-  'uk\\s+version', 'eu\\s+version', 'import', 'versandkostenfrei', 'blitzversand', 'sofort\\s+lieferbar', 'neu\\s*&\\s*ovp',
+  'uk\\s+version', 'eu\\s+version', 'german\\s+version', 'videogames?', 'video\\s+games?', 'save\\s+[£€$]\\w*', '(free|kostenloser)\\s+(shipping|versand)', 'import', 'versandkostenfrei', 'blitzversand', 'sofort\\s+lieferbar', 'neu\\s*&\\s*ovp',
 ];
 
 const plattformRegex = new RegExp(`\\b(${PLATTFORM_BEGRIFFE.map((b) => b.replace(/ /g, '\\s*')).join('|')})\\b`, 'gi');
@@ -38,7 +38,8 @@ export function bereinigeProduktname(name) {
     .replace(/\([^)]*\)/g, ' ') // (PEGI)
     .replace(plattformRegex, ' ')
     .replace(fuellRegex, ' ')
-    .replace(/[|/®™©+]+/g, ' ')
+    .replace(/[|/®™©+£€$]+/g, ' ')
+    .replace(/\s+,(\s*,)*/g, ' ') // Komma-Reste wie „Battlefield 4 , Save“
     // Artikelnummern von Händlern (B1393, SKU-12345) – nur Buchstaben+Ziffern-Kürzel, keine Jahres- oder Teilnummern wie „2“
     .replace(/\b[A-Z]{1,4}-?\d{3,}\b/g, ' ')
     .replace(/\s+[-–:]\s*$/g, '')

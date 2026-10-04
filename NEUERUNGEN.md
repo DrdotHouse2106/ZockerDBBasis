@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Barcode: Produktnamen mit Versandfloskeln besser bereinigt
+<!-- für: admin|moderation -->
+- Händlernamen wie „Playstation 4 : Battlefield 4 [german Version] Videogames Free Shipping, Save £s“ werden jetzt zu „Battlefield 4“. Entfernt werden zusätzlich „Videogames“, „Free Shipping“, „Save £…“, Währungszeichen und übrig gebliebene Kommas.
+
 ## Weniger E-Mails bei Foto-Freigaben
 <!-- für: admin|moderation -->
 - Für gesammelte Meldungen (z. B. „3 deiner Fotos wurden freigegeben“) gibt es höchstens eine E-Mail bzw. Push-Nachricht pro Tag, auch wenn die vorige Meldung schon gelesen wurde. In der App erscheinen weitere Freigaben trotzdem.
