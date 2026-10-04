@@ -132,6 +132,42 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen,
     return hole(i.id, admin);
   }
 
+  /**
+   * Titel, Beschreibung und Bereich nachträglich ändern: Einreicher, solange die Idee noch nicht entschieden ist
+   * (umgesetzt/nicht geplant), Administratoren immer. Selbst gehostet geht die Änderung auch an zockerdb.de.
+   */
+  async function bearbeite(benutzer, id, eingabe) {
+    const i = db.prepare('SELECT * FROM ideen WHERE id = ?').get(Number(id));
+    const admin = benutzer.rolle === 'admin' && modus() === 'brett';
+    const eigene = i && i.benutzer_id === benutzer.id;
+    if (!i || (!admin && !eigene)) throw new KontoFehler('Idee nicht gefunden.', 404);
+    if (!admin && ['umgesetzt', 'abgelehnt'].includes(i.status)) throw new KontoFehler('Entschiedene Ideen lassen sich nicht mehr ändern.', 409);
+    const d = pruefeIdee(eingabe);
+    if (i.zentral_id) {
+      try {
+        await zentrale.anfrage(`/api/zentral/idee/${i.zentral_id}`, { methode: 'PUT', daten: d });
+      } catch (e) {
+        throw new KontoFehler(e.message, 502);
+      }
+    }
+    db.prepare("UPDATE ideen SET titel = ?, beschreibung = ?, bereich = ?, geaendert_am = datetime('now') WHERE id = ?")
+      .run(d.titel, d.beschreibung, d.bereich, i.id);
+    erweiterungen?.melde('idee.geaendert', { id: i.id });
+    return hole(i.id, benutzer);
+  }
+
+  /** zockerdb.de: Änderung einer Idee übernehmen, die eine Installation eingereicht hat. */
+  function vonInstanzAendern(instanzId, id, eingabe) {
+    const i = db.prepare('SELECT * FROM ideen WHERE id = ? AND instanz_id = ?').get(Number(id), instanzId);
+    if (!i) throw new KontoFehler('Idee nicht gefunden.', 404);
+    if (['umgesetzt', 'abgelehnt'].includes(i.status)) throw new KontoFehler('Entschiedene Ideen lassen sich nicht mehr ändern.', 409);
+    const d = pruefeIdee(eingabe);
+    db.prepare("UPDATE ideen SET titel = ?, beschreibung = ?, bereich = ?, geaendert_am = datetime('now') WHERE id = ?")
+      .run(d.titel, d.beschreibung, d.bereich, i.id);
+    erweiterungen?.melde('idee.geaendert', { id: i.id });
+    return { id: i.id };
+  }
+
   function loesche(benutzer, id) {
     const i = db.prepare('SELECT * FROM ideen WHERE id = ?').get(Number(id));
     const darf = i && (benutzer.rolle === 'admin' || (i.benutzer_id === benutzer.id && i.status === 'neu'));
@@ -170,5 +206,5 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen,
     return geaendert;
   }
 
-  return { modus, alle, aehnliche, einreichen, stimme, entscheide, loesche, vonInstanz, pruefeZentrale };
+  return { modus, alle, aehnliche, einreichen, stimme, entscheide, bearbeite, loesche, vonInstanz, vonInstanzAendern, pruefeZentrale };
 }

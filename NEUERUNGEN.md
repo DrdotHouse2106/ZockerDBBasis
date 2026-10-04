@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 04.10.2026 – Ideen nachträglich bearbeiten
+- Eigene Ideen unter „Ideen & Wünsche“ lassen sich jetzt bearbeiten (Titel, Beschreibung, Bereich) – solange sie noch nicht umgesetzt oder abgelehnt sind
+- Selbst gehostet geht die Änderung auch an zockerdb.de; ist die Idee als GitHub-Issue veröffentlicht, werden Titel und Text dort mit angepasst
+
 ## 03.10.2026 – Fußleiste bleibt unten
 - In der installierten App auf dem iPhone rutschte die Menüleiste manchmal in die Bildmitte und die Kopfleiste verschwand – etwa nach dem Tippen in ein Feld, nach dem Schließen einer Bildansicht oder beim Zurückkehren in die App
 - Die Ansicht wird in diesen Fällen jetzt zuverlässig zurückgesetzt; kleine Auswahl- und Eingabefelder lösen kein automatisches Hineinzoomen mehr aus

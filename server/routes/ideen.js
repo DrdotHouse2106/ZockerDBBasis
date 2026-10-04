@@ -16,6 +16,7 @@ export function ideenRouter({ ideen, erweiterungen }) {
     if (req.benutzer.rolle !== 'admin') return res.status(403).json({ fehler: 'Nur Administratoren legen den Stand fest.' });
     res.json(ideen.entscheide(req.benutzer, req.params.id, req.body ?? {}));
   });
+  router.patch('/ideen/:id', async (req, res) => res.json(await ideen.bearbeite(req.benutzer, req.params.id, req.body ?? {})));
   router.delete('/ideen/:id', (req, res) => {
     ideen.loesche(req.benutzer, req.params.id);
     res.status(204).end();

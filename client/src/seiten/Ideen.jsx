@@ -15,6 +15,7 @@ export default function Ideen({ route }) {
   const { benutzer } = useSitzung();
   const [d, setD] = useState(null);
   const [filter, setFilter] = useState('offen');
+  const [bearbeitet, setBearbeitet] = useState(null);
   const laden = () => api.ideen().then(setD).catch((e) => zeigeHinweis(e.message, 'fehler'));
   useEffect(() => { laden(); }, []);
 
@@ -54,6 +55,11 @@ export default function Ideen({ route }) {
             <ul className="space-y-2">
               {gefiltert.map((i) => (
                 <li key={i.id} className="karte flex gap-3 p-4">
+                  {bearbeitet === i.id ? (
+                    <IdeeFormular d={d} wert={i} titel="Idee bearbeiten" knopf="Speichern" className="min-w-0 flex-1 space-y-3"
+                      onAbbrechen={() => setBearbeitet(null)}
+                      onSenden={async (w) => { const neu = await api.ideeAendern(i.id, w); ersetze(neu); setBearbeitet(null); zeigeHinweis('Gespeichert.'); }} />
+                  ) : (<>
                   {brett && (
                     <button type="button" disabled={i.eigene} onClick={() => aktion(() => api.ideeStimme(i.id))}
                       className={`flex h-fit w-14 shrink-0 flex-col items-center rounded-xl border py-2 text-sm font-semibold ${i.gestimmt || i.eigene ? 'border-akzent bg-akzent/10 text-akzent-hell' : 'border-rand hover:border-akzent/60'}`}
@@ -73,13 +79,19 @@ export default function Ideen({ route }) {
                     {i.github && <a href={i.github.url} target="_blank" rel="noopener noreferrer" className="text-xs text-akzent-hell underline">Auf GitHub verfolgen (#{i.github.nummer}) ↗</a>}
                     <p className="text-xs text-leise">{i.eigene ? 'Deine Idee' : i.von ? `von ${i.von}` : ''} · {datumDe(i.erstellt_am?.slice(0, 10))}</p>
                     {benutzer?.rolle === 'admin' && brett && <Entscheiden idee={i} status={d.status} onFertig={ersetze} />}
-                    {(i.eigene && i.status === 'neu') || (benutzer?.rolle === 'admin' && brett) ? (
-                      <button type="button" className="text-xs text-gefahr underline" onClick={async () => {
-                        if (!window.confirm('Idee löschen?')) return;
-                        try { await api.ideeLoeschen(i.id); setD((alt) => ({ ...alt, ideen: alt.ideen.filter((x) => x.id !== i.id) })); } catch (e) { zeigeHinweis(e.message, 'fehler'); }
-                      }}>Löschen</button>
-                    ) : null}
+                    <div className="flex flex-wrap gap-3">
+                      {(i.eigene && !['umgesetzt', 'abgelehnt'].includes(i.status)) || (benutzer?.rolle === 'admin' && brett) ? (
+                        <button type="button" className="text-xs text-akzent-hell underline" onClick={() => setBearbeitet(i.id)}>Bearbeiten</button>
+                      ) : null}
+                      {(i.eigene && i.status === 'neu') || (benutzer?.rolle === 'admin' && brett) ? (
+                        <button type="button" className="text-xs text-gefahr underline" onClick={async () => {
+                          if (!window.confirm('Idee löschen?')) return;
+                          try { await api.ideeLoeschen(i.id); setD((alt) => ({ ...alt, ideen: alt.ideen.filter((x) => x.id !== i.id) })); } catch (e) { zeigeHinweis(e.message, 'fehler'); }
+                        }}>Löschen</button>
+                      ) : null}
+                    </div>
                   </div>
+                  </>)}
                 </li>
               ))}
             </ul>
@@ -195,5 +207,44 @@ function Entscheiden({ idee, status, onFertig }) {
         <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => setOffen(false)}>Abbrechen</button>
       </div>
     </div>
+  );
+}
+
+/** Eigene Idee nachträglich ändern (Titel, Beschreibung, Bereich). */
+function IdeeFormular({ d, wert, titel, knopf, className, onSenden, onAbbrechen }) {
+  const [w, setW] = useState({ titel: wert.titel, beschreibung: wert.beschreibung ?? '', bereich: wert.bereich });
+  const [fehler, setFehler] = useState({});
+  const [sendet, setSendet] = useState(false);
+  const setze = (f) => (e) => setW((x) => ({ ...x, [f]: e.target.value }));
+  async function absenden(e) {
+    e.preventDefault();
+    setSendet(true);
+    setFehler({});
+    try { await onSenden(w); } catch (f) { setFehler(f.felder ?? { allgemein: f.message }); } finally { setSendet(false); }
+  }
+  return (
+    <form onSubmit={absenden} className={className}>
+      <h2 className="font-semibold">{titel}</h2>
+      <label className="block text-sm">
+        <span className="mb-1 block text-leise">Was fehlt dir? (kurz) *</span>
+        <input className="eingabe" value={w.titel} onChange={setze('titel')} maxLength={120} required />
+        {fehler.titel && <span className="text-gefahr">{fehler.titel}</span>}
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block text-leise">Beschreibung (optional)</span>
+        <textarea className="eingabe min-h-24" value={w.beschreibung} onChange={setze('beschreibung')} maxLength={3000} />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block text-leise">Bereich</span>
+        <select className="eingabe" value={w.bereich} onChange={setze('bereich')}>
+          {d.bereiche.map(([wert2, label]) => <option key={wert2} value={wert2}>{label}</option>)}
+        </select>
+      </label>
+      {fehler.allgemein && <p className="text-sm text-gefahr" role="alert">{fehler.allgemein}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" className="knopf-primaer" disabled={sendet}>{sendet ? 'Wird gespeichert …' : knopf}</button>
+        <button type="button" className="knopf-sekundaer" onClick={onAbbrechen}>Abbrechen</button>
+      </div>
+    </form>
   );
 }

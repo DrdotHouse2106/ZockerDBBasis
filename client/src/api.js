@@ -236,6 +236,7 @@ export const api = {
   ideeEinreichen: (daten) => anfrage('/api/ideen', { methode: 'POST', daten }),
   ideeStimme: (id) => anfrage(`/api/ideen/${id}/stimme`, { methode: 'POST' }),
   ideeEntscheiden: (id, daten) => anfrage(`/api/ideen/${id}`, { methode: 'PUT', daten }),
+  ideeAendern: (id, daten) => anfrage(`/api/ideen/${id}`, { methode: 'PATCH', daten }),
   ideeLoeschen: (id) => anfrage(`/api/ideen/${id}`, { methode: 'DELETE' }),
   plattformAnlegen: (daten) => anfrage('/api/moderation/plattformen', { methode: 'POST', daten }),
   plattformAendern: (id, daten) => anfrage(`/api/moderation/plattformen/${id}`, { methode: 'PUT', daten }),
