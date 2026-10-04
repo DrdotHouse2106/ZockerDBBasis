@@ -61,7 +61,7 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen,
     const liste2 = db.prepare(`${liste.source} ${bedingung} ORDER BY CASE i.status WHEN 'umgesetzt' THEN 1 WHEN 'abgelehnt' THEN 2 ELSE 0 END, stimmen DESC, i.id DESC LIMIT 500`)
       .all({ b: benutzer.id }).map((i) => objekt(i, benutzer));
     // Andockpunkt „ideen.zusatz“: { [id]: { … } } – z. B. Link zum GitHub-Issue
-    const zusatz = erweiterungen?.sammle('ideen.zusatz', liste2.map((i) => i.id)) ?? {};
+    const zusatz = erweiterungen?.sammle('ideen.zusatz', liste2.map((i) => i.id), benutzer) ?? {};
     return liste2.map((i) => ({ ...i, ...(zusatz[i.id] ?? {}) }));
   }
 
