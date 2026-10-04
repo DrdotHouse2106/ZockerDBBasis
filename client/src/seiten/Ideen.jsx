@@ -77,6 +77,19 @@ export default function Ideen({ route }) {
                     {i.beschreibung && <p className="text-sm whitespace-pre-line">{i.beschreibung}</p>}
                     {i.antwort && <p className="rounded-lg bg-karte-hover p-2 text-sm"><strong>Antwort:</strong> {i.antwort}</p>}
                     {i.github && <a href={i.github.url} target="_blank" rel="noopener noreferrer" className="text-xs text-akzent-hell underline">Auf GitHub verfolgen (#{i.github.nummer}) ↗</a>}
+                    {i.kommentare?.length > 0 && (
+                      <details className="rounded-lg border border-rand p-2 text-sm" data-testid="idee-kommentare">
+                        <summary className="cursor-pointer text-leise">{i.kommentare.length === 1 ? '1 Kommentar' : `${i.kommentare.length} Kommentare`} auf GitHub</summary>
+                        <ul className="mt-2 space-y-2">
+                          {i.kommentare.map((c) => (
+                            <li key={c.id}>
+                              <p className="text-xs text-leise">{c.autor ? `@${c.autor}` : 'GitHub'} · {datumDe(c.erstellt_am?.slice(0, 10))}</p>
+                              <p className="whitespace-pre-line break-words">{c.text}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
                     <p className="text-xs text-leise">{i.eigene ? 'Deine Idee' : i.von ? `von ${i.von}` : ''} · {datumDe(i.erstellt_am?.slice(0, 10))}</p>
                     {benutzer?.rolle === 'admin' && brett && <Entscheiden idee={i} status={d.status} onFertig={ersetze} />}
                     <div className="flex flex-wrap gap-3">
