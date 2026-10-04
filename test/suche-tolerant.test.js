@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { starteTestServer } from './hilfen.js';
-import { suchWoerter, wortVarianten } from '../server/services/suchwoerter.js';
+import { suchWoerter, wortVarianten, woerterBedingung } from '../server/services/suchwoerter.js';
 
 test('Suchwörter: Apostrophe, Satzzeichen, Mehrzahl, römische Zahlen', () => {
   assert.deepEqual(suchWoerter("Assassin's Creed: IV – Black Flag!"), ['assassins', 'creed', 'iv', 'black', 'flag']);
@@ -52,6 +52,21 @@ test('IGDB: wortweiser Rückfall, wenn die Volltextsuche nichts findet', async (
     assert.deepEqual(r.online.map((e) => e.titel), ["Assassin's Creed IV: Black Flag"]);
     const rueckfall = anfragen.find((b) => b.includes('where'));
     assert.match(rueckfall, /name ~ \*"assassin"\* & \(name ~ \*"black"\*\) & \(name ~ \*"flag"\*\)|\(name ~ \*"assassin"\*\) & \(name ~ \*"black"\*\) & \(name ~ \*"flag"\*\)/);
+  } finally {
+    await server.stoppe();
+  }
+});
+
+test('Suchwörter wie „Constructor“ führen nicht zum Serverfehler (Barcode und Suche)', async () => {
+  assert.doesNotThrow(() => woerterBedingung(['constructor', 'tostring', 'valueof'], ['k.titel']));
+  const server = await starteTestServer();
+  try {
+    const u = await server.registriere('bauherr');
+    server.db.prepare("INSERT INTO barcodes (code, produktname, quelle) VALUES ('4020628756406', 'Constructor Plus PS4', 'test')").run();
+    const barcode = await u.api('/api/katalog/barcode/4020628756406');
+    assert.equal(barcode.status, 200);
+    assert.equal(barcode.json.suchbegriff, 'Constructor Plus');
+    assert.equal((await u.api('/api/katalog/suche?q=constructor')).status, 200);
   } finally {
     await server.stoppe();
   }

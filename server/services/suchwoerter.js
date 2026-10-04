@@ -1,7 +1,8 @@
 // Fehlertolerante Titelsuche: Wörter in beliebiger Reihenfolge, Apostrophe und Satzzeichen egal, Mehrzahl-„s“ egal,
 // römische Zahlen wie Ziffern („Assassins Black Flag“ findet „Assassin's Creed IV Black Flag“, „Final Fantasy 7“ auch „VII“).
-const ROEMISCH = { ii: '2', iii: '3', iv: '4', vi: '6', vii: '7', viii: '8', ix: '9' };
-const ZIFFERN = Object.fromEntries(Object.entries(ROEMISCH).map(([r, z]) => [z, r]));
+// Ohne Prototyp: Suchwörter wie „constructor“ dürfen keine geerbten Eigenschaften treffen
+const ROEMISCH = { __proto__: null, ii: '2', iii: '3', iv: '4', vi: '6', vii: '7', viii: '8', ix: '9' };
+const ZIFFERN = { __proto__: null, ...Object.fromEntries(Object.entries(ROEMISCH).map(([r, z]) => [z, r])) };
 
 /** Suchtext → Wörter (klein, ohne Apostrophe und Satzzeichen), höchstens 8. */
 export function suchWoerter(text) {

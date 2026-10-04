@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Suche: Serverfehler bei Titeln wie „Constructor“ behoben
+<!-- für: admin|moderation -->
+- Suchbegriffe, die zufällig wie interne JavaScript-Namen heißen (z. B. „Constructor“ beim Spiel „Constructor Plus“), führten bei der Suche und beim Barcode-Scan zu „Interner Serverfehler“. Sie werden jetzt wie normale Wörter behandelt.
+
 ## Barcode: Produktnamen mit Versandfloskeln besser bereinigt
 <!-- für: admin|moderation -->
 - Händlernamen wie „Playstation 4 : Battlefield 4 [german Version] Videogames Free Shipping, Save £s“ werden jetzt zu „Battlefield 4“. Entfernt werden zusätzlich „Videogames“, „Free Shipping“, „Save £…“, Währungszeichen und übrig gebliebene Kommas.
