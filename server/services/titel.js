@@ -22,6 +22,10 @@ const FUELLWOERTER = [
   // Händler- und Auktionstitel („Ps3 Boxed + Instructions“, „komplett mit Anleitung“)
   'boxed', 'unboxed', 'instructions?', 'manual', 'complete', 'cib', 'loose', 'mit anleitung', 'ohne anleitung', 'anleitung', 'with manual',
   'in ovp', 'originalverpackt', 'gebraucht', 'used', 'sehr gut', 'guter zustand', 'top zustand', 'rar', 'selten', 'rare',
+  // Verkaufsfloskeln („Brand New And Sealed - In Stock - Quick Dispatch“)
+  'brand\\s+new', 'brand(\\s+and)?', 'and\\s+sealed', 'factory\\s+sealed', 'versiegelt', 'mint', 'neuwertig', 'in\\s+stock',
+  '(quick|fast|free|same\\s+day)\\s+(dispatch|delivery|shipping|postage|p\\s*&\\s*p)', 'free\\s+uk\\s+(delivery|postage)', 'uk\\s+seller',
+  'uk\\s+version', 'eu\\s+version', 'import', 'versandkostenfrei', 'blitzversand', 'sofort\\s+lieferbar', 'neu\\s*&\\s*ovp',
 ];
 
 const plattformRegex = new RegExp(`\\b(${PLATTFORM_BEGRIFFE.map((b) => b.replace(/ /g, '\\s*')).join('|')})\\b`, 'gi');
@@ -70,9 +74,13 @@ const ARABISCH = Object.fromEntries(Object.entries(ROEMISCH).map(([a, r]) => [r,
 export function suchbegriffe(produktname, max = 6) {
   const bereinigt = bereinigeProduktname(produktname);
   const ohneZusatz = bereinigt.split(/\s+[-–]\s+/)[0].trim();
+  // „Xxl2“ → „Xxl 2“ (Händler schreiben Zahlen oft ans Wort)
+  const getrennt = ohneZusatz.replace(/([a-zäöü]{2,})(\d{1,2})\b/gi, '$1 $2');
   const ohneEdition = ohneZusatz.replace(/\b(bonus|limited|special|collector'?s|deluxe|gold|goty|game of the year|complete|premium|day one|steelbook)\s+edition\b.*$/i, '').trim();
   const liste = [];
-  for (const t of [bereinigt, ohneZusatz, ohneEdition]) {
+  // Notfalls nur die ersten Wörter („Asterix & Obelix“), damit überhaupt etwas zur Auswahl steht
+  const kurz = getrennt.split(/\s+/).slice(0, 3).join(' ');
+  for (const t of [bereinigt, ohneZusatz, getrennt, ohneEdition, kurz]) {
     if (!t || t.length < 2) continue;
     liste.push(t);
     // Zahl ↔ römische Zahl (nur ganze Wörter, z. B. „Creed 4:“ → „Creed IV:“)

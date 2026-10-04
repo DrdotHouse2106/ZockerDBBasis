@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 04.10.2026 – Bessere Vorschläge nach dem Scannen
+- Verkaufsfloskeln aus Händlertiteln werden entfernt („Brand New and Sealed“, „In Stock“, „Quick Dispatch“, „Free UK Delivery“ …)
+- Ans Wort gehängte Zahlen werden getrennt („Xxl2“ → „XXL 2“), notfalls wird mit den ersten Wörtern des Titels gesucht – so gibt es auch bei ungewöhnlichen Händlertiteln Vorschläge
+
 ## 04.10.2026 – Beilage „gab es nicht“
 - In der Beilagen-Liste gibt es einen vierten Zustand: Antippen wechselt zwischen vorhanden, fehlt, gab es nicht und keine Angabe
 - Viele PlayStation-Spiele haben keine Anleitung – „Anleitung: gab es nicht“ zählt trotzdem als komplett (CIB) und es wird kein Foto der Anleitung erbeten
