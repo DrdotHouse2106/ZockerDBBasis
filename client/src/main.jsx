@@ -28,6 +28,38 @@ window.addEventListener('popstate', spaeterZuruecksetzen);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') spaeterZuruecksetzen();
 });
+// Hängengebliebene Tastatur-Ansicht: iOS meldet eine um die Tastaturhöhe verkleinerte, verschobene Ansicht
+// (z. B. visualViewport 611 statt 956, offsetTop 330), obwohl kein Eingabefeld aktiv ist – etwa wenn ein Feld mit
+// offener Tastatur beim Seitenwechsel verschwindet. Scrollen hilft dann nicht; ein kurz fokussiertes und wieder
+// verlassenes unsichtbares Feld lässt iOS die Tastatur „schließen“ und die Ansicht wiederherstellen.
+let haengtSeit = 0;
+let zuletztRepariert = 0;
+function tastaturHaengt() {
+  const vv = window.visualViewport;
+  return Boolean(vv && !eingabeAktiv() && vv.scale <= 1.01 && window.innerHeight - vv.height > 100);
+}
+function tastaturReparieren() {
+  zuletztRepariert = Date.now();
+  const feld = document.createElement('input');
+  feld.setAttribute('aria-hidden', 'true');
+  feld.setAttribute('inputmode', 'none');
+  feld.tabIndex = -1;
+  feld.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;pointer-events:none;border:0;padding:0';
+  document.body.appendChild(feld);
+  try { feld.focus({ preventScroll: true }); } catch { feld.focus(); }
+  setTimeout(() => {
+    feld.blur();
+    feld.remove();
+    ansichtZuruecksetzen();
+  }, 60);
+}
+setInterval(() => {
+  if (!tastaturHaengt()) { haengtSeit = 0; return; }
+  if (!haengtSeit) { haengtSeit = Date.now(); return; }
+  // Erst nach kurzer Zeit eingreifen (Tastatur schließt gerade) und höchstens alle 3 Sekunden
+  if (Date.now() - haengtSeit >= 700 && Date.now() - zuletztRepariert > 3000) tastaturReparieren();
+}, 400);
+
 // Messanzeige zur Fehlersuche (Fußleiste auf dem iPhone): einschalten unter Administration → Update oder mit
 // „?ansicht=messen“ in der Adresse, ausschalten dort bzw. mit „?ansicht=aus“. Zeigt die Maße, die der Browser meldet – sonst bleibt alles unverändert.
 try {

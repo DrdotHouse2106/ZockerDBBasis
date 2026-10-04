@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 04.10.2026 – Menüleiste: hängengebliebene Tastatur-Ansicht
+- Auf dem iPhone blieb die Ansicht nach einem Seitenwechsel manchmal so, als wäre die Tastatur noch offen – die Menüleiste stand dann mitten im Bild
+- Die App erkennt diesen Zustand jetzt (verkleinerte Ansicht, aber kein Eingabefeld aktiv) und stellt die Ansicht nach einem Augenblick selbst wieder her
+
 ## 04.10.2026 – Vollständigkeit „Mit Schutzhülle (ohne Karton)“
 - Neue Auswahl bei der Vollständigkeit – z. B. für Game-Boy-Module in der Plastik-Schutzhülle, deren Karton fehlt
 - Für den geschätzten Wert zählt sie wie „Nur Gerät/Disc/Modul“
