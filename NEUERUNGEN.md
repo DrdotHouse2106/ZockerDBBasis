@@ -11,6 +11,9 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Hilfe zur Zustandsbewertung
+- Im Formular eines Exemplars gibt es unter den Zustandsfeldern „ⓘ Wie bewerte ich den Zustand?“. Aufgeklappt zeigt es für jede Stufe (Neu/OVP bis Defekt), woran man sie bei Disc/Modul bzw. Gerät und bei Hülle/OVP erkennt. Die gewählten Stufen sind hervorgehoben.
+
 ## Suche: Serverfehler bei Titeln wie „Constructor“ behoben
 <!-- für: admin|moderation -->
 - Suchbegriffe, die zufällig wie interne JavaScript-Namen heißen (z. B. „Constructor“ beim Spiel „Constructor Plus“), führten bei der Suche und beim Barcode-Scan zu „Interner Serverfehler“. Sie werden jetzt wie normale Wörter behandelt.

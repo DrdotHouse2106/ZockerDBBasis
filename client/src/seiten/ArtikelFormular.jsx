@@ -7,6 +7,7 @@ import { usePlattformen } from '../plattformen.js';
 import { useSitzung } from '../sitzung.js';
 import PlattformAuswahl from '../komponenten/PlattformAuswahl.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
+import ZustandHilfe from '../komponenten/ZustandHilfe.jsx';
 import { api, ApiFehler } from '../api.js';
 import { navigiere, zurueck, vorherigeSeite } from '../router.js';
 import { preisFeld, datumFeld, leseDatum, euro } from '../format.js';
@@ -349,6 +350,10 @@ export default function ArtikelFormular({ route, artikelId }) {
           </Feld>
           {werte.zustand && (
             <p className="-mt-1 text-xs text-leise sm:col-span-2">{ZUSTAENDE.find((z) => z.value === werte.zustand)?.beschreibung}</p>
+          )}
+          {werte.bestand !== 'digital' && (
+            <ZustandHilfe typ={werte.typ} zustand={werte.zustand} zustandOvp={werte.zustand_ovp}
+              mitOvp={zeige('zustand_ovp') && werte.vollstaendigkeit !== 'nur_geraet'} />
           )}
           {beilagenSichtbar && (
             <>

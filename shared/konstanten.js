@@ -183,6 +183,43 @@ export const zustandBeschriftung = (typ) => (typ === 'spiel'
   ? { traeger: 'Zustand Disc / Modul', ovp: 'Zustand Hülle / OVP' }
   : { traeger: 'Zustand Gerät', ovp: 'Zustand OVP' });
 
+/**
+ * Bewertungshilfe je Zustandsstufe – getrennt für den Datenträger (Disc/Modul), ein Gerät und die Hülle/OVP.
+ * Angelehnt an die üblichen Stufen beim Sammeln und auf Verkaufsplattformen.
+ */
+export const ZUSTAND_HILFE = {
+  neu_ovp: {
+    traeger: 'Ungespielt, noch eingeschweißt.',
+    geraet: 'Unbenutzt, original verpackt bzw. versiegelt.',
+    ovp: 'Original eingeschweißt (Folie intakt), keine Druckstellen.',
+  },
+  wie_neu: {
+    traeger: 'Keine Kratzer bzw. Spuren, Etikett makellos, Kontakte blank.',
+    geraet: 'Keine Kratzer, nicht vergilbt, alle Funktionen einwandfrei.',
+    ovp: 'Geöffnet, aber ohne Knicke, Risse oder Verfärbungen; Cover sauber.',
+  },
+  sehr_gut: {
+    traeger: 'Einzelne feine Kratzer, nur im Gegenlicht sichtbar; Etikett vollständig.',
+    geraet: 'Leichte Gebrauchsspuren, kaum sichtbare Kratzer, kaum vergilbt.',
+    ovp: 'Leichte Lagerspuren (Ecken minimal bestoßen), keine Risse, keine Aufkleber.',
+  },
+  gut: {
+    traeger: 'Sichtbare Kratzer, läuft aber fehlerfrei; Etikett mit kleinen Spuren.',
+    geraet: 'Deutliche Gebrauchsspuren oder Vergilbung, voll funktionsfähig.',
+    ovp: 'Knicke, bestoßene Ecken oder kleiner Riss; Preisaufkleber oder Beschriftung.',
+  },
+  akzeptabel: {
+    traeger: 'Viele oder tiefe Kratzer, Etikett beschädigt bzw. beschriftet – läuft noch.',
+    geraet: 'Starke Spuren, Risse im Gehäuse oder Teile fehlen, funktioniert noch.',
+    ovp: 'Stark beschädigt: Risse, Wasserschaden, fehlende Laschen, zerbrochene Hülle.',
+  },
+  defekt: {
+    traeger: 'Lädt nicht, hängt oder bricht ab (z. B. gebrochene Disc, korrodierte Kontakte).',
+    geraet: 'Startet nicht oder wichtige Funktionen fallen aus.',
+    ovp: 'Nur noch in Teilen vorhanden oder unbrauchbar.',
+  },
+};
+
 /** Felder des Formulars, die man im Konto ausblenden kann (bereits ausgefüllte bleiben sichtbar). */
 export const AUSBLENDBARE_FELDER = [
   { value: 'region', label: 'Region' },
