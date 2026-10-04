@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung, beilageText, beilageVorhanden, zustandBeschriftung, KAUFQUELLEN,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung, beilageText, beilageVorhanden, beilageOhne, zustandBeschriftung, KAUFQUELLEN,
 } from '../../../shared/konstanten.js';
 import { deutschKurz } from '../../../shared/sprachen.js';
 import { api } from '../api.js';
@@ -494,7 +494,7 @@ function beilagenText(a) {
   if (!teile.length) return null;
   // Automatisch: vollständig (CIB), wenn OVP und Anleitung da sind und nichts als fehlend markiert ist
   const werte = Object.values(a.beilagen);
-  const cib = beilageVorhanden(a.beilagen.ovp) && beilageVorhanden(a.beilagen.anleitung) && !werte.includes(false);
+  const cib = beilageVorhanden(a.beilagen.ovp) && (beilageVorhanden(a.beilagen.anleitung) || beilageOhne(a.beilagen.anleitung)) && !werte.includes(false);
   return `${cib ? 'Vollständig (CIB) – ' : werte.includes(false) ? 'Unvollständig – ' : ''}${teile.join(', ')}`;
 }
 

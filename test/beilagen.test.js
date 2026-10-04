@@ -15,6 +15,10 @@ test('Beilagen → Vollständigkeit', () => {
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: true, anleitung: 2 }), 'cib');
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: true, anleitung: false }), 'fehlt_anleitung');
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: false }), 'nur_geraet');
+  // Keine Anleitung beigelegt (gab es nicht, z. B. PS4) → trotzdem komplett; „CIB“ überschreibt das nicht
+  assert.equal(vollstaendigkeitAusBeilagen({ ovp: true, anleitung: 'ohne' }), 'cib');
+  assert.deepEqual(beilagenAusVollstaendigkeit('cib', { anleitung: 'ohne' }), { anleitung: 'ohne', ovp: true });
+  assert.equal(beilageText('Anleitung', 'ohne'), '– Anleitung (nicht beigelegt)');
   // Game-Boy-Modul in der Schutzhülle, Karton fehlt
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: false, inlay: true }), 'mit_huelle');
   assert.deepEqual(beilagenAusVollstaendigkeit('mit_huelle', { anleitung: true }), { anleitung: true, ovp: false, inlay: true });

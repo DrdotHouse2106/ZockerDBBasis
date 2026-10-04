@@ -24,7 +24,9 @@ test('Zusatzfelder einschalten, Lagerort vergeben und Wartung eintragen', async 
   await expect(page.getByRole('button', { name: '✓ Anleitung', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: '✓ Anleitung', exact: true }).click(); // → fehlt
   await expect(page.getByLabel('Vollständigkeit')).toHaveValue('fehlt_anleitung');
-  await page.getByRole('button', { name: '✗ Anleitung', exact: true }).click(); // → keine Angabe
+  await page.getByRole('button', { name: '✗ Anleitung', exact: true }).click(); // → gab es nicht (z. B. PS4) – trotzdem CIB
+  await expect(page.getByLabel('Vollständigkeit')).toHaveValue('cib');
+  await page.getByRole('button', { name: '– Anleitung (gab es nicht)', exact: true }).click(); // → keine Angabe
   await page.getByRole('button', { name: 'Anleitung', exact: true }).click(); // → vorhanden
   await expect(page.getByLabel('Vollständigkeit')).toHaveValue('cib');
   await page.getByPlaceholder('z. B. Wohnzimmer').fill('Keller');

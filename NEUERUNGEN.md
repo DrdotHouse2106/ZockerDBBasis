@@ -11,6 +11,11 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 04.10.2026 – Beilage „gab es nicht“
+- In der Beilagen-Liste gibt es einen vierten Zustand: Antippen wechselt zwischen vorhanden, fehlt, gab es nicht und keine Angabe
+- Viele PlayStation-Spiele haben keine Anleitung – „Anleitung: gab es nicht“ zählt trotzdem als komplett (CIB) und es wird kein Foto der Anleitung erbeten
+- Am Exemplar steht dann „– Anleitung (nicht beigelegt)“
+
 ## 04.10.2026 – Menüleiste: hängengebliebene Tastatur-Ansicht
 - Auf dem iPhone blieb die Ansicht nach einem Seitenwechsel manchmal so, als wäre die Tastatur noch offen – die Menüleiste stand dann mitten im Bild
 - Die App erkennt diesen Zustand jetzt (verkleinerte Ansicht, aber kein Eingabefeld aktiv) und stellt die Ansicht nach einem Augenblick selbst wieder her

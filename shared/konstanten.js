@@ -287,7 +287,11 @@ export const BEILAGEN = {
  * Als Text: „✓ Anleitung“, „✓ 3× Werbebeilagen / Kataloge“, „✗ Poster / Karte“.
  */
 export const beilageVorhanden = (wert) => wert === true || (Number.isInteger(wert) && wert > 0);
+/** „Gab es nicht“: z. B. viele PS4-/PS5-Spiele haben keine Anleitung – fehlt also nicht, zählt für CIB wie vorhanden. */
+export const BEILAGE_OHNE = 'ohne';
+export const beilageOhne = (wert) => wert === BEILAGE_OHNE;
 export function beilageText(label, wert) {
+  if (beilageOhne(wert)) return `– ${label} (nicht beigelegt)`;
   if (!beilageVorhanden(wert)) return `✗ ${label}`;
   return `✓ ${Number.isInteger(wert) && wert > 1 ? `${wert}× ` : ''}${label}`;
 }
@@ -299,8 +303,8 @@ export function beilagenAusVollstaendigkeit(vollstaendigkeit, beilagen) {
   const setzen = { cib: { ovp: true, anleitung: true }, nur_geraet: { ovp: false, anleitung: false }, mit_huelle: { ovp: false, inlay: true }, nur_ovp: { ovp: true }, fehlt_anleitung: { ovp: true, anleitung: false } }[vollstaendigkeit];
   if (!setzen) return beilagen ?? null;
   const neu = { ...(beilagen ?? {}) };
-  // Eine schon eingetragene Anzahl (z. B. 2 Anleitungen) bleibt, wenn „vorhanden“ verlangt ist
-  for (const [k, w] of Object.entries(setzen)) if (!(w === true && beilageVorhanden(neu[k]))) neu[k] = w;
+  // Eine schon eingetragene Anzahl (z. B. 2 Anleitungen) bleibt, wenn „vorhanden“ verlangt ist – ebenso „gab es nicht“
+  for (const [k, w] of Object.entries(setzen)) if (!(w === true && (beilageVorhanden(neu[k]) || beilageOhne(neu[k])))) neu[k] = w;
   return neu;
 }
 /** Aus OVP und Anleitung die Vollständigkeit ableiten – null, wenn sich nichts sicher sagen lässt. */
@@ -308,7 +312,8 @@ export function vollstaendigkeitAusBeilagen(beilagen) {
   if (!beilagen || typeof beilagen !== 'object') return null;
   const ovp = beilagen.ovp;
   const anleitung = beilagen.anleitung;
-  if (beilageVorhanden(ovp) && beilageVorhanden(anleitung)) return 'cib';
+  // Keine Anleitung beigelegt (gab es nicht) → trotzdem komplett
+  if (beilageVorhanden(ovp) && (beilageVorhanden(anleitung) || beilageOhne(anleitung))) return 'cib';
   if (beilageVorhanden(ovp) && anleitung === false) return 'fehlt_anleitung';
   if (ovp === false) return beilageVorhanden(beilagen.inlay) ? 'mit_huelle' : 'nur_geraet';
   return null;

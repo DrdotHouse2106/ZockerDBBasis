@@ -1,6 +1,6 @@
 // Zuschaltbare Zusatzfelder am Exemplar (Profil → Konto → „Zusätzliche Felder“): Lagerort, Beilagen & Seriennummer der OVP.
 import { useEffect, useId, useState } from 'react';
-import { BEILAGEN, beilageVorhanden, seriennummerPasst } from '../../../shared/konstanten.js';
+import { BEILAGEN, BEILAGE_OHNE, beilageOhne, beilageVorhanden, seriennummerPasst } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 
 /** Lagerort in drei Stufen mit Vorschlägen aus den bereits verwendeten Orten. */
@@ -31,7 +31,7 @@ export function LagerortFelder({ werte, setze, fehler = {} }) {
 }
 
 
-/** Beilagen-Checkliste je Artikeltyp: Tippen wechselt zwischen „keine Angabe“, „vorhanden“ und „fehlt“. */
+/** Beilagen-Checkliste je Artikeltyp: Tippen wechselt zwischen „keine Angabe“, „vorhanden“, „fehlt“ und „gab es nicht“. */
 export function BeilagenCheckliste({ typ, wert, onChange }) {
   const liste = BEILAGEN[typ] ?? BEILAGEN.spiel;
   const aktuell = wert && typeof wert === 'object' ? wert : {};
@@ -41,10 +41,12 @@ export function BeilagenCheckliste({ typ, wert, onChange }) {
     else neu[schluessel] = w;
     onChange(Object.keys(neu).length ? neu : null);
   };
-  // keine Angabe → vorhanden → fehlt → keine Angabe (eine Anzahl gilt als „vorhanden“)
+  // keine Angabe → vorhanden → fehlt → gab es nicht (z. B. keine Anleitung bei vielen PS4-Spielen) → keine Angabe
+  // (eine Anzahl gilt als „vorhanden“; bei der OVP gibt es kein „gab es nicht“)
   const weiter = (schluessel) => {
     const w = aktuell[schluessel];
-    setze(schluessel, w === undefined ? true : beilageVorhanden(w) ? false : undefined);
+    setze(schluessel, w === undefined ? true : beilageVorhanden(w) ? false
+      : w === false && schluessel !== 'ovp' ? BEILAGE_OHNE : undefined);
   };
   // Anzahl (z. B. mehrere Werbebeilagen): 1 = einfach vorhanden
   const anzahl = (schluessel, delta) => {
@@ -61,8 +63,8 @@ export function BeilagenCheckliste({ typ, wert, onChange }) {
           return (
             <span key={b.value} className="inline-flex items-center gap-1">
               <button type="button" onClick={() => weiter(b.value)} aria-pressed={da}
-                className={da ? 'chip-aktiv' : w === false ? 'chip border-gefahr/60 text-gefahr line-through' : 'chip'}>
-                {da ? '✓ ' : w === false ? '✗ ' : ''}{Number.isInteger(w) && w > 1 ? `${w}× ` : ''}{b.label}
+                className={da ? 'chip-aktiv' : w === false ? 'chip border-gefahr/60 text-gefahr line-through' : beilageOhne(w) ? 'chip border-dashed text-leise' : 'chip'}>
+                {da ? '✓ ' : w === false ? '✗ ' : beilageOhne(w) ? '– ' : ''}{Number.isInteger(w) && w > 1 ? `${w}× ` : ''}{b.label}{beilageOhne(w) ? ' (gab es nicht)' : ''}
               </button>
               {da && b.value !== 'ovp' && (
                 <span className="inline-flex items-center rounded-full border border-rand text-xs">
@@ -75,7 +77,7 @@ export function BeilagenCheckliste({ typ, wert, onChange }) {
           );
         })}
       </div>
-      <span className="mt-1 block text-xs text-leise">Antippen: einmal = vorhanden, zweimal = fehlt, dreimal = keine Angabe. Mit + / − die Anzahl angeben, z. B. drei Werbebeilagen.</span>
+      <span className="mt-1 block text-xs text-leise">Antippen: einmal = vorhanden, zweimal = fehlt, dreimal = gab es nicht (z. B. keine Anleitung beigelegt – zählt trotzdem als komplett), viermal = keine Angabe. Mit + / − die Anzahl angeben, z. B. drei Werbebeilagen.</span>
     </div>
   );
 }
