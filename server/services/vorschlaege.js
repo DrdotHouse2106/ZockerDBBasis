@@ -153,6 +153,36 @@ export function erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattf
     return { ...vorschlagObjekt(q.vorschlag.get(v.id)), ziel };
   }
 
+  /** Eigenen Vorschlag ändern, solange er offen ist. Selbst gehostet geht die Änderung auch an zockerdb.de. */
+  async function plattformVorschlagAendern(benutzer, id, eingabe) {
+    const v = q.vorschlag.get(Number(id));
+    if (!v || v.benutzer_id !== benutzer.id) throw new KontoFehler('Vorschlag nicht gefunden.', 404);
+    if (v.status !== 'offen') throw new KontoFehler('Der Vorschlag wurde schon entschieden und lässt sich nicht mehr ändern.', 409);
+    const d = pruefePlattformVorschlag(eingabe);
+    const vorhanden = plattformen.zuordnen(d.name);
+    if (vorhanden) throw new ValidierungsFehler({ name: `Die Plattform gibt es schon: „${vorhanden.name}“.` });
+    if (v.zentral_id) {
+      try {
+        await zentrale.anfrage(`/api/zentral/plattform-vorschlag/${v.zentral_id}`, { methode: 'PUT', daten: d });
+      } catch (e) {
+        throw new KontoFehler(e.message, 502);
+      }
+    }
+    aendereVorschlag(v.id, d);
+    return vorschlagObjekt(q.vorschlag.get(v.id));
+  }
+  const aendereVorschlag = (id, d) => db.prepare(`UPDATE plattform_vorschlaege SET name = @name, hersteller = @hersteller,
+    erscheinungsjahr = @erscheinungsjahr, typ = @typ, hinweis = @hinweis WHERE id = @id`).run({ ...d, id });
+
+  /** zockerdb.de: Änderung eines Vorschlags übernehmen, den eine Installation eingereicht hat. */
+  function plattformVorschlagVonInstanzAendern(instanzId, id, eingabe) {
+    const v = db.prepare("SELECT * FROM plattform_vorschlaege WHERE id = ? AND instanz_id = ?").get(Number(id), instanzId);
+    if (!v) throw new KontoFehler('Vorschlag nicht gefunden.', 404);
+    if (v.status !== 'offen') throw new KontoFehler('Der Vorschlag wurde schon entschieden.', 409);
+    aendereVorschlag(v.id, pruefePlattformVorschlag(eingabe));
+    return { id: v.id };
+  }
+
   const eigenePlattformVorschlaege = (benutzer) => db.prepare('SELECT * FROM plattform_vorschlaege WHERE benutzer_id = ? ORDER BY id DESC LIMIT 50')
     .all(benutzer.id).map(vorschlagObjekt);
 
@@ -225,6 +255,6 @@ export function erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattf
 
   return {
     fotos, fotoHinzu, fotoEntfernen, darfSehen, sendeAnZentrale, aufraeumen,
-    plattformVorschlagen, eigenePlattformVorschlaege, offenePlattformVorschlaege, entscheidePlattform, legePlattformAn, pruefePlattformVorschlaege,
+    plattformVorschlagen, plattformVorschlagAendern, plattformVorschlagVonInstanzAendern, eigenePlattformVorschlaege, offenePlattformVorschlaege, entscheidePlattform, legePlattformAn, pruefePlattformVorschlaege,
   };
 }

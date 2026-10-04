@@ -11,6 +11,11 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 04.10.2026 – Plattform-Vorschläge nachträglich ändern
+- Beim Vorschlagen einer Plattform stehen deine offenen Vorschläge darunter und lassen sich bearbeiten, bis sie angenommen oder abgelehnt sind
+- Selbst gehostet geht die Änderung auch an zockerdb.de
+- Eigene Katalogeinträge und Varianten ließen sich schon bisher bis zur Freigabe ändern
+
 ## 04.10.2026 – Ideen nachträglich bearbeiten
 - Eigene Ideen unter „Ideen & Wünsche“ lassen sich jetzt bearbeiten (Titel, Beschreibung, Bereich) – solange sie noch nicht umgesetzt oder abgelehnt sind
 - Selbst gehostet geht die Änderung auch an zockerdb.de; ist die Idee als GitHub-Issue veröffentlicht, werden Titel und Text dort mit angepasst

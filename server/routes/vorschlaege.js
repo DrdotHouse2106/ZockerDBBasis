@@ -36,6 +36,7 @@ export function vorschlaegeRouter({ katalog, vorschlaege, konfiguration }) {
 
   // ── Plattform vorschlagen ───────────────────────────────────
   router.get('/plattformen/vorschlaege', (req, res) => res.json(vorschlaege.eigenePlattformVorschlaege(req.benutzer)));
+  router.put('/plattformen/vorschlaege/:id', async (req, res) => res.json(await vorschlaege.plattformVorschlagAendern(req.benutzer, req.params.id, req.body ?? {})));
   router.post('/plattformen/vorschlaege', async (req, res) => res.status(201).json(await vorschlaege.plattformVorschlagen(req.benutzer, req.body)));
 
   // Moderation (nur mit eigener Moderation, z. B. zockerdb.de)

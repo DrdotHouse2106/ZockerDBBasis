@@ -229,6 +229,7 @@ export const api = {
   },
   belegfotoLoeschen: (id) => anfrage(`/api/belegfotos/${id}`, { methode: 'DELETE' }),
   plattformVorschlagen: (daten) => anfrage('/api/plattformen/vorschlaege', { methode: 'POST', daten }),
+  plattformVorschlagAendern: (id, daten) => anfrage(`/api/plattformen/vorschlaege/${id}`, { methode: 'PUT', daten }),
   eigenePlattformVorschlaege: () => anfrage('/api/plattformen/vorschlaege'),
   plattformVorschlagEntscheiden: (id, daten) => anfrage(`/api/moderation/plattform-vorschlaege/${id}`, { methode: 'POST', daten }),
   ideen: () => anfrage('/api/ideen'),
