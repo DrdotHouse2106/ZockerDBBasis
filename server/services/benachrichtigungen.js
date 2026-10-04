@@ -76,7 +76,7 @@ export function erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erwei
    * Neue Benachrichtigung. `link` ist eine App-Adresse wie „#/katalog/5“.
    * Fehler beim E-Mail-Versand werden nur protokolliert und brechen nichts ab.
    */
-  function sende(benutzerId, { art, titel, text = null, link = null }) {
+  function sende(benutzerId, { art, titel, text = null, link = null, still = false }) {
     if (!benutzerId) return null;
     const b = q.empfaenger.get(benutzerId);
     if (!b) return null;
@@ -87,6 +87,7 @@ export function erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erwei
       ({ id } = q.anlegen.get(b.id, art, String(titel).slice(0, 200), text ? String(text).slice(0, 1000) : null, link));
       q.kuerzen.run({ b: b.id });
     }
+    if (still) return id; // nur in der App (z. B. gesammelte Meldungen, zu denen es heute schon eine E-Mail gab)
     if (e.push) push?.sende(b.id, { titel, text, link, tag: art }).catch((err) => console.warn('[push]', err.message));
     if (e.email && b.benachrichtigung_email && b.email && mail.aktiv && konfiguration.oeffentlicheUrl) {
       const url = `${konfiguration.oeffentlicheUrl}${APP_START}${link ? link.replace(/^\/+/, '') : ''}`;
@@ -106,9 +107,11 @@ export function erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erwei
 
   /**
    * Gleichartige Meldungen zusammenfassen: Gibt es zum Schlüssel schon eine ungelesene Meldung der letzten 24 Stunden,
-   * wird sie hochgezählt („5 deiner Fotos …“) – ohne erneute Push- oder E-Mail-Nachricht. Sonst eine normale Meldung.
+   * wird sie hochgezählt („5 deiner Fotos …“). E-Mail und Push gibt es je Schlüssel höchstens einmal in 24 Stunden –
+   * auch wenn die vorige Meldung inzwischen gelesen wurde (dann kommt nur eine neue Meldung in der App).
    * titel/text: Funktionen der Anzahl.
    */
+  const zuletztGemeldet = new Map(); // „benutzer|schluessel“ → Zeitpunkt der letzten E-Mail/Push (auch ohne Meldung in der App)
   function sendeGesammelt(benutzerId, { art, schluessel, titel, text = () => null, link = null, linkMehrere = link }) {
     if (!benutzerId) return null;
     const vorhanden = db.prepare(`SELECT id, anzahl FROM benachrichtigungen WHERE benutzer_id = ? AND sammel = ? AND gelesen = 0
@@ -119,7 +122,12 @@ export function erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erwei
         .run(n, String(titel(n)).slice(0, 200), text(n) ? String(text(n)).slice(0, 1000) : null, linkMehrere, vorhanden.id);
       return vorhanden.id;
     }
-    const id = sende(benutzerId, { art, titel: titel(1), text: text(1), link });
+    const merker = `${benutzerId}|${schluessel}`;
+    const heuteGemeldet = Date.now() - (zuletztGemeldet.get(merker) ?? 0) < 86_400_000
+      || Boolean(db.prepare(`SELECT 1 FROM benachrichtigungen WHERE benutzer_id = ? AND sammel = ?
+        AND erstellt_am >= datetime('now', '-1 day') LIMIT 1`).get(benutzerId, schluessel));
+    if (!heuteGemeldet) zuletztGemeldet.set(merker, Date.now());
+    const id = sende(benutzerId, { art, titel: titel(1), text: text(1), link, still: heuteGemeldet });
     if (id) db.prepare('UPDATE benachrichtigungen SET sammel = ? WHERE id = ?').run(schluessel, id);
     return id;
   }

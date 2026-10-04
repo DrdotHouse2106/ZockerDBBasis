@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Weniger E-Mails bei Foto-Freigaben
+<!-- für: admin|moderation -->
+- Für gesammelte Meldungen (z. B. „3 deiner Fotos wurden freigegeben“) gibt es höchstens eine E-Mail bzw. Push-Nachricht pro Tag, auch wenn die vorige Meldung schon gelesen wurde. In der App erscheinen weitere Freigaben trotzdem.
+
 ## 04.10.2026 – Keine Foto-Bitte „Beilagen“ wegen des Inlays
 - „Inlay / Schutzhülle“ löst kein Foto „Beilagen“ mehr aus – das Inlay ist das Cover und steckt schon in den Fotos der Verpackung
 - Andere Beilagen (Poster, Registrierkarte, Werbebeilagen …) fragen weiterhin nach einem Foto
