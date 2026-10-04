@@ -106,6 +106,7 @@ export function vollstaendigkeitVon(wert) {
   if (!t) return null;
   if (enthaelt(t, 'ohne anl', 'no manual', 'missing manual', 'fehlt anleitung', 'o. anl')) return 'fehlt_anleitung';
   if (enthaelt(t, 'nur ovp', 'box only', 'only box')) return 'nur_ovp';
+  if (enthaelt(t, 'schutzhülle', 'schutzhuelle', 'mit hülle', 'mit huelle', 'ohne karton', 'with sleeve', 'dust cover', 'in case')) return 'mit_huelle';
   if (enthaelt(t, 'loose', 'lose', 'cart only', 'disc only', 'nur modul', 'nur disc', 'nur gerät', 'nur geraet')) return 'nur_geraet';
   if (enthaelt(t, 'cib', 'complete', 'komplett', 'new', 'neu', 'sealed')) return 'cib';
   return null;

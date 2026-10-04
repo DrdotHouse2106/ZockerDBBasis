@@ -22,6 +22,7 @@ test('CLZ-typische Spalten und Werte werden übersetzt', () => {
     { region: 'pal_de', voll: 'cib', zustand: 'sehr_gut', datum: '2019-12-24', anzahl: 2, preis: '1.234,50' });
   assert.equal(zeileZuArtikel(['X', 'N64', 'Australia', 'Loose', 'Sealed'], z).region, 'pal_eu');
   assert.equal(zeileZuArtikel(['X', 'N64', 'USA', 'Loose', ''], z).vollstaendigkeit, 'nur_geraet');
+  assert.equal(zeileZuArtikel(['X', 'Game Boy', 'PAL', 'Modul mit Schutzhülle, ohne Karton', ''], z).vollstaendigkeit, 'mit_huelle');
   assert.equal(zeileZuArtikel(['X', 'N64', 'Japan', 'New', ''], z).zustand, 'neu_ovp');
   assert.equal(zeileZuArtikel(['X', 'N64', '', '', '', '$1,234.50'], z).kaufpreis, '1234.50');
 });

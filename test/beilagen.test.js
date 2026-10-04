@@ -15,6 +15,9 @@ test('Beilagen → Vollständigkeit', () => {
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: true, anleitung: 2 }), 'cib');
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: true, anleitung: false }), 'fehlt_anleitung');
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: false }), 'nur_geraet');
+  // Game-Boy-Modul in der Schutzhülle, Karton fehlt
+  assert.equal(vollstaendigkeitAusBeilagen({ ovp: false, inlay: true }), 'mit_huelle');
+  assert.deepEqual(beilagenAusVollstaendigkeit('mit_huelle', { anleitung: true }), { anleitung: true, ovp: false, inlay: true });
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: true }), null, 'ohne Angabe zur Anleitung nicht sicher');
   assert.equal(beilageText('Werbebeilagen', 3), '✓ 3× Werbebeilagen');
   assert.equal(beilageText('Poster', false), '✗ Poster');

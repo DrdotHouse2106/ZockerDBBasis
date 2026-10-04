@@ -11,6 +11,12 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 04.10.2026 – Vollständigkeit „Mit Schutzhülle (ohne Karton)“
+- Neue Auswahl bei der Vollständigkeit – z. B. für Game-Boy-Module in der Plastik-Schutzhülle, deren Karton fehlt
+- Für den geschätzten Wert zählt sie wie „Nur Gerät/Disc/Modul“
+- Die Beilagen-Checkliste passt sich an (OVP fehlt, Inlay/Schutzhülle vorhanden) und umgekehrt
+- Der CSV-Import erkennt Angaben wie „mit Schutzhülle“ oder „ohne Karton“
+
 ## 04.10.2026 – Plattform-Vorschläge nachträglich ändern
 - Beim Vorschlagen einer Plattform stehen deine offenen Vorschläge darunter und lassen sich bearbeiten, bis sie angenommen oder abgelehnt sind
 - Selbst gehostet geht die Änderung auch an zockerdb.de

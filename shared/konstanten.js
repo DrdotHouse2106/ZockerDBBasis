@@ -21,6 +21,8 @@ export const ZUSTAENDE = [
 export const VOLLSTAENDIGKEITEN = [
   { value: 'cib', label: 'CIB (Komplett in OVP)', kurz: 'CIB' },
   { value: 'nur_geraet', label: 'Nur Gerät/Disc/Modul', kurz: 'Lose' },
+  // z. B. Game-Boy-Modul in der Plastik-Schutzhülle, aber ohne Karton – zählt beim Wert wie „lose“
+  { value: 'mit_huelle', label: 'Mit Schutzhülle (ohne Karton)', kurz: 'Hülle' },
   { value: 'nur_ovp', label: 'Nur OVP', kurz: 'Nur OVP' },
   { value: 'fehlt_anleitung', label: 'Fehlt Anleitung', kurz: 'o. Anl.' },
 ];
@@ -294,7 +296,7 @@ export function beilageText(label, wert) {
  * Andere Beilagen (Poster, Werbebeilagen …) bleiben unverändert.
  */
 export function beilagenAusVollstaendigkeit(vollstaendigkeit, beilagen) {
-  const setzen = { cib: { ovp: true, anleitung: true }, nur_geraet: { ovp: false, anleitung: false }, nur_ovp: { ovp: true }, fehlt_anleitung: { ovp: true, anleitung: false } }[vollstaendigkeit];
+  const setzen = { cib: { ovp: true, anleitung: true }, nur_geraet: { ovp: false, anleitung: false }, mit_huelle: { ovp: false, inlay: true }, nur_ovp: { ovp: true }, fehlt_anleitung: { ovp: true, anleitung: false } }[vollstaendigkeit];
   if (!setzen) return beilagen ?? null;
   const neu = { ...(beilagen ?? {}) };
   // Eine schon eingetragene Anzahl (z. B. 2 Anleitungen) bleibt, wenn „vorhanden“ verlangt ist
@@ -308,7 +310,7 @@ export function vollstaendigkeitAusBeilagen(beilagen) {
   const anleitung = beilagen.anleitung;
   if (beilageVorhanden(ovp) && beilageVorhanden(anleitung)) return 'cib';
   if (beilageVorhanden(ovp) && anleitung === false) return 'fehlt_anleitung';
-  if (ovp === false) return 'nur_geraet';
+  if (ovp === false) return beilageVorhanden(beilagen.inlay) ? 'mit_huelle' : 'nur_geraet';
   return null;
 }
 
