@@ -104,8 +104,29 @@ export function erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erwei
     return id;
   }
 
+  /**
+   * Gleichartige Meldungen zusammenfassen: Gibt es zum Schlüssel schon eine ungelesene Meldung der letzten 24 Stunden,
+   * wird sie hochgezählt („5 deiner Fotos …“) – ohne erneute Push- oder E-Mail-Nachricht. Sonst eine normale Meldung.
+   * titel/text: Funktionen der Anzahl.
+   */
+  function sendeGesammelt(benutzerId, { art, schluessel, titel, text = () => null, link = null, linkMehrere = link }) {
+    if (!benutzerId) return null;
+    const vorhanden = db.prepare(`SELECT id, anzahl FROM benachrichtigungen WHERE benutzer_id = ? AND sammel = ? AND gelesen = 0
+      AND erstellt_am >= datetime('now', '-1 day') ORDER BY id DESC LIMIT 1`).get(benutzerId, schluessel);
+    if (vorhanden) {
+      const n = vorhanden.anzahl + 1;
+      db.prepare('UPDATE benachrichtigungen SET anzahl = ?, titel = ?, text = ?, link = ? WHERE id = ?')
+        .run(n, String(titel(n)).slice(0, 200), text(n) ? String(text(n)).slice(0, 1000) : null, linkMehrere, vorhanden.id);
+      return vorhanden.id;
+    }
+    const id = sende(benutzerId, { art, titel: titel(1), text: text(1), link });
+    if (id) db.prepare('UPDATE benachrichtigungen SET sammel = ? WHERE id = ?').run(schluessel, id);
+    return id;
+  }
+
   return {
     sende,
+    sendeGesammelt,
     auswahl,
     setzeAuswahl,
     setzePush: (dienst) => { push = dienst; },

@@ -706,6 +706,11 @@ const MIGRATIONEN = [
   `
   ALTER TABLE artikel ADD COLUMN drucknummer TEXT;
   `,
+  // 47: Gesammelte Benachrichtigungen (z. B. „5 deiner Fotos wurden freigegeben“ statt fünf einzelner Meldungen)
+  `
+  ALTER TABLE benachrichtigungen ADD COLUMN sammel TEXT;
+  ALTER TABLE benachrichtigungen ADD COLUMN anzahl INTEGER NOT NULL DEFAULT 1;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {
