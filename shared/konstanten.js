@@ -319,9 +319,13 @@ export function vollstaendigkeitAusBeilagen(beilagen) {
   return null;
 }
 
-/** Hat das Exemplar Beilagen außer Hülle/OVP und Anleitung? Dann lohnt ein Foto „Beilagen (Inhalt)“. */
+/**
+ * Hat das Exemplar Beilagen außer Hülle/OVP und Anleitung? Dann lohnt ein Foto „Beilagen (Inhalt)“.
+ * Inlay/Schutzhülle zählt nicht: Das Inlay ist das Cover (steckt schon in „Verpackung vorne/hinten“).
+ */
+const KEINE_EXTRA_BEILAGE = ['ovp', 'anleitung', 'inlay'];
 export const hatExtraBeilagen = (beilagen) => Boolean(beilagen && typeof beilagen === 'object'
-  && Object.entries(beilagen).some(([k, w]) => !['ovp', 'anleitung'].includes(k) && beilageVorhanden(w)));
+  && Object.entries(beilagen).some(([k, w]) => !KEINE_EXTRA_BEILAGE.includes(k) && beilageVorhanden(w)));
 
 /** Seriennummern vergleichen (ohne Leerzeichen, Bindestriche, Groß-/Kleinschreibung): true, false oder null (nicht beide angegeben). */
 export function seriennummerPasst(geraet, ovp) {

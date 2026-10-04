@@ -26,3 +26,10 @@ test('Beilagen → Vollständigkeit', () => {
   assert.equal(beilageText('Werbebeilagen', 3), '✓ 3× Werbebeilagen');
   assert.equal(beilageText('Poster', false), '✗ Poster');
 });
+
+test('Inlay (Cover) löst kein Foto „Beilagen“ aus, andere Beilagen schon', async () => {
+  const { gesuchteFotos } = await import('../shared/konstanten.js');
+  const ps4 = { kurz: 'PS4', name: 'PlayStation 4' };
+  assert.ok(!gesuchteFotos('spiel', ps4, { beilagen: { ovp: true, inlay: true } }).includes('foto_beilagen'));
+  assert.ok(gesuchteFotos('spiel', ps4, { beilagen: { ovp: true, inlay: true, poster: true } }).includes('foto_beilagen'));
+});

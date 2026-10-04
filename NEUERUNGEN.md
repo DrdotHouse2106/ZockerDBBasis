@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## 04.10.2026 – Keine Foto-Bitte „Beilagen“ wegen des Inlays
+- „Inlay / Schutzhülle“ löst kein Foto „Beilagen“ mehr aus – das Inlay ist das Cover und steckt schon in den Fotos der Verpackung
+- Andere Beilagen (Poster, Registrierkarte, Werbebeilagen …) fragen weiterhin nach einem Foto
+
 ## 04.10.2026 – Bessere Vorschläge nach dem Scannen
 - Verkaufsfloskeln aus Händlertiteln werden entfernt („Brand New and Sealed“, „In Stock“, „Quick Dispatch“, „Free UK Delivery“ …)
 - Ans Wort gehängte Zahlen werden getrennt („Xxl2“ → „XXL 2“), notfalls wird mit den ersten Wörtern des Titels gesucht – so gibt es auch bei ungewöhnlichen Händlertiteln Vorschläge
