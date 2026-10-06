@@ -10,13 +10,21 @@ function lesen() {
 export function useRoute() {
   const [route, setRoute] = useState(lesen);
   useEffect(() => {
+    let bisher = lesen().pfad;
     const aktualisieren = () => {
+      const neu = lesen();
+      // Nur andere Parameter auf derselben Seite (z. B. der Suchbegriff im Katalog, der beim Tippen in die Adresse
+      // geschrieben wird): Fokus und Scrollposition bleiben, sonst wäre das Suchfeld nach jedem Buchstaben verlassen.
+      const seitenwechsel = neu.pfad !== bisher;
+      bisher = neu.pfad;
       // iOS (installierte App): Verschwindet ein Eingabefeld mit offener Tastatur, bleibt die Ansicht verkleinert –
-      // feste Leisten landen dann mitten im Bild. Vorher das Feld verlassen, damit die Tastatur sauber zugeht.
+      // feste Leisten landen dann mitten im Bild. Beim Seitenwechsel vorher das Feld verlassen, damit die Tastatur sauber zugeht.
       const fokus = document.activeElement;
-      if (fokus && fokus !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(fokus.tagName)) fokus.blur();
-      setRoute(lesen());
-      window.scrollTo(0, 0);
+      const eingabe = fokus && fokus !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(fokus.tagName);
+      if (seitenwechsel && eingabe) fokus.blur();
+      setRoute(neu);
+      // Nach oben – außer man tippt gerade auf derselben Seite (Blättern, Filter usw. springen weiter nach oben)
+      if (seitenwechsel || !eingabe) window.scrollTo(0, 0);
     };
     window.addEventListener('hashchange', aktualisieren);
     return () => window.removeEventListener('hashchange', aktualisieren);
