@@ -12,7 +12,10 @@ import { MODULE } from '../module.js';
 
 export const JA_NEIN = { typ: 'jaNein' };
 
-/** Über die Oberfläche änderbare Einstellungen des Kerns. `sicher` = nur mit Passwortbestätigung. Module ergänzen eigene. */
+/**
+ * Über die Oberfläche änderbare Einstellungen des Kerns. `sicher` = nur mit Passwortbestätigung, `maxLaenge` = längere
+ * Texte als die üblichen 2000 Zeichen (z. B. Schlüsseldateien). Module ergänzen eigene.
+ */
 export const EINSTELLUNGEN = [
   { schluessel: 'REGISTRATION_OPEN', gruppe: 'Konten & Sicherheit', titel: 'Registrierung offen', ...JA_NEIN, sicher: true,
     hinweis: 'Dürfen sich neue Benutzer selbst registrieren?' },
@@ -133,7 +136,7 @@ function normalisiere(definition, wert) {
       if (text && !/^https?:\/\/[^\s/]+[^\s]*$/i.test(text)) throw new Error('Bitte eine vollständige Adresse mit https:// angeben.');
       return text.replace(/\/+$/, '');
     default:
-      if (text.length > 2000) throw new Error('Der Wert ist zu lang.');
+      if (text.length > (definition.maxLaenge ?? 2000)) throw new Error('Der Wert ist zu lang.');
       if (/[\r\n]/.test(text)) throw new Error('Zeilenumbrüche sind nicht erlaubt.');
       return text;
   }
