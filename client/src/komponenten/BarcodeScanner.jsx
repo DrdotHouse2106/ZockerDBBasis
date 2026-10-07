@@ -3,7 +3,8 @@
 // Hinweis: Browser erlauben den Kamerazugriff nur über HTTPS oder auf localhost.
 import { useEffect, useRef, useState } from 'react';
 import Symbol from './Symbole.jsx';
-import { holeErkenner } from '../barcode.js';
+import { holeErkenner, pruefzifferOk } from '../barcode.js';
+import { nativerScanner } from '../nativ.js';
 
 // Ausschnitt, der gelesen wird (Anteil am Videobild) – entspricht dem sichtbaren Rahmen
 const RAHMEN = { breite: 0.86, hoehe: 0.42 };
@@ -64,8 +65,29 @@ export default function BarcodeScanner({ onErkannt, onSchliessen }) {
   erkanntRef.current = onErkannt;
   const videoRef = useRef(null);
   const spurRef = useRef(null);
+  // App: nativer Scanner (eigene Kameraansicht des Systems); hier bleiben nur Fehlermeldung und manuelle Eingabe
+  const nativ = nativerScanner();
+  const [versuchNr, setVersuchNr] = useState(0);
 
   useEffect(() => {
+    if (!nativ) return undefined;
+    let beendet = false;
+    setFehler(null);
+    nativ().then((code) => {
+      if (beendet) return;
+      if (code === null) return onSchliessen();
+      if (!pruefzifferOk(code)) {
+        setFehler('Das war kein Strichcode einer Verpackung (EAN/UPC). Bitte erneut scannen oder den Barcode eingeben.');
+        return;
+      }
+      erkanntRef.current(code);
+    }).catch((e) => { if (!beendet) setFehler(e.message); });
+    setLaedt(false);
+    return () => { beendet = true; };
+  }, [versuchNr]);
+
+  useEffect(() => {
+    if (nativ) return undefined;
     let beendet = false;
     let strom = null;
     let zeitgeber = null;
@@ -159,6 +181,14 @@ export default function BarcodeScanner({ onErkannt, onSchliessen }) {
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4">
+        {nativ ? (
+          <div className="flex max-w-lg flex-col items-center gap-3 text-center">
+            {fehler
+              ? <p className="rounded-xl bg-gefahr/15 p-3 text-sm text-white" role="alert">{fehler}</p>
+              : <p className="text-sm text-white/70">Die Kamera ist geöffnet …</p>}
+            {fehler && <button type="button" className="knopf-primaer" onClick={() => setVersuchNr((n) => n + 1)}>Erneut scannen</button>}
+          </div>
+        ) : (<>
         <div className="relative w-full max-w-lg">
           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-black">
             <video ref={videoRef} playsInline muted autoPlay className={`size-full object-cover ${gespiegelt ? '-scale-x-100' : ''}`} />
@@ -192,6 +222,7 @@ export default function BarcodeScanner({ onErkannt, onSchliessen }) {
           <p className="max-w-lg text-center text-sm text-white/70">Halte den Barcode (EAN/UPC) auf der Rückseite der Verpackung in den Rahmen.</p>
         )}
         <IosHinweis />
+        </>)}
       </div>
 
       <form onSubmit={absenden} className="unten-sicher mx-auto flex w-full max-w-lg gap-2 p-4">

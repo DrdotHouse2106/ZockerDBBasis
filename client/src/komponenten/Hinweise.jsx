@@ -1,5 +1,5 @@
 // Kurze Einblendungen („Toasts“) für Erfolgs- und Fehlermeldungen.
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Symbol from './Symbole.jsx';
 
 const HinweisKontext = createContext(() => {});
@@ -12,6 +12,13 @@ export function HinweisAnbieter({ children }) {
     setHinweise((liste) => [...liste, { id, text, art }]);
     setTimeout(() => setHinweise((liste) => liste.filter((h) => h.id !== id)), art === 'fehler' ? 6000 : 3500);
   }, []);
+
+  // Hinweise von außerhalb von React (z. B. native Bausteine der App): window-Ereignis „vss:hinweis“ { text, art }
+  useEffect(() => {
+    const ereignis = (e) => e.detail?.text && zeige(e.detail.text, e.detail.art);
+    window.addEventListener('vss:hinweis', ereignis);
+    return () => window.removeEventListener('vss:hinweis', ereignis);
+  }, [zeige]);
 
   return (
     <HinweisKontext.Provider value={zeige}>
