@@ -725,6 +725,12 @@ const MIGRATIONEN = [
   `
   UPDATE artikel SET bestand = 'verpackung' WHERE vollstaendigkeit = 'nur_ovp' AND bestand = 'besitz';
   `,
+  // 51: Sitzungen der Apps (Token statt Cookie) und ihr Schlüssel nur für Dateien (Bilder in <img> ohne Kopfzeile)
+  `
+  ALTER TABLE sitzungen ADD COLUMN art TEXT NOT NULL DEFAULT 'web';
+  ALTER TABLE sitzungen ADD COLUMN dateischluessel_hash TEXT;
+  CREATE UNIQUE INDEX idx_sitzungen_dateischluessel ON sitzungen (dateischluessel_hash);
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

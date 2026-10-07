@@ -4,6 +4,8 @@
 //
 // Gelesen wird offline über den Service-Worker (zuletzt geladene Antworten) – siehe public/sw.js.
 
+import { apiUrl, zugangsKoepfe, zugangsCredentials, zugangBereit } from './zugang.js';
+
 const DB_NAME = 'zockerdb-offline';
 const EREIGNIS = 'vss:warteschlange';
 
@@ -62,11 +64,12 @@ export async function uebertrage() {
     for (const e of liste) {
       let antwort;
       try {
-        antwort = await fetch(e.pfad, {
+        await zugangBereit();
+        antwort = await fetch(apiUrl(e.pfad), {
           method: e.methode,
-          headers: { ...(e.daten !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(e.basis ? { 'X-Basis-Stand': e.basis } : {}) },
+          headers: { ...(e.daten !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(e.basis ? { 'X-Basis-Stand': e.basis } : {}), ...zugangsKoepfe() },
           body: e.daten !== undefined ? JSON.stringify(e.daten) : undefined,
-          credentials: 'same-origin',
+          credentials: zugangsCredentials,
         });
       } catch {
         break; // noch keine Verbindung – später erneut

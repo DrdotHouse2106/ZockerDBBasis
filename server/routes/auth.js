@@ -48,9 +48,17 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
   }
   const passtEinrichtungscode = (eingabe) => sha256(normalisiereWiederherstellungscode(eingabe)) === sha256(normalisiereWiederherstellungscode(aktuellerEinrichtungscode()));
 
+  // Apps (iOS/Android) melden sich mit „X-ZockerDB-Client: app“ an: Sie bekommen das Sitzungstoken in der Antwort statt
+  // eines Cookies und senden es danach als „Authorization: Bearer …“ (Cookies von zockerdb.de sind in der App fremd).
+  const istApp = (req) => req.get('x-zockerdb-client') === 'app';
   function anmeldenUndAntworten(req, res, benutzer, status = 200) {
+    const profil = () => oeffentlichesProfil(konten.holeBenutzer(benutzer.id));
+    if (istApp(req)) {
+      const { token } = konten.erstelleSitzung(benutzer.id, { geraet: geraet(req), art: 'app' });
+      return res.status(status).set('Cache-Control', 'no-store').json({ angemeldet: true, benutzer: profil(), token });
+    }
     setzeSitzungsCookie(req, res, konten.erstelleSitzung(benutzer.id, { geraet: geraet(req) }), cookieSicher);
-    res.status(status).json({ angemeldet: true, benutzer: oeffentlichesProfil(konten.holeBenutzer(benutzer.id)) });
+    res.status(status).json({ angemeldet: true, benutzer: profil() });
   }
 
   router.get('/auth/status', (req, res) => {
@@ -68,6 +76,8 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
       emailAktiv: kontoMail.bereit(),
       emailPflicht: emailPflicht(),
       captcha: captcha.oeffentlich(),
+      // Nur für App-Sitzungen: Schlüssel für Bilder und Scans (GET /api/dateien/…?schluessel=…)
+      ...(req.benutzer && req.sitzungArt === 'app' ? { dateiSchluessel: konten.dateiSchluessel(req.sitzungHash) } : {}),
       // Angaben von Zusatzmodulen
       ...erweiterungen.sammle('auth.status'),
     });
@@ -368,6 +378,15 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
   router.post('/konto/abmelden-ueberall', angemeldet, (req, res) => {
     konten.beendeAndereSitzungen(req.benutzer.id, req.sitzungHash);
     res.json({ ok: true });
+  });
+
+  // Angemeldete Geräte (Browser und Apps) – einzeln abmelden, z. B. bei einem verlorenen Handy
+  router.get('/konto/sitzungen', angemeldet, (req, res) => {
+    res.json(konten.sitzungenVon(req.benutzer.id, req.sitzungHash));
+  });
+  router.delete('/konto/sitzungen/:id', angemeldet, (req, res) => {
+    if (!konten.beendeSitzungPerId(req.benutzer.id, req.params.id)) return res.status(404).json({ fehler: 'Sitzung nicht gefunden.' });
+    res.status(204).end();
   });
 
   router.post('/konto/2fa/einrichten', angemeldet, async (req, res) => {

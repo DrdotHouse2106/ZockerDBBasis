@@ -2,6 +2,7 @@
 import { offlineFaehig, merke } from './offline.js';
 import { spracheTrifft } from '../../shared/sprachen.js';
 import { bereiteDateiVor } from './bilddatei.js';
+import { apiUrl, zugangsKoepfe, zugangsCredentials, zugangBereit, verarbeiteAntwort, merkeToken } from './zugang.js';
 
 export class ApiFehler extends Error {
   constructor(meldung, status, felder, code) {
@@ -19,15 +20,17 @@ function meldeSonderfall(status, json) {
 }
 
 /** Upload mit Fortschrittsanzeige (fetch kennt keinen Upload-Fortschritt). */
-export function hochladenMitFortschritt(pfad, formular, onFortschritt) {
+export async function hochladenMitFortschritt(pfad, formular, onFortschritt) {
+  await zugangBereit();
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', pfad);
+    xhr.open('POST', apiUrl(pfad));
+    for (const [name, wert] of Object.entries(zugangsKoepfe())) xhr.setRequestHeader(name, wert);
     xhr.upload.onprogress = (e) => e.lengthComputable && onFortschritt?.(e.loaded / e.total);
     xhr.onload = () => {
       let json = null;
       try { json = JSON.parse(xhr.responseText); } catch { /* leer */ }
-      if (xhr.status >= 200 && xhr.status < 300) resolve(json);
+      if (xhr.status >= 200 && xhr.status < 300) verarbeiteAntwort(pfad, json).then(resolve, reject);
       else {
         meldeSonderfall(xhr.status, json);
         reject(new ApiFehler(json?.fehler ?? `Hochladen fehlgeschlagen (HTTP ${xhr.status}).`, xhr.status, json?.felder, json?.code));
@@ -51,12 +54,13 @@ export async function anfrage(pfad, { methode = 'GET', daten, formular, signal, 
   };
   if (!navigator.onLine && !formular && offlineFaehig(pfad, methode)) return offlineMerken();
   try {
-    antwort = await fetch(pfad, {
+    await zugangBereit();
+    antwort = await fetch(apiUrl(pfad), {
       method: methode,
-      headers: daten !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      headers: { ...(daten !== undefined ? { 'Content-Type': 'application/json' } : {}), ...zugangsKoepfe() },
       body: formular ?? (daten !== undefined ? JSON.stringify(daten) : undefined),
       signal,
-      credentials: 'same-origin',
+      credentials: zugangsCredentials,
     });
   } catch (fehler) {
     if (fehler.name === 'AbortError') throw fehler;
@@ -72,7 +76,7 @@ export async function anfrage(pfad, { methode = 'GET', daten, formular, signal, 
     meldeSonderfall(antwort.status, json);
     throw new ApiFehler(json?.fehler ?? `Unerwarteter Fehler (HTTP ${antwort.status}).`, antwort.status, json?.felder, json?.code);
   }
-  return json;
+  return verarbeiteAntwort(pfad, json);
 }
 
 export const abfrage = (parameter) => {
@@ -156,7 +160,7 @@ export const api = {
   freigabeBeenden: () => anfrage('/api/konto/freigabe', { methode: 'DELETE' }),
   adminTestMail: (an) => anfrage('/api/admin/test-mail', { methode: 'POST', daten: { an } }),
   adminIgdbTest: () => anfrage('/api/admin/igdb/test', { methode: 'POST', daten: {} }),
-  abmelden: () => anfrage('/api/auth/abmelden', { methode: 'POST', daten: {} }),
+  abmelden: () => anfrage('/api/auth/abmelden', { methode: 'POST', daten: {} }).finally(() => merkeToken(null)),
   konto: () => anfrage('/api/konto'),
   // Verbindung zu zockerdb.de (selbst gehostet)
   syncStatus: () => anfrage('/api/konto/sync'),
@@ -190,6 +194,8 @@ export const api = {
   steamTrennen: () => anfrage('/api/steam', { methode: 'DELETE' }),
   passwortAendern: (daten) => anfrage('/api/konto/passwort', { methode: 'POST', daten }),
   ueberallAbmelden: () => anfrage('/api/konto/abmelden-ueberall', { methode: 'POST', daten: {} }),
+  sitzungen: () => anfrage('/api/konto/sitzungen'),
+  sitzungBeenden: (id) => anfrage(`/api/konto/sitzungen/${id}`, { methode: 'DELETE' }),
   kontoLoeschen: (passwort) => anfrage('/api/konto', { methode: 'DELETE', daten: { passwort } }),
   totpEinrichten: (passwort) => anfrage('/api/konto/2fa/einrichten', { methode: 'POST', daten: { passwort } }),
   totpBestaetigen: (code) => anfrage('/api/konto/2fa/bestaetigen', { methode: 'POST', daten: { code } }),

@@ -1,4 +1,5 @@
 // Benutzerkonten, Sitzungen und Zwei-Faktor-Authentifizierung.
+import crypto from 'node:crypto';
 import QRCode from 'qrcode';
 import { MARKE } from '../../shared/marke.js';
 import {
@@ -76,7 +77,12 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
     perName: db.prepare('SELECT * FROM benutzer WHERE benutzername = ?'),
     anlegen: db.prepare(`INSERT INTO benutzer (benutzername, anzeigename, passwort_hash, rolle, bedingungen_akzeptiert_am)
                          VALUES (?, ?, ?, ?, datetime('now')) RETURNING *`),
-    sitzungAnlegen: db.prepare('INSERT INTO sitzungen (token_hash, benutzer_id, stufe, laeuft_ab, geraet) VALUES (?, ?, ?, ?, ?)'),
+    sitzungAnlegen: db.prepare(`INSERT INTO sitzungen (token_hash, benutzer_id, stufe, laeuft_ab, geraet, art, dateischluessel_hash)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)`),
+    sitzungPerDateischluessel: db.prepare("SELECT * FROM sitzungen WHERE dateischluessel_hash = ? AND stufe = 'voll'"),
+    sitzungenVon: db.prepare(`SELECT rowid AS id, token_hash, art, geraet, erstellt_am, laeuft_ab FROM sitzungen
+                              WHERE benutzer_id = ? AND stufe = 'voll' AND laeuft_ab >= ? ORDER BY laeuft_ab DESC`),
+    sitzungPerIdLoeschen: db.prepare('DELETE FROM sitzungen WHERE rowid = ? AND benutzer_id = ?'),
     sitzungLesen: db.prepare('SELECT * FROM sitzungen WHERE token_hash = ?'),
     sitzungVerlaengern: db.prepare('UPDATE sitzungen SET laeuft_ab = ? WHERE token_hash = ?'),
     sitzungLoeschen: db.prepare('DELETE FROM sitzungen WHERE token_hash = ?'),
@@ -115,10 +121,20 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
     return (await pruefePasswort(String(passwort ?? ''), benutzer.passwort_hash)) ? benutzer : null;
   }
 
-  function erstelleSitzung(benutzerId, { stufe = 'voll', geraet } = {}) {
+  /**
+   * Schlüssel nur zum Abrufen von Dateien (GET /api/dateien/…) für App-Sitzungen: Bilder in <img> können keinen
+   * Authorization-Kopf mitschicken. Aus der Sitzung abgeleitet – das Sitzungstoken selbst steht so nie in einer URL.
+   */
+  const dateiSchluessel = (tokenHash) => crypto.createHmac('sha256', String(schluessel)).update(`dateien:${tokenHash}`).digest('base64url');
+
+  /** `art`: 'web' (Cookie) oder 'app' (Token im Authorization-Kopf). */
+  function erstelleSitzung(benutzerId, { stufe = 'voll', geraet, art = 'web' } = {}) {
     const token = zufallsToken();
     const dauer = stufe === 'voll' ? sitzungDauerMs : ZWEI_FAKTOR_FRIST_MS;
-    q.sitzungAnlegen.run(sha256(token), benutzerId, stufe, Date.now() + dauer, geraet?.slice(0, 200) ?? null);
+    const tokenHash = sha256(token);
+    const mitDateischluessel = art === 'app' && stufe === 'voll';
+    q.sitzungAnlegen.run(tokenHash, benutzerId, stufe, Date.now() + dauer, geraet?.slice(0, 200) ?? null,
+      art === 'app' ? 'app' : 'web', mitDateischluessel ? sha256(dateiSchluessel(tokenHash)) : null);
     if (stufe === 'voll') q.angemeldet.run(benutzerId);
     return { token, maxAlterMs: dauer };
   }
@@ -141,6 +157,21 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
     }
     return { sitzung, benutzer, tokenHash };
   }
+
+  /** Benutzer zu einem Dateischlüssel (nur lesend, verlängert die Sitzung nicht). */
+  function leseDateischluessel(wert) {
+    if (!wert || typeof wert !== 'string') return null;
+    const sitzung = q.sitzungPerDateischluessel.get(sha256(wert));
+    if (!sitzung || sitzung.laeuft_ab < Date.now()) return null;
+    const benutzer = q.perId.get(sitzung.benutzer_id);
+    return benutzer && !benutzer.gesperrt ? benutzer : null;
+  }
+
+  /** Angemeldete Geräte eines Kontos; „zuletzt aktiv“ ergibt sich aus der gleitenden Laufzeit (auf eine Stunde genau). */
+  const sitzungenVon = (benutzerId, aktuellerHash) => q.sitzungenVon.all(benutzerId, Date.now()).map(({ token_hash: hash, laeuft_ab: ablauf, ...s }) => ({
+    ...s, zuletzt_aktiv: new Date(Math.min(Date.now(), ablauf - sitzungDauerMs)).toISOString(), aktuell: hash === aktuellerHash,
+  }));
+  const beendeSitzungPerId = (benutzerId, id) => q.sitzungPerIdLoeschen.run(Number(id), benutzerId).changes > 0;
 
   const beendeSitzung = (token) => token && q.sitzungLoeschen.run(sha256(token));
   const beendeAlleSitzungen = (benutzerId) => q.alleSitzungenLoeschen.run(benutzerId);
@@ -232,6 +263,7 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
 
   return {
     istErsteinrichtung, registriere, pruefeZugangsdaten, erstelleSitzung, leseSitzung, beendeSitzung,
+    dateiSchluessel, leseDateischluessel, sitzungenVon, beendeSitzungPerId,
     beendeAlleSitzungen, beendeAndereSitzungen, raeumeAuf, erstelleEinladung, einladungen, gueltigeEinladung, loeseEinladungEin, loescheEinladung, starteTotpEinrichtung, bestaetigeTotpEinrichtung,
     pruefeZweitenFaktor, deaktiviereTotp, neueWiederherstellungscodes, anzahlWiederherstellungscodes,
     aenderePasswort, holeBenutzer: (id) => q.perId.get(id),

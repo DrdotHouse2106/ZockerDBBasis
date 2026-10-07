@@ -11,6 +11,9 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Angemeldete Geräte im Konto
+- Unter Konto → Sitzungen siehst du jetzt, auf welchen Geräten du angemeldet bist – mit Browser bzw. App, Anmeldedatum und letzter Nutzung. Ein verlorenes oder unbekanntes Gerät meldest du dort einzeln ab.
+
 ## Rückfrage vor dem Verlassen ungespeicherter Eingaben
 - Hast du im Formular zum Hinzufügen oder Bearbeiten etwas eingegeben (z. B. nach einem Barcode, der nicht gefunden wurde), fragt die App beim Zurück-Knopf, bei der Wischgeste, bei „Abbrechen“ und beim Neuladen nach, ob du die Seite wirklich ohne Speichern verlassen willst. Ohne Eingaben gibt es keine Rückfrage.
 

@@ -59,11 +59,13 @@ export default function Konto({ route }) {
                 <PasswortAendern />
                 <section className="karte space-y-3 p-4">
                   <h2 className="font-semibold">Sitzungen</h2>
-                  <p className="text-sm text-leise">Du bist angemeldet seit {datumDe(konto.letzte_anmeldung)}. Hast du dich auf einem fremden Gerät angemeldet? Beende alle anderen Sitzungen.</p>
+                  <p className="text-sm text-leise">Du bist angemeldet seit {datumDe(konto.letzte_anmeldung)}. Ein Gerät, das du nicht kennst oder verloren hast? Melde es hier ab.</p>
+                  <Geraete />
                   <div className="flex flex-wrap gap-2">
                     <button type="button" className="knopf-sekundaer" onClick={async () => {
                       await api.ueberallAbmelden();
                       zeigeHinweis('Alle anderen Geräte wurden abgemeldet.');
+                      window.dispatchEvent(new Event('vss:geraete'));
                     }}>Andere Geräte abmelden</button>
                     <button type="button" className="knopf-sekundaer" onClick={abmelden}><Symbol name="abmelden" className="size-4" />Abmelden</button>
                   </div>
@@ -347,6 +349,52 @@ function PasswortAendern() {
       </div>
       <Aktionen fehler={fehler} text="Passwort ändern" />
     </form>
+  );
+}
+
+/** Grobe Gerätebezeichnung aus der Browserkennung, z. B. „Firefox unter Windows“ bzw. „App · iPhone“. */
+function geraetName(ua = '', app = false) {
+  const system = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
+    : /Windows/.test(ua) ? 'Windows' : /Mac OS X|Macintosh/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : null;
+  const browser = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome'
+    : /Safari\//.test(ua) ? 'Safari' : null;
+  if (app) return `App · ${system ?? 'Handy'}`;
+  if (browser && system) return `${browser} unter ${system}`;
+  return browser ?? system ?? 'Unbekanntes Gerät';
+}
+
+/** Angemeldete Geräte (Browser und Apps), einzeln abmeldbar. */
+function Geraete() {
+  const zeigeHinweis = useHinweis();
+  const [liste, setListe] = useState(null);
+  const laden = () => api.sitzungen().then(setListe).catch(() => setListe([]));
+  useEffect(() => {
+    laden();
+    window.addEventListener('vss:geraete', laden);
+    return () => window.removeEventListener('vss:geraete', laden);
+  }, []);
+  if (!liste?.length) return null;
+  return (
+    <ul className="divide-y divide-rand text-sm">
+      {liste.map((s) => (
+        <li key={s.id} className="flex items-center justify-between gap-3 py-2">
+          <div className="min-w-0">
+            <p className="truncate font-medium">{geraetName(s.geraet ?? '', s.art === 'app')}
+              {s.aktuell && <span className="ml-2 text-xs text-akzent-hell">dieses Gerät</span>}</p>
+            <p className="text-xs text-leise">Angemeldet am {datumDe(s.erstellt_am)} · zuletzt aktiv am {datumDe(s.zuletzt_aktiv)}</p>
+          </div>
+          {!s.aktuell && (
+            <button type="button" className="knopf-sekundaer shrink-0 px-3 py-1 text-xs" onClick={async () => {
+              try {
+                await api.sitzungBeenden(s.id);
+                zeigeHinweis('Das Gerät wurde abgemeldet.');
+                laden();
+              } catch (e) { zeigeHinweis(e.message, 'fehler'); }
+            }}>Abmelden</button>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -35,14 +35,37 @@ export function loescheSitzungsCookie(req, res, cookieSicher) {
   res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: 'lax', secure: istSicher(req, cookieSicher), path: '/' });
 }
 
-/** Liest das Sitzungs-Cookie und hängt req.benutzer an (falls angemeldet). */
+/** Token aus „Authorization: Bearer …“ (Apps); `undefined`, wenn der Kopf fehlt, '' bei anderem Verfahren. */
+export function leseBearer(req) {
+  const kopf = req.headers.authorization;
+  if (kopf === undefined) return undefined;
+  return /^Bearer\s+(\S+)$/i.exec(kopf)?.[1] ?? '';
+}
+
+/**
+ * Anfrage einer App (iOS/Android): mit Authorization-Kopf oder „X-ZockerDB-Client: app“ (z. B. die Anmeldung selbst,
+ * noch ohne Token). Beide Köpfe erzwingen im Browser eine CORS-Vorabanfrage, die nur die App-Herkünfte bestehen.
+ */
+export const istAppAnfrage = (req) => req.headers.authorization !== undefined || req.headers['x-zockerdb-client'] === 'app';
+
+/**
+ * Liest die Sitzung und hängt req.benutzer an (falls angemeldet): bei App-Anfragen nur aus dem Authorization-Kopf,
+ * sonst aus dem Cookie (Browser). Bei App-Anfragen wird ein Cookie immer ignoriert – sie sind von der Herkunftsprüfung
+ * ausgenommen und dürfen deshalb nie mit dem Cookie eines Besuchers handeln.
+ */
 export function ladeSitzung(konten) {
   return (req, _res, next) => {
-    req.sitzungsToken = leseCookies(req.headers.cookie)[COOKIE_NAME];
+    req.perToken = istAppAnfrage(req);
+    req.sitzungsToken = req.perToken ? leseBearer(req) : leseCookies(req.headers.cookie)[COOKIE_NAME];
     const ergebnis = konten.leseSitzung(req.sitzungsToken);
     if (ergebnis) {
       req.benutzer = ergebnis.benutzer;
       req.sitzungHash = ergebnis.tokenHash;
+      req.sitzungArt = ergebnis.sitzung.art;
+    } else if (!req.perToken && req.method === 'GET' && req.query.schluessel && /^\/dateien\/[^/]+$/.test(req.path)) {
+      // Bilder und Scans in der App: <img> kann keinen Kopf senden – Dateischlüssel der App-Sitzung, gilt nur hier
+      const benutzer = konten.leseDateischluessel(req.query.schluessel);
+      if (benutzer) req.benutzer = benutzer;
     }
     next();
   };
@@ -54,6 +77,9 @@ export function ladeSitzung(konten) {
  */
 export function pruefeHerkunft(req, res, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  // Apps melden sich per Token im Authorization-Kopf an, Cookies werden bei ihren Anfragen ignoriert (siehe ladeSitzung) –
+  // ohne Cookie gibt es nichts, was eine fremde Seite missbrauchen könnte.
+  if (istAppAnfrage(req)) return next();
   const herkunft = req.headers.origin;
   if (!herkunft) return next(); // z. B. curl/Skripte ohne Browser – dort gibt es kein fremdes Cookie
   try {
