@@ -1,4 +1,4 @@
-import { DIGITAL_QUELLEN } from '../../../shared/konstanten.js';
+import { DIGITAL_QUELLEN, titelUndAusgabe } from '../../../shared/konstanten.js';
 import Cover from './Cover.jsx';
 import Abzeichen from './Abzeichen.jsx';
 import Symbol from './Symbole.jsx';
@@ -11,7 +11,10 @@ export const digitalBand = (a) => {
 };
 
 export default function ArtikelKarte({ artikel, href, exemplare }) {
-  const variante = [artikel.edition, artikel.farbe, artikel.modellnummer].filter(Boolean).join(' · ');
+  // „Horizon Zero Dawn: Complete Edition“ erscheint als „Horizon Zero Dawn“ mit der Ausgabe darunter (wie eine erfasste Edition)
+  const { titel, ausgabe } = titelUndAusgabe(artikel.titel);
+  const edition = artikel.edition || ausgabe;
+  const variante = [edition, artikel.farbe, artikel.modellnummer].filter(Boolean).join(' · ');
   return (
     <a
       href={href ?? `#/artikel/${artikel.id}`}
@@ -21,7 +24,7 @@ export default function ArtikelKarte({ artikel, href, exemplare }) {
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         <h3 className="line-clamp-2 text-sm leading-snug font-semibold">
           {Boolean(artikel.privat) && <Symbol name="schloss" className="mr-1 inline size-3.5 align-[-2px] text-leise" titel="Privat – nur für dich sichtbar" />}
-          {artikel.titel}
+          {titel}
         </h3>
         {artikel.plattform && (
           <p className="flex items-center gap-1.5 truncate text-xs text-leise">
@@ -37,7 +40,7 @@ export default function ArtikelKarte({ artikel, href, exemplare }) {
         )}
         {exemplare > 1
           ? <p className="text-xs font-semibold text-akzent-hell">{exemplare} {artikel.bestand === 'digital' ? 'Einträge' : 'Exemplare / Varianten'}</p>
-          : variante && <p className="truncate text-xs text-akzent-hell">{variante}</p>}
+          : variante && <p className="text-xs break-words text-akzent-hell">{variante}</p>}
         <div className="mt-auto pt-1">
           <Abzeichen artikel={artikel} />
         </div>

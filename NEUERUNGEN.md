@@ -11,6 +11,10 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Sammlung: Ausgabe unter dem Titel, Produktnummer nicht mehr abgeschnitten
+- Spiele, deren Katalogtitel eine Ausgabe enthält (z. B. „Horizon Zero Dawn: Complete Edition“), erscheinen in der Sammlung als „Horizon Zero Dawn“ mit „Complete Edition“ darunter – wie eine selbst erfasste Edition
+- Edition, Farbe und Produktnummer (z. B. „DAY ONE Edition · CUSA-07408“) werden umbrochen statt abgeschnitten
+
 ## Angemeldete Geräte im Konto
 - Unter Konto → Sitzungen siehst du jetzt, auf welchen Geräten du angemeldet bist – mit Browser bzw. App, Anmeldedatum und letzter Nutzung. Ein verlorenes oder unbekanntes Gerät meldest du dort einzeln ab.
 

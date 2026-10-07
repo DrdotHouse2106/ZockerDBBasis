@@ -517,3 +517,13 @@ export const ROLLEN = [
 /** Kurzfassung der Nutzungsrechte an Katalogbeiträgen – angezeigt beim Einreichen (Einzelheiten: Nutzungsbedingungen). */
 export const KATALOGBEITRAG_HINWEIS = 'Dein Beitrag wird Teil des gemeinsamen Katalogs: Er darf dauerhaft genutzt, verbessert und angezeigt werden '
   + 'und bleibt auch nach dem Löschen deines Kontos erhalten – ohne deinen Namen. Deine Sammlung selbst bleibt privat.';
+
+/**
+ * Trennt einen Ausgaben-Zusatz vom Spieltitel für die Anzeige: „Horizon Zero Dawn: Complete Edition“ →
+ * { titel: 'Horizon Zero Dawn', ausgabe: 'Complete Edition' }. Der gespeicherte Titel bleibt unverändert.
+ */
+const AUSGABE_ZUSATZ = /^(.{3,}?)\s*[:–—-]\s*((?:the\s+)?(?:complete|game of the year|goty|definitive|ultimate|deluxe|gold|collector[’']?s|special|limited|day one|legendary|royal|premium|enhanced|anniversary|director[’']?s cut)(?:\s+(?:edition|version|ausgabe))?)\s*$/i;
+export function titelUndAusgabe(titel) {
+  const m = String(titel ?? '').match(AUSGABE_ZUSATZ);
+  return m ? { titel: m[1].trim(), ausgabe: m[2].trim() } : { titel: titel ?? '', ausgabe: null };
+}
