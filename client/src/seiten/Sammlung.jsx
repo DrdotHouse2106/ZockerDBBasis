@@ -257,7 +257,9 @@ export default function Sammlung({ route }) {
 
         {artikel?.length > 0 && (
           <>
-            {artikel.offline && <p className="rounded-xl bg-warnung/15 p-2 text-sm text-warnung">Offline – Suche und Filter nur in den zuletzt geladenen Daten.</p>}
+            {artikel.offline && <p className="rounded-xl bg-warnung/15 p-2 text-sm text-warnung">{artikel.offlineStand
+              ? `Offline – deine Sammlung auf dem Stand vom ${new Date(artikel.offlineStand).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}.`
+              : 'Offline – Suche und Filter nur in den zuletzt geladenen Daten.'}</p>}
             <p className="text-sm text-leise">
               {artikel.length === 1 ? '1 Eintrag' : `${artikel.length} Einträge`}
               {karten.length !== artikel.length && ` · ${karten.length} verschiedene`}

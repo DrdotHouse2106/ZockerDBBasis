@@ -28,6 +28,9 @@ test('App-Modus: Anmeldung per Token, Bilder mit Schlüssel, Geräteliste', asyn
   const bild = await sharp({ create: { width: 300, height: 300, channels: 3, background: '#8b5cf6' } }).jpeg().toBuffer();
   const foto = await page.request.post(`/api/artikel/${a.id}/medien`, { multipart: { art: 'cover_vorne', datei: { name: 'cover.jpg', mimeType: 'image/jpeg', buffer: bild } } });
   expect(foto.ok()).toBeTruthy();
+  // Bild des Exemplars (Kachel in der Sammlung)
+  expect((await page.request.post(`/api/artikel/${a.id}/bild`, { multipart: { bild: { name: 'bild.jpg', mimeType: 'image/jpeg', buffer: bild } } })).ok()).toBeTruthy();
+  const nieGeoeffnet = await (await page.request.post('/api/artikel', { data: { typ: 'spiel', titel: 'Nie geöffnet' } })).json();
   await context.clearCookies();
 
   await context.addInitScript(brueckeAttrappe);
@@ -51,6 +54,27 @@ test('App-Modus: Anmeldung per Token, Bilder mit Schlüssel, Geräteliste', asyn
   // Ohne Cookie und ohne Kopf – wie ein <img> in der App
   const status = await img.evaluate(async (el) => (await fetch(el.src, { credentials: 'omit' })).status);
   expect(status).toBe(200);
+
+  // Offline: die ganze Sammlung samt Titelbild aus dem Speicher der App – auch ein nie geöffnetes Exemplar
+  await expect.poll(() => page.evaluate(() => new Promise((ok) => {
+    const db = indexedDB.open('zockerdb-app');
+    db.onsuccess = () => {
+      const lesen = db.result.transaction('info').objectStore('info').get('stand');
+      lesen.onsuccess = () => ok(Boolean(lesen.result));
+      lesen.onerror = () => ok(false);
+    };
+    db.onerror = () => ok(false);
+  })), { timeout: 15000 }).toBe(true);
+  await context.setOffline(true);
+  await page.evaluate(() => { window.location.hash = '#/'; });
+  await expect(page.getByText(/Offline – deine Sammlung auf dem Stand vom/)).toBeVisible();
+  await expect(page.getByText('Nie geöffnet').first()).toBeVisible();
+  const kachel = page.locator('img[src^="blob:"]').first();
+  await expect(kachel).toBeVisible();
+  await expect.poll(() => kachel.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+  await page.evaluate((id) => { window.location.hash = `#/artikel/${id}`; }, nieGeoeffnet.id);
+  await expect(page.getByRole('heading', { name: 'Nie geöffnet' }).first()).toBeVisible();
+  await context.setOffline(false);
 
   // Geräteliste zeigt die App-Sitzung als dieses Gerät
   await page.goto('/?app=1#/konto');

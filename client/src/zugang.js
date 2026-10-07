@@ -8,17 +8,25 @@ const basis = istApp ? String(import.meta.env.VITE_API_BASIS ?? '').replace(/\/$
 let token = null;
 let dateiSchluessel = null;
 let speicher = null;
-let geladen = Promise.resolve();
+const wartet = [];
+
+/** Vor der ersten Anfrage der App abwarten (gespeichertes Token, Offline-Bilder). */
+export function wartenAuf(versprechen) {
+  wartet.push(Promise.resolve(versprechen).catch(() => {}));
+}
 
 /** Speicher für das Token setzen: `{ laden(): Promise<string|null>, speichern(token), loeschen() }`. */
 export function setzeTokenSpeicher(neu) {
   if (!istApp) return;
   speicher = neu;
-  geladen = Promise.resolve(neu.laden()).then((t) => { token = t || null; }).catch(() => { token = null; });
+  wartenAuf(Promise.resolve(neu.laden()).then((t) => { token = t || null; }).catch(() => { token = null; }));
 }
 
 /** Wartet, bis ein gespeichertes Token gelesen ist (vor der ersten Anfrage der App). */
-export const zugangBereit = () => geladen;
+export const zugangBereit = () => Promise.all(wartet);
+
+/** Offline gespeicherte Bilder der App: ursprüngliche Adresse → Objekt-URL (siehe appoffline.js). */
+export const lokaleBilder = new Map();
 
 /** Volle Adresse eines API-Pfads (im Browser unverändert). */
 export const apiUrl = (pfad) => (basis && pfad.startsWith('/') ? `${basis}${pfad}` : pfad);
@@ -57,11 +65,17 @@ export async function verarbeiteAntwort(pfad, json) {
   return dateiUrlsUmschreiben(json);
 }
 
+/** Abrufbare Adresse einer Datei: in der App volle Adresse mit Dateischlüssel. */
+export function dateiAdresse(wert) {
+  if (!wert.startsWith('/api/dateien/')) return wert;
+  const url = apiUrl(wert);
+  return dateiSchluessel ? `${url}${url.includes('?') ? '&' : '?'}schluessel=${encodeURIComponent(dateiSchluessel)}` : url;
+}
+
 function dateiUrlsUmschreiben(wert) {
   if (typeof wert === 'string') {
-    if (!wert.startsWith('/api/dateien/')) return wert;
-    const url = apiUrl(wert);
-    return dateiSchluessel ? `${url}${url.includes('?') ? '&' : '?'}schluessel=${encodeURIComponent(dateiSchluessel)}` : url;
+    if (lokaleBilder.has(wert)) return lokaleBilder.get(wert);
+    return dateiAdresse(wert);
   }
   if (Array.isArray(wert)) {
     for (let i = 0; i < wert.length; i++) wert[i] = dateiUrlsUmschreiben(wert[i]);

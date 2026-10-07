@@ -2,7 +2,8 @@
 import { offlineFaehig, merke } from './offline.js';
 import { spracheTrifft } from '../../shared/sprachen.js';
 import { bereiteDateiVor } from './bilddatei.js';
-import { apiUrl, zugangsKoepfe, zugangsCredentials, zugangBereit, verarbeiteAntwort, merkeToken } from './zugang.js';
+import { istApp, apiUrl, zugangsKoepfe, zugangsCredentials, zugangBereit, verarbeiteAntwort, merkeToken } from './zugang.js';
+import * as appOffline from './appoffline.js';
 
 export class ApiFehler extends Error {
   constructor(meldung, status, felder, code) {
@@ -65,6 +66,12 @@ export async function anfrage(pfad, { methode = 'GET', daten, formular, signal, 
   } catch (fehler) {
     if (fehler.name === 'AbortError') throw fehler;
     if (!formular && offlineFaehig(pfad, methode)) return offlineMerken();
+    // App ohne Verbindung: zuletzt gesehene Antwort (im Browser erledigt das der Service-Worker)
+    // – außer Sammlungslisten: die kommen aus dem vollständigen Abgleich (siehe sammlungOffline)
+    if (appOffline.speicherbar(pfad, methode) && !/^\/api\/artikel(\?|$)/.test(pfad)) {
+      const gespeichert = await appOffline.leseAntwort(pfad);
+      if (gespeichert !== undefined) return verarbeiteAntwort(pfad, gespeichert);
+    }
     throw new ApiFehler(
       navigator.onLine ? 'Der Server ist nicht erreichbar.' : 'Keine Internetverbindung. Bitte später erneut versuchen.',
       0,
@@ -76,7 +83,17 @@ export async function anfrage(pfad, { methode = 'GET', daten, formular, signal, 
     meldeSonderfall(antwort.status, json);
     throw new ApiFehler(json?.fehler ?? `Unerwarteter Fehler (HTTP ${antwort.status}).`, antwort.status, json?.felder, json?.code);
   }
-  return verarbeiteAntwort(pfad, json);
+  if (!istApp) return json;
+  // App: unveränderte Antwort für offline merken, dann aufbereiten (Token, Dateischlüssel, Bildadressen)
+  if (methode === 'GET') appOffline.merkeAntwort(pfad, structuredClone(json));
+  const ergebnis = await verarbeiteAntwort(pfad, json);
+  // Nach Änderungen an der Sammlung bzw. nach der Anmeldung abgleichen
+  if (methode !== 'GET' && /^\/api\/(artikel|konvolute)\b/.test(pfad)) appOffline.planeAbgleich();
+  if (pfad === '/api/auth/status' && ergebnis?.angemeldet && ergebnis.benutzer?.id) {
+    await appOffline.pruefeKonto(ergebnis.benutzer.id);
+    appOffline.abgleichFaellig();
+  }
+  return ergebnis;
 }
 
 export const abfrage = (parameter) => {
@@ -90,7 +107,7 @@ export const api = {
   artikelAnzahl: () => anfrage('/api/artikel/anzahl'),
   artikelListe: (filter = {}, signal) => anfrage(`/api/artikel${abfrage(filter)}`, { signal }).catch((e) => (e.status === 0 ? sammlungOffline(filter, e) : Promise.reject(e))),
   plattformen: () => anfrage('/api/artikel/plattformen'),
-  artikel: (id) => anfrage(`/api/artikel/${id}`),
+  artikel: (id) => anfrage(`/api/artikel/${id}`).catch((e) => (e.status === 0 ? artikelOffline(id, e) : Promise.reject(e))),
   // Konvolute (mehrere Artikel zu einem Gesamtpreis)
   konvolute: () => anfrage('/api/konvolute'),
   konvolut: (id) => anfrage(`/api/konvolute/${id}`),
@@ -268,6 +285,7 @@ export const api = {
 
 /** Zwischengespeicherte Daten des Service-Workers löschen (z. B. beim Abmelden). */
 export async function leereZwischenspeicher() {
+  await appOffline.leeren();
   if (!('caches' in window)) return;
   const namen = await caches.keys();
   await Promise.all(namen.filter((n) => !n.startsWith('huelle-')).map((n) => caches.delete(n)));
@@ -280,6 +298,15 @@ export async function leereZwischenspeicher() {
  * Das Ergebnis trägt `offline = true` (die App kennzeichnet es als „nur geladene Daten“).
  */
 async function sammlungOffline(filter, fehler) {
+  // App: die ganze Sammlung aus dem letzten Abgleich (alle Bestände), hier nach Bestand gefiltert
+  const ganz = await appOffline.sammlung();
+  if (ganz) {
+    const bestand = filter.bestand ?? 'besitz';
+    const passend = ganz.json.filter((a) => bestand === 'alle' || a.bestand === bestand || (bestand === 'weg' && ['verkauft', 'abgegeben'].includes(a.bestand)));
+    const ergebnis = filtereOffline(await verarbeiteAntwort('/api/artikel', structuredClone(passend)), filter);
+    ergebnis.offlineStand = ganz.zeit;
+    return ergebnis;
+  }
   if (!('caches' in window)) throw fehler;
   let beste = null;
   for (const name of (await caches.keys()).filter((n) => n.startsWith('daten-'))) {
@@ -295,7 +322,18 @@ async function sammlungOffline(filter, fehler) {
     if (beste) break;
   }
   if (!beste) throw fehler;
-  const liste = await beste.json();
+  return filtereOffline(await beste.json(), filter);
+}
+
+/** Exemplar ohne Verbindung aus der ganzen Sammlung des letzten Abgleichs (App). */
+async function artikelOffline(id, fehler) {
+  const ganz = await appOffline.sammlung();
+  const artikel = ganz?.json.find((a) => String(a.id) === String(id));
+  if (!artikel) throw fehler;
+  return verarbeiteAntwort(`/api/artikel/${id}`, structuredClone(artikel));
+}
+
+function filtereOffline(liste, filter) {
   const q = String(filter.q ?? '').trim().toLowerCase();
   const ergebnis = liste.filter((a) => (!filter.typ || a.typ === filter.typ)
     && (!filter.plattform_id || String(a.plattform_id) === String(filter.plattform_id))
