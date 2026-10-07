@@ -11,6 +11,11 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Erinnerung an fehlende Zustandsbewertungen
+- Höchstens einmal pro Woche gibt es eine Mitteilung wie „5 Exemplare ohne Zustandsbewertung“, und nur, wenn seit der letzten Erinnerung welche dazugekommen sind. Wer „Zustand der Hülle / OVP“ im Konto ausgeblendet hat, wird dazu nicht erinnert.
+- Neuer Filter in der Sammlung: „Nur ohne Zustandsbewertung“. Der Link in der Mitteilung führt direkt dorthin.
+- Abschaltbar unter Konto → Benachrichtigungen, Kategorie „Sammlungspflege“.
+
 ## Inlay, Schutzhülle und Steelbook
 - Die Beilage „Inlay / Schutzhülle“ heißt jetzt passend zur Plattform: bei Disc-Spielen „Inlay / Cover-Einleger“, bei Modul-Spielen „Schutzhülle / Einsatz“. Bestehende Angaben bleiben erhalten.
 - Neu bei Disc-Spielen: eigener „Zustand Inlay (Cover-Einleger)“ und typische Mängel zum Antippen (eingerissen, Wasserschaden, verblichen, beschriftet, Aufkleber, geknickt, Kopie). Die Bewertungshilfe erklärt auch die Stufen fürs Inlay. Das Feld lässt sich im Konto ausblenden.

@@ -29,6 +29,8 @@ aufraeumen.unref();
 // Leihliste: an überfällige Rückgaben erinnern (stündlich prüfen, je Leihe höchstens wöchentlich)
 setInterval(() => {
   try { kontext.verleih.erinnere(); } catch (e) { console.warn('[leihliste]', e.message); }
+  // Fehlende Zustandsbewertungen: je Sammler höchstens wöchentlich und nur, wenn es mehr geworden sind
+  try { kontext.zustandserinnerung.erinnere(); } catch (e) { console.warn('[zustand]', e.message); }
 }, 60 * 60 * 1000).unref();
 
 // Datenbank-Sicherung: kurz nach dem Start und danach stündlich prüfen, ob die Tagessicherung fehlt.

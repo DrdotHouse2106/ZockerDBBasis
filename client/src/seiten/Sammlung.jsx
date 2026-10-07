@@ -29,7 +29,7 @@ export default function Sammlung({ route }) {
   const [fehler, setFehler] = useState(null);
   const [plattformen, setPlattformen] = useState([]);
   const [suchtext, setSuchtext] = useState(filter.q ?? '');
-  const [filterOffen, setFilterOffen] = useState(Boolean(filter.region || filter.zustand || filter.vollstaendigkeit || filter.herkunft || filter.ohne_preis || filter.spielstatus || filter.sprache));
+  const [filterOffen, setFilterOffen] = useState(Boolean(filter.region || filter.zustand || filter.vollstaendigkeit || filter.herkunft || filter.ohne_preis || filter.zustand_fehlt || filter.spielstatus || filter.sprache));
   const gruppiert = filter.einzeln !== '1';
   const { benutzer } = useSitzung();
   const lagerortFilter = lagerortText(filter);
@@ -57,7 +57,7 @@ export default function Sammlung({ route }) {
     api.artikelAnzahl().then(setAnzahlen).catch(() => {});
   }, []);
 
-  const aktiveFilter = ['region', 'zustand', 'vollstaendigkeit', 'herkunft', 'ohne_preis', 'spielstatus', 'sprache'].filter((f) => filter[f]).length;
+  const aktiveFilter = ['region', 'zustand', 'vollstaendigkeit', 'herkunft', 'ohne_preis', 'zustand_fehlt', 'spielstatus', 'sprache'].filter((f) => filter[f]).length;
   const weg = ['weg', 'verkauft', 'abgegeben', 'alle'].includes(filter.bestand);
   const digital = filter.bestand === 'digital';
 
@@ -197,6 +197,10 @@ export default function Sammlung({ route }) {
             <label className="flex items-center gap-2 self-end pb-2.5 text-sm">
               <input type="checkbox" className="size-4 accent-akzent" checked={filter.ohne_preis === '1'} onChange={(e) => setzeFilter({ ohne_preis: e.target.checked ? '1' : undefined })} />
               Nur ohne Kaufpreis
+            </label>
+            <label className="flex items-center gap-2 self-end pb-2.5 text-sm">
+              <input type="checkbox" className="size-4 accent-akzent" checked={filter.zustand_fehlt === '1'} onChange={(e) => setzeFilter({ zustand_fehlt: e.target.checked ? '1' : undefined })} />
+              Nur ohne Zustandsbewertung
             </label>
             <label>
               <span className="beschriftung">Sortierung</span>

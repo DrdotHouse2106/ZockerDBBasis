@@ -717,6 +717,10 @@ const MIGRATIONEN = [
   ALTER TABLE artikel ADD COLUMN zustand_inlay TEXT;
   ALTER TABLE artikel ADD COLUMN inlay_maengel TEXT;
   `,
+  // 49: Erinnerung an fehlende Zustandsbewertungen – Zeitpunkt und Anzahl der letzten Erinnerung (JSON)
+  `
+  ALTER TABLE benutzer ADD COLUMN zustand_erinnerung TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

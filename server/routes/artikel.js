@@ -6,6 +6,7 @@ import { pruefeArtikel, ValidierungsFehler } from '../services/validierung.js';
 import { speichereEinheitlich } from '../services/medien.js';
 import { sprachBedingung, normSprachen } from '../../shared/sprachen.js';
 import { regionUmfang } from '../../shared/konstanten.js';
+import { zustandFehltSql } from '../services/zustandserinnerung.js';
 
 const SORTIERUNGEN = {
   neueste: 'a.erstellt_am DESC, a.id DESC',
@@ -146,6 +147,8 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
       }
     }
     if (req.query.ohne_lagerort === '1') bedingungen.push('a.lagerort_ort IS NULL');
+    // Zustand fehlt (Disc/Modul bzw. Gerät, und Hülle/OVP – außer der Sammler hat das Feld ausgeblendet)
+    if (req.query.zustand_fehlt === '1') bedingungen.push(zustandFehltSql(!(req.benutzer.ausgeblendete_felder ?? []).includes('zustand_ovp')));
     // Sprache laut IGDB am verknüpften Katalogeintrag (z. B. „de_audio“)
     const sprache = sprachBedingung(req.query.sprache, 'k.sprachen');
     if (sprache) bedingungen.push(sprache);

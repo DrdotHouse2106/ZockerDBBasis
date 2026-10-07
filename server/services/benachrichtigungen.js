@@ -11,6 +11,7 @@ const MAX_JE_BENUTZER = 200;
  */
 export const KATEGORIEN = [
   { id: 'beitraege', label: 'Deine Beiträge', beschreibung: 'Einreichungen, Fotos und Vorschläge wurden geprüft', arten: ['freigabe', 'ablehnung'] },
+  { id: 'sammlung', label: 'Sammlungspflege', beschreibung: 'Erinnerungen, z. B. an Exemplare ohne Zustandsbewertung (höchstens wöchentlich)', arten: ['sammlung'] },
   { id: 'leihe', label: 'Verleih', beschreibung: 'Erinnerungen an verliehene Spiele', arten: ['leihe'] },
   { id: 'community', label: 'Community & Erfolge', beschreibung: 'Freunde, neue Erfolge und Termine aus dem Kalender', arten: ['freunde', 'erfolg', 'kalender'] },
   { id: 'moderation', label: 'Moderation', beschreibung: 'Neue Meldungen und Prüfaufgaben', arten: ['moderation', 'meldung'], nurModeration: true },
