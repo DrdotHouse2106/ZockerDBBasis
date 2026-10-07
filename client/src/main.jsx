@@ -124,7 +124,9 @@ createRoot(document.getElementById('app')).render(
   </StrictMode>,
 );
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+// In der App (Capacitor) ist die Oberfläche gebündelt – dort kein Service-Worker
+const inApp = window.Capacitor?.isNativePlatform?.() === true;
+if ('serviceWorker' in navigator && import.meta.env.PROD && !inApp) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((fehler) => {
       console.warn('Service-Worker konnte nicht registriert werden:', fehler);
