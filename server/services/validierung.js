@@ -1,4 +1,4 @@
-import { ALLE_WERTE, BEILAGEN, INLAY_MAENGEL } from '../../shared/konstanten.js';
+import { ALLE_WERTE, BEILAGEN, INLAY_MAENGEL, bestandFuerVollstaendigkeit } from '../../shared/konstanten.js';
 
 const BEILAGEN_SCHLUESSEL = new Set(Object.values(BEILAGEN).flat().map((b) => b.value));
 
@@ -132,6 +132,8 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     if (datum && !gueltigerTag(datum)) fehler.abgang_am = 'Bitte ein gültiges Datum angeben.';
     daten.abgang_am = datum;
   }
+  // Leere Verpackung („Nur OVP“) gehört nicht zur Sammlung – Bestand passend setzen, wenn beides angegeben ist
+  if (daten.bestand !== undefined && daten.vollstaendigkeit !== undefined) daten.bestand = bestandFuerVollstaendigkeit(daten.vollstaendigkeit, daten.bestand);
   if (daten.bestand === 'besitz') Object.assign(daten, { abgang_am: null, verkaufspreis: null });
   // Store eines digitalen Spiels (nur bei Bestand „digital“)
   if (hat('digital_quelle') || daten.bestand) {

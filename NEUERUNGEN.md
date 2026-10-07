@@ -11,6 +11,12 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Leere Hüllen: Fotos beitragen ohne Sammlungseintrag
+- Exemplare mit Vollständigkeit „Nur OVP“ gelten jetzt als leere Hülle bzw. Verpackung ohne Spiel. Sie zählen nicht mehr zur Sammlung, zum Sammlungswert, zu Statistiken und Erfolgen und erscheinen nicht in geteilten Sammlungen. Bestehende Einträge wurden umgestellt.
+- Du findest sie in der Sammlung über den Filter „Leere Hüllen“. Fotos lassen sich dort wie gewohnt hochladen und mit der Community teilen.
+- Neu auf der Spieleseite: „Nur eine leere Hülle? Fotos beitragen, ohne Sammlungseintrag“.
+- Wird später doch das Spiel ergänzt (andere Vollständigkeit), wandert das Exemplar automatisch zurück in die Sammlung.
+
 ## Erinnerung an fehlende Zustandsbewertungen
 - Höchstens einmal pro Woche gibt es eine Mitteilung wie „5 Exemplare ohne Zustandsbewertung“, und nur, wenn seit der letzten Erinnerung welche dazugekommen sind. Wer „Zustand der Hülle / OVP“ im Konto ausgeblendet hat, wird dazu nicht erinnert.
 - Neuer Filter in der Sammlung: „Nur ohne Zustandsbewertung“. Der Link in der Mitteilung führt direkt dorthin.

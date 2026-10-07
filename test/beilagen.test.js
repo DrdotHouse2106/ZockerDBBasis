@@ -63,3 +63,24 @@ test('Inlay: Beschriftung je Datenträger, eigener Zustand mit Mängeln, Steelbo
     await server.stoppe();
   }
 });
+
+test('„Nur OVP“ ist eine leere Verpackung: nicht in der Sammlung, eigener Filter, zurück bei anderer Vollständigkeit', async () => {
+  const server = await starteTestServer();
+  try {
+    const anna = await server.registriere('anna');
+    const huelle = (await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Leere Hülle', vollstaendigkeit: 'nur_ovp' } })).json;
+    assert.equal(huelle.bestand, 'verpackung');
+    await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Echtes Spiel', vollstaendigkeit: 'cib' } });
+    assert.deepEqual((await anna.api('/api/artikel')).json.map((a) => a.titel), ['Echtes Spiel']);
+    assert.deepEqual((await anna.api('/api/artikel?bestand=verpackung')).json.map((a) => a.titel), ['Leere Hülle']);
+    assert.equal((await anna.api('/api/artikel/anzahl')).json.verpackung, 1);
+    // Fotos gehen weiterhin (Upload hängt am eigenen Exemplar)
+    // Nachträglich doch mit Spiel → wieder in der Sammlung
+    const r = await anna.api(`/api/artikel/${huelle.id}`, { methode: 'PUT', daten: { vollstaendigkeit: 'cib' } });
+    assert.equal(r.json.bestand, 'besitz');
+    const zurueck = await anna.api(`/api/artikel/${huelle.id}`, { methode: 'PUT', daten: { vollstaendigkeit: 'nur_ovp' } });
+    assert.equal(zurueck.json.bestand, 'verpackung');
+  } finally {
+    await server.stoppe();
+  }
+});

@@ -79,6 +79,8 @@ export default function ArtikelFormular({ route, artikelId }) {
         const basis = { ...LEER, typ: p.typ ?? 'spiel', titel: p.titel ?? '', barcode: p.barcode ?? '' };
         // Aus einem Konvolut: nächsten Artikel direkt diesem Paket zuordnen
         if (p.konvolut) Object.assign(basis, { konvolut_id: Number(p.konvolut), herkunft: 'konvolut' });
+        // „Leere Hülle fotografieren“ von der Spieleseite: nur die Verpackung, nicht in der Sammlung
+        if (p.vollstaendigkeit === 'nur_ovp') Object.assign(basis, { vollstaendigkeit: 'nur_ovp', bestand: 'verpackung' });
         // „Weiteres Exemplar“: Grunddaten eines vorhandenen Artikels übernehmen
         if (p.von) {
           const vorlage = await api.artikel(p.von);
@@ -375,6 +377,12 @@ export default function ArtikelFormular({ route, artikelId }) {
                 }} />
             )}
           </Feld>
+          {werte.vollstaendigkeit === 'nur_ovp' && (
+            <p className="rounded-lg bg-karte-hover p-2 text-xs text-leise sm:col-span-2" data-testid="hinweis-leere-huelle">
+              Nur die Verpackung ohne Spiel? Dann ist das eine <strong className="text-text">leere Hülle</strong>: Sie zählt nicht zur Sammlung,
+              zum Wert und zu Statistiken – ideal, um Fotos für die Datenbank beizutragen. Du findest sie in der Sammlung unter „Leere Hüllen“.
+            </p>
+          )}
           {werte.zustand && (
             <p className="-mt-1 text-xs text-leise sm:col-span-2">{ZUSTAENDE.find((z) => z.value === werte.zustand)?.beschreibung}</p>
           )}

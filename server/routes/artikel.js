@@ -5,7 +5,7 @@ import multer from 'multer';
 import { pruefeArtikel, ValidierungsFehler } from '../services/validierung.js';
 import { speichereEinheitlich } from '../services/medien.js';
 import { sprachBedingung, normSprachen } from '../../shared/sprachen.js';
-import { regionUmfang } from '../../shared/konstanten.js';
+import { regionUmfang, bestandFuerVollstaendigkeit } from '../../shared/konstanten.js';
 import { zustandFehltSql } from '../services/zustandserinnerung.js';
 
 const SORTIERUNGEN = {
@@ -110,7 +110,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     if (bestand === 'weg') bedingungen.push("a.bestand IN ('verkauft', 'abgegeben')");
     else if (bestand !== 'alle') {
       bedingungen.push('a.bestand = @bestand');
-      parameter.bestand = ['besitz', 'verkauft', 'abgegeben', 'digital'].includes(bestand) ? bestand : 'besitz';
+      parameter.bestand = ['besitz', 'verkauft', 'abgegeben', 'digital', 'verpackung'].includes(bestand) ? bestand : 'besitz';
     }
     const { typ, q, plattform, region, zustand, vollstaendigkeit, herkunft } = req.query;
     if (req.query.ohne_preis === '1') bedingungen.push('a.kaufpreis IS NULL');
@@ -265,6 +265,11 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     const vorhanden = holeOder404(req, res);
     if (!vorhanden || konflikt(req, res, vorhanden)) return;
     const daten = pruefeArtikel(req.body, true);
+    // Nur die Vollständigkeit geändert: Bestand „leere Verpackung“ passend mitführen
+    if (daten.vollstaendigkeit !== undefined && daten.bestand === undefined) {
+      const bestand = bestandFuerVollstaendigkeit(daten.vollstaendigkeit, vorhanden.bestand);
+      if (bestand !== vorhanden.bestand) daten.bestand = bestand;
+    }
     if (daten.katalog_id) pruefeKatalog(daten.katalog_id, req);
     pruefeKonvolut(daten, req);
     // Selbst eingetragener Preis ist fest; leerer Preis im Konvolut = wieder Anteil am Gesamtpreis

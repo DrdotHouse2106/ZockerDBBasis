@@ -60,6 +60,7 @@ export default function Sammlung({ route }) {
   const aktiveFilter = ['region', 'zustand', 'vollstaendigkeit', 'herkunft', 'ohne_preis', 'zustand_fehlt', 'spielstatus', 'sprache'].filter((f) => filter[f]).length;
   const weg = ['weg', 'verkauft', 'abgegeben', 'alle'].includes(filter.bestand);
   const digital = filter.bestand === 'digital';
+  const verpackung = filter.bestand === 'verpackung';
 
   // Mehrere Exemplare/Varianten desselben Katalogeintrags zu einer Karte zusammenfassen
   const karten = [];
@@ -74,7 +75,7 @@ export default function Sammlung({ route }) {
       gruppen.get(schluessel).exemplare += 1;
     }
   }
-  const hatFilter = Boolean(filter.typ || filter.q || filter.plattform_id || aktiveFilter || weg || digital || filter.verliehen || lagerortFilter || filter.ohne_lagerort);
+  const hatFilter = Boolean(filter.typ || filter.q || filter.plattform_id || aktiveFilter || weg || digital || verpackung || filter.verliehen || lagerortFilter || filter.ohne_lagerort);
 
   return (
     <Layout route={route} titel="Meine Sammlung">
@@ -140,6 +141,12 @@ export default function Sammlung({ route }) {
             onClick={() => setzeFilter({ bestand: filter.bestand === 'digital' ? undefined : 'digital' })} title="Digitale Spiele, z. B. aus Steam">
             Digital
           </button>
+          {(anzahlen.verpackung > 0 || verpackung) && (
+            <button type="button" className={verpackung ? 'chip-aktiv' : 'chip'}
+              onClick={() => setzeFilter({ bestand: verpackung ? undefined : 'verpackung' })} title="Leere Hüllen und Verpackungen ohne Spiel">
+              Leere Hüllen
+            </button>
+          )}
           {benutzer?.funktionen?.lagerort && <a href="#/lagerorte" className="chip">📍 Lagerorte</a>}
         </div>
         {(lagerortFilter || filter.ohne_lagerort) && (
@@ -154,13 +161,18 @@ export default function Sammlung({ route }) {
             Importieren und aktualisieren unter <a href="#/import" className="underline">Import</a>.
           </p>
         )}
+        {verpackung && (
+          <p className="rounded-xl bg-karte-hover p-3 text-sm text-leise">
+            Leere Hüllen und Verpackungen ohne Spiel („Nur OVP“) – sie dienen den Fotos für die Datenbank und zählen nicht zur Sammlung, zum Sammlungswert und zu Statistiken.
+          </p>
+        )}
         {weg && (
           <p className="rounded-xl bg-karte-hover p-3 text-sm text-leise">
             Nicht mehr in deinem Besitz – zählt weder zur Sammlung noch zum Sammlungswert. Erlöse und Gewinn/Verlust siehst du in der{' '}
             <a href="#/statistik" className="underline">Statistik</a>.
             <select className="eingabe mt-2 w-auto py-1 text-sm" value={filter.bestand} onChange={(e) => setzeFilter({ bestand: e.target.value })} aria-label="Bestand">
               <option value="weg">Verkauft und abgegeben</option>
-              {BESTAND.filter((b) => !['besitz', 'digital'].includes(b.value)).map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+              {BESTAND.filter((b) => !['besitz', 'digital', 'verpackung'].includes(b.value)).map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
               <option value="alle">Alle (auch im Besitz)</option>
             </select>
           </p>

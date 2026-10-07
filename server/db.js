@@ -721,6 +721,10 @@ const MIGRATIONEN = [
   `
   ALTER TABLE benutzer ADD COLUMN zustand_erinnerung TEXT;
   `,
+  // 50: „Nur OVP“ (leere Hülle/Verpackung) gehört nicht zur Sammlung – eigener Bestand, zählt nicht zu Wert und Statistik
+  `
+  UPDATE artikel SET bestand = 'verpackung' WHERE vollstaendigkeit = 'nur_ovp' AND bestand = 'besitz';
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

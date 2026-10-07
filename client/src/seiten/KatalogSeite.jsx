@@ -67,6 +67,12 @@ export default function KatalogSeite({ route, id }) {
           ) : (
             <a href="#/" className="knopf-primaer w-full">Anmelden, um es zu sammeln</a>
           )}
+          {benutzer && e.typ === 'spiel' && (
+            <button type="button" className="w-full text-center text-sm text-akzent-hell underline"
+              onClick={() => navigiere('/neu/formular', { katalog: e.id, typ: e.typ, vollstaendigkeit: 'nur_ovp' })}>
+              Nur eine leere Hülle? Fotos beitragen, ohne Sammlungseintrag
+            </button>
+          )}
         </div>
 
         <div className="min-w-0 space-y-4">

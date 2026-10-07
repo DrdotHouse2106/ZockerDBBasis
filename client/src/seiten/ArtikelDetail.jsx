@@ -263,6 +263,7 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     ['Kaufdatum', artikel.kaufdatum ? datumDe(artikel.kaufdatum) : null],
     ['Bestand', artikel.bestand === 'digital'
       ? `Digital${artikel.digital_quelle === 'steam' ? ' (Steam-Bibliothek)' : ''} – zählt nicht zur Sammlung`
+      : artikel.bestand === 'verpackung' ? 'Leere Verpackung – zählt nicht zur Sammlung, dient den Fotos für die Datenbank'
       : artikel.bestand && artikel.bestand !== 'besitz'
         ? `${beschriftung(BESTAND, artikel.bestand)}${artikel.abgang_am ? ` am ${datumDe(artikel.abgang_am)}` : ''}` : null],
     ['Durchgespielt am', artikel.durchgespielt_am ? datumDe(artikel.durchgespielt_am) : null],

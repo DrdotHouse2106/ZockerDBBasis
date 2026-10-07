@@ -138,7 +138,16 @@ export const BESTAND = [
   { value: 'abgegeben', label: 'Verschenkt / getauscht', kurz: 'Abgegeben' },
   // Digital (z. B. Steam-Import): deutlich gekennzeichnet, zählt nicht zur Sammlung und zum Sammlungswert
   { value: 'digital', label: 'Digital', kurz: 'Digital' },
+  // Leere Hülle/OVP ohne Spiel: dient dem Fotografieren für die Datenbank – zählt nicht zur Sammlung, zum Wert und zu Statistiken
+  { value: 'verpackung', label: 'Leere Verpackung (für Fotos)', kurz: 'Leere Hülle' },
 ];
+
+/** „Nur OVP“ heißt: leere Verpackung – gehört nicht zur Sammlung (aus Bestand „besitz“ wird „verpackung“ und zurück). */
+export function bestandFuerVollstaendigkeit(vollstaendigkeit, bestand) {
+  if (vollstaendigkeit === 'nur_ovp' && (bestand ?? 'besitz') === 'besitz') return 'verpackung';
+  if (vollstaendigkeit !== 'nur_ovp' && bestand === 'verpackung') return 'besitz';
+  return bestand;
+}
 
 /**
  * Katalogfilter nach Veröffentlichungsregion. Einträge ohne bekannte Regionen werden immer gezeigt.
