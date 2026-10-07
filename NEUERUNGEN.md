@@ -11,6 +11,9 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Rückfrage vor dem Verlassen ungespeicherter Eingaben
+- Hast du im Formular zum Hinzufügen oder Bearbeiten etwas eingegeben (z. B. nach einem Barcode, der nicht gefunden wurde), fragt die App beim Zurück-Knopf, bei der Wischgeste, bei „Abbrechen“ und beim Neuladen nach, ob du die Seite wirklich ohne Speichern verlassen willst. Ohne Eingaben gibt es keine Rückfrage.
+
 ## Leere Hüllen: Fotos beitragen ohne Sammlungseintrag
 - Exemplare mit Vollständigkeit „Nur OVP“ gelten jetzt als leere Hülle bzw. Verpackung ohne Spiel. Sie zählen nicht mehr zur Sammlung, zum Sammlungswert, zu Statistiken und Erfolgen und erscheinen nicht in geteilten Sammlungen. Bestehende Einträge wurden umgestellt.
 - Du findest sie in der Sammlung über den Filter „Leere Hüllen“. Fotos lassen sich dort wie gewohnt hochladen und mit der Community teilen.

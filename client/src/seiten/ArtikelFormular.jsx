@@ -9,7 +9,7 @@ import PlattformAuswahl from '../komponenten/PlattformAuswahl.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import ZustandHilfe from '../komponenten/ZustandHilfe.jsx';
 import { api, ApiFehler } from '../api.js';
-import { navigiere, zurueck, vorherigeSeite } from '../router.js';
+import { navigiere, zurueck, vorherigeSeite, useVerlassenSchutz } from '../router.js';
 import { preisFeld, datumFeld, leseDatum, euro } from '../format.js';
 import Layout from '../komponenten/Layout.jsx';
 import Cover from '../komponenten/Cover.jsx';
@@ -53,6 +53,9 @@ export default function ArtikelFormular({ route, artikelId }) {
   const [fehler, setFehler] = useState({});
   const [allgemeinerFehler, setAllgemeinerFehler] = useState(null);
   const [speichert, setSpeichert] = useState(false);
+  // Etwas eingegeben? Dann vor dem Verlassen ohne Speichern nachfragen (Zurück-Knopf, Wischgeste, Abbrechen)
+  const [beruehrt, setBeruehrt] = useState(false);
+  const verlassenFreigeben = useVerlassenSchutz(beruehrt && !speichert);
   const [bildDatei, setBildDatei] = useState(null);
   const [scannerOffen, setScannerOffen] = useState(false);
   const [konvolute, setKonvolute] = useState([]);
@@ -178,6 +181,7 @@ export default function ArtikelFormular({ route, artikelId }) {
   // Nach dem Speichern: zurück zur Artikelseite, von der man kam (statt sie ein zweites Mal in den Verlauf zu legen);
   // sonst das Formular im Verlauf ersetzen – „Zurück“ landet so nie wieder im Formular
   const nachSpeichern = (pfad, parameter) => {
+    verlassenFreigeben();
     if (bearbeiten && vorherigeSeite() === pfad) zurueck(pfad);
     else navigiere(pfad, parameter, { ersetzen: true });
   };
@@ -220,7 +224,7 @@ export default function ArtikelFormular({ route, artikelId }) {
       }
       zeigeHinweis(bearbeiten ? 'Änderungen gespeichert.' : artikel.bestand === 'digital' ? `„${artikel.titel}“ als digitales Spiel gespeichert.` : `„${artikel.titel}“ wurde zur Sammlung hinzugefügt.`);
       // Konvolut erfassen: gleich mit dem nächsten Artikel aus dem Paket weitermachen
-      if (!bearbeiten && p.konvolut && artikel.konvolut_id) navigiere('/neu', { konvolut: artikel.konvolut_id });
+      if (!bearbeiten && p.konvolut && artikel.konvolut_id) { verlassenFreigeben(); navigiere('/neu', { konvolut: artikel.konvolut_id }); }
       // Neu hinzugefügt: die Artikelseite fragt einmal nach einem fehlenden Foto
       else nachSpeichern(`/artikel/${artikel.id}`, bearbeiten ? undefined : { neu: 1 });
     } catch (fehlerObjekt) {
@@ -234,7 +238,7 @@ export default function ArtikelFormular({ route, artikelId }) {
 
   return (
     <Layout route={route} titel={bearbeiten ? 'Artikel bearbeiten' : 'Neuer Artikel'} zurueck>
-      <form onSubmit={speichern} className="mx-auto max-w-3xl space-y-4 pb-8" noValidate>
+      <form onSubmit={speichern} onInput={() => setBeruehrt(true)} className="mx-auto max-w-3xl space-y-4 pb-8" noValidate>
         <div className="karte flex gap-4 p-4">
           <Cover url={vorschauUrl} typ={werte.typ} alt="" className="h-32 w-24 shrink-0 rounded-xl" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">

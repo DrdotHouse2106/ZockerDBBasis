@@ -1,5 +1,5 @@
 // Minimaler Hash-Router: #/pfad?parameter=wert
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 function lesen() {
   const roh = window.location.hash.replace(/^#/, '') || '/';
@@ -37,9 +37,22 @@ const hashJetzt = () => window.location.hash.replace(/^#/, '') || '/';
 const pfadVon = (hash) => hash.split('?')[0] || '/';
 const verlauf = typeof window !== 'undefined' ? [hashJetzt()] : [];
 let ersetzen = false;
+// Schutz vor versehentlichem Verlassen (ungespeicherte Eingaben): { hash, frage } der geschützten Seite
+let schutz = null;
+let zuruecksetzen = false;
 if (typeof window !== 'undefined') {
-  window.addEventListener('hashchange', () => {
+  // Wird vor dem Listener von useRoute registriert – so lässt sich ein Seitenwechsel abfangen, bevor er angezeigt wird
+  window.addEventListener('hashchange', (ereignis) => {
     const h = hashJetzt();
+    if (zuruecksetzen) { zuruecksetzen = false; return; }
+    if (schutz && pfadVon(h) !== pfadVon(schutz.hash) && !window.confirm(schutz.frage)) {
+      // Abgebrochen (Zurück-Knopf, Wischgeste, Link): auf der Seite bleiben, Eingaben behalten
+      ereignis.stopImmediatePropagation();
+      zuruecksetzen = true;
+      window.location.replace(`#${schutz.hash}`);
+      return;
+    }
+    if (schutz && pfadVon(h) !== pfadVon(schutz.hash)) schutz = null;
     if (ersetzen) verlauf[verlauf.length - 1] = h;
     else if (verlauf.length > 1 && verlauf[verlauf.length - 2] === h) verlauf.pop(); // Zurück (Knopf, Wischgeste)
     else verlauf.push(h);
@@ -76,6 +89,26 @@ export function vorherigeSeite() {
   const aktuell = pfadVon(verlauf[verlauf.length - 1] ?? hashJetzt());
   for (let i = verlauf.length - 2; i >= 0; i--) if (pfadVon(verlauf[i]) !== aktuell) return pfadVon(verlauf[i]);
   return null;
+}
+
+/**
+ * Rückfrage beim Verlassen einer Seite mit ungespeicherten Eingaben – bei Zurück-Knopf, Wischgeste, Links, Neuladen
+ * und Schließen des Tabs. Liefert `freigeben()`: vor dem gewollten Weiterleiten nach dem Speichern aufrufen.
+ */
+export function useVerlassenSchutz(aktiv, frage = 'Du hast ungespeicherte Eingaben. Seite wirklich verlassen? Die Eingaben gehen dann verloren.') {
+  const frei = useRef(false);
+  useEffect(() => {
+    if (!aktiv || frei.current) return undefined;
+    const eintrag = { hash: hashJetzt(), frage };
+    schutz = eintrag;
+    const vorEntladen = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', vorEntladen);
+    return () => {
+      if (schutz === eintrag) schutz = null;
+      window.removeEventListener('beforeunload', vorEntladen);
+    };
+  }, [aktiv, frage]);
+  return useCallback(() => { frei.current = true; schutz = null; }, []);
 }
 
 /** Vergleicht einen Pfad mit einem Muster wie "/artikel/:id" und liefert die Platzhalter. */
