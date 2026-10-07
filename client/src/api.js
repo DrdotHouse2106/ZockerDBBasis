@@ -1,6 +1,7 @@
 // Dünne Hülle um fetch mit deutschen Fehlermeldungen.
 import { offlineFaehig, merke } from './offline.js';
 import { spracheTrifft } from '../../shared/sprachen.js';
+import { bereiteDateiVor } from './bilddatei.js';
 
 export class ApiFehler extends Error {
   constructor(meldung, status, felder, code) {
@@ -200,10 +201,10 @@ export const api = {
   medium: (id) => anfrage(`/api/medien/${id}`),
   mediumAendern: (id, daten) => anfrage(`/api/medien/${id}`, { methode: 'PUT', daten }),
   mediumLoeschen: (id) => anfrage(`/api/medien/${id}`, { methode: 'DELETE' }),
-  mediumHochladen: (artikelId, felder, datei, onFortschritt) => {
+  mediumHochladen: async (artikelId, felder, datei, onFortschritt) => {
     const formular = new FormData();
     for (const [k, v] of Object.entries(felder)) if (v !== undefined && v !== null && v !== '') formular.append(k, v);
-    formular.append('datei', datei);
+    formular.append('datei', await bereiteDateiVor(datei));
     return hochladenMitFortschritt(`/api/artikel/${artikelId}/medien`, formular, onFortschritt);
   },
 

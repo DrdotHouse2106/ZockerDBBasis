@@ -232,3 +232,17 @@ test('Barcode-Treffer: Hauptspiel vor Editionen und Zusatzinhalten, auch wenn di
     await server.stoppe();
   }
 });
+
+test('Early Access: das Erscheinungsjahr richtet sich nach der Vollversion', async () => {
+  const { erscheinungsDatum, spielZuEintrag } = await import('../server/services/igdb.js');
+  const sek = (d) => Date.parse(`${d}T00:00:00Z`) / 1000;
+  const enshrouded = {
+    id: 1, name: 'Enshrouded', first_release_date: sek('2024-01-24'),
+    release_dates: [{ date: sek('2024-01-24'), status: { name: 'Early Access' } }, { date: sek('2026-10-15'), status: { name: 'Full Release' } }],
+  };
+  assert.equal(erscheinungsDatum(enshrouded), sek('2026-10-15'));
+  assert.equal(spielZuEintrag(enshrouded).erscheinungsjahr, 2026);
+  // Nur Early Access bekannt → bleibt beim ersten Termin; ohne Vorabfassung zählt first_release_date
+  assert.equal(erscheinungsDatum({ ...enshrouded, release_dates: enshrouded.release_dates.slice(0, 1) }), sek('2024-01-24'));
+  assert.equal(erscheinungsDatum({ first_release_date: sek('1996-06-23'), release_dates: [{ date: sek('1996-06-23'), status: null }] }), sek('1996-06-23'));
+});

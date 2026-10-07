@@ -164,3 +164,18 @@ test('Fotos einer Variante zuordnen: nur passende, sichtbare Varianten', async (
     await server.stoppe();
   }
 });
+
+test('Abgebrochener Foto-Upload ergibt eine verständliche Meldung statt „Interner Serverfehler“', async () => {
+  const server = await starteTestServer();
+  try {
+    const anna = await server.registriere('anna');
+    const artikel = (await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Donkey Kong 64', plattform: 'Nintendo 64' } })).json;
+    const abgeschnitten = '--X\r\nContent-Disposition: form-data; name="art"\r\n\r\nfoto_vorne\r\n--X\r\n'
+      + 'Content-Disposition: form-data; name="datei"; filename="IMG_0001.jpg"\r\nContent-Type: image/jpeg\r\n\r\nabc';
+    const r = await anna.api(`/api/artikel/${artikel.id}/medien`, { methode: 'POST', headers: { 'Content-Type': 'multipart/form-data; boundary=X' }, formular: abgeschnitten });
+    assert.equal(r.status, 400);
+    assert.match(r.json.fehler, /nicht vollständig/);
+  } finally {
+    await server.stoppe();
+  }
+});

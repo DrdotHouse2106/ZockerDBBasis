@@ -38,11 +38,16 @@ function tastaturHaengt() {
   const vv = window.visualViewport;
   return Boolean(vv && !eingabeAktiv() && vv.scale <= 1.01 && window.innerHeight - vv.height > 100);
 }
-function tastaturReparieren() {
+// Zähler für die Messanzeige (zur Fehlersuche: greift die Reparatur überhaupt?)
+const reparaturen = { zeitgeber: 0, beruehrung: 0 };
+// `mitTastatur`: iOS reagiert auf Fokus aus einem Zeitgeber (ohne Berührung) oft gar nicht. Innerhalb einer Berührung
+// darf ein Feld die Tastatur wirklich öffnen – das sofortige Verlassen schließt sie und stellt die Ansicht wieder her.
+function tastaturReparieren(mitTastatur = false) {
   zuletztRepariert = Date.now();
+  reparaturen[mitTastatur ? 'beruehrung' : 'zeitgeber'] += 1;
   const feld = document.createElement('input');
   feld.setAttribute('aria-hidden', 'true');
-  feld.setAttribute('inputmode', 'none');
+  if (!mitTastatur) feld.setAttribute('inputmode', 'none');
   feld.tabIndex = -1;
   feld.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;pointer-events:none;border:0;padding:0';
   document.body.appendChild(feld);
@@ -59,6 +64,12 @@ setInterval(() => {
   // Erst nach kurzer Zeit eingreifen (Tastatur schließt gerade) und höchstens alle 3 Sekunden
   if (Date.now() - haengtSeit >= 700 && Date.now() - zuletztRepariert > 3000) tastaturReparieren();
 }, 400);
+// Hängt die Ansicht noch, repariert die nächste Berührung (außer auf Eingabefeldern, dort öffnet sich die Tastatur ohnehin)
+document.addEventListener('touchend', (e) => {
+  if (!tastaturHaengt() || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName ?? '')) return;
+  if (Date.now() - zuletztRepariert < 1000) return;
+  tastaturReparieren(true);
+}, { passive: true });
 
 // Messanzeige zur Fehlersuche (Fußleiste auf dem iPhone): einschalten unter Administration → Update oder mit
 // „?ansicht=messen“ in der Adresse, ausschalten dort bzw. mit „?ansicht=aus“. Zeigt die Maße, die der Browser meldet – sonst bleibt alles unverändert.
@@ -80,6 +91,7 @@ try {
         `vv.height ${vv?.height?.toFixed(1)}  vv.offsetTop ${vv?.offsetTop?.toFixed(1)}  scale ${vv?.scale?.toFixed(2)}`,
         `screen ${window.screen.height}  scrollY ${Math.round(window.scrollY)}  body ${document.documentElement.scrollHeight}`,
         `Leiste oben ${r ? Math.round(r.top) : '–'} unten ${r ? Math.round(r.bottom) : '–'}  Fokus ${document.activeElement?.tagName}`,
+        `Reparaturen Zeitgeber ${reparaturen.zeitgeber}  Berührung ${reparaturen.beruehrung}`,
       ].join('\n');
     };
     const anhaengen = () => { document.body.appendChild(box); zeigen(); };

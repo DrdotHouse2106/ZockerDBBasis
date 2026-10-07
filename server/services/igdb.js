@@ -26,7 +26,7 @@ function jahr(unixSekunden) {
 }
 
 /** Felder eines Spiels, die für einen Katalogeintrag gebraucht werden (auch mit Präfix, z. B. „similar_games.“). */
-export const SPIEL_FELDER = 'name, first_release_date, summary, cover.image_id, platforms.name, '
+export const SPIEL_FELDER = 'name, first_release_date, release_dates.date, release_dates.status.name, summary, cover.image_id, platforms.name, '
   + 'involved_companies.company.name, involved_companies.publisher, involved_companies.developer, '
   + 'alternative_names.name, alternative_names.comment, url, game_type.type, '
   + 'language_supports.language.locale, language_supports.language_support_type.name';
@@ -44,6 +44,21 @@ export function deutscherTitel(spiel) {
   return treffer?.name.trim() || null;
 }
 
+// Vorabfassungen: Early Access, Alpha, Beta (IGDB „release_date_statuses“)
+export const istVorabfassung = (status) => /early access|alpha|beta/i.test(String(status ?? ''));
+
+/**
+ * Erscheinungsdatum (Unix-Sekunden): IGDB nennt als „first_release_date“ auch den Start eines Early Access
+ * (Enshrouded: 24.01.2024, Vollversion 15.10.2026). Gibt es neben Vorabfassungen einen Termin der Vollversion, zählt dieser.
+ */
+export function erscheinungsDatum(spiel) {
+  const termine = (spiel.release_dates ?? []).filter((t) => t?.date > 0);
+  if (!termine.some((t) => istVorabfassung(t.status?.name ?? t.status))) return spiel.first_release_date ?? null;
+  const voll = termine.filter((t) => !istVorabfassung(t.status?.name ?? t.status) && !/cancel|offline/i.test(String(t.status?.name ?? t.status ?? '')))
+    .map((t) => t.date);
+  return voll.length ? Math.min(...voll) : spiel.first_release_date ?? null;
+}
+
 /** Wandelt ein IGDB-Spiel in einen vereinheitlichten Katalog-Datensatz um. */
 export function spielZuEintrag(spiel) {
   const firmen = spiel.involved_companies ?? [];
@@ -57,7 +72,7 @@ export function spielZuEintrag(spiel) {
     titel_original: deutsch && deutsch !== spiel.name ? spiel.name : null,
     igdb_url: igdbSeite(spiel.url),
     plattformen: (spiel.platforms ?? []).map((p) => p.name),
-    erscheinungsjahr: jahr(spiel.first_release_date),
+    erscheinungsjahr: jahr(erscheinungsDatum(spiel)),
     hersteller,
     cover_url: igdbBildUrl(spiel.cover?.image_id),
     beschreibung: spiel.summary ?? null,

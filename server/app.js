@@ -237,6 +237,10 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
         : 'Die Datei konnte nicht hochgeladen werden.';
       return res.status(400).json({ fehler: meldung });
     }
+    // Abgebrochene Übertragung (z. B. Foto wurde erst aus iCloud geladen, Verbindung weg) – kein Serverfehler
+    if (/Unexpected end of form|Malformed part header|Boundary not found|Request aborted/i.test(fehler.message ?? '')) {
+      return res.status(400).json({ fehler: 'Die Datei kam nicht vollständig an. Bitte erneut versuchen – liegt das Foto nur in iCloud, es vorher in Fotos öffnen oder exportieren.' });
+    }
     if (fehler.type === 'entity.parse.failed') return res.status(400).json({ fehler: 'Ungültige JSON-Daten.' });
     if (fehler.type === 'entity.too.large') return res.status(413).json({ fehler: 'Die Anfrage ist zu groß.' });
     if (fehler.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') return res.status(400).json({ fehler: 'Ein verknüpfter Eintrag existiert nicht.' });

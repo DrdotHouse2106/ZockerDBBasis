@@ -325,7 +325,7 @@ function FotoFormular({ artikelId, art, varianten, variante, teilenErlaubt, oeff
         <label className="knopf-sekundaer min-w-0 flex-1 cursor-pointer justify-center focus-within:ring-2 focus-within:ring-akzent">
           <Symbol name="kamera" className="size-4 shrink-0" />
           <span className="truncate">{datei ? datei.name : 'Foto aufnehmen oder auswählen'}</span>
-          <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label="Foto aufnehmen oder auswählen"
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="sr-only" aria-label="Foto aufnehmen oder auswählen"
             onChange={(e) => setDatei(e.target.files?.[0] ?? null)} />
         </label>
       </div>

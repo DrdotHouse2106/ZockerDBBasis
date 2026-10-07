@@ -11,6 +11,11 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Fotos aus Apple Fotos, Early Access, Menüleiste auf dem iPhone
+- Foto-Upload: Fotos werden vor dem Hochladen vollständig gelesen. Liegt ein Foto nur in iCloud oder bricht die Übertragung ab, erscheint eine verständliche Meldung statt „Interner Serverfehler“. HEIC-Fotos wandelt der Browser – wenn er es kann – vor dem Hochladen in JPEG um.
+- Spiele im Early Access (z. B. Enshrouded) bekommen als Erscheinungsjahr das Jahr der Vollversion, sobald IGDB es kennt. In den Erscheinungsterminen ist der Early-Access-Termin gekennzeichnet.
+- iPhone: Bleibt die Ansicht nach dem Schließen der Tastatur verschoben, repariert sie die nächste Berührung. Die Messanzeige zählt zusätzlich, wie oft repariert wurde.
+
 ## Katalogsuche: Suchfeld bleibt beim Tippen aktiv
 - Das Suchfeld im Katalog verlor nach jedem Buchstaben den Fokus, sobald neue Treffer geladen wurden. Jetzt bleibt es aktiv; die Seite springt beim Tippen auch nicht mehr nach oben.
 
