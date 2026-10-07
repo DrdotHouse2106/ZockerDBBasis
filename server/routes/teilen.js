@@ -25,7 +25,7 @@ function seite({ titel, beschreibung, inhalt }) {
 <body>
 <header class="kopf">
   <a class="marke" href="${APP_START}"><img src="/icons/icon.svg" alt="" width="28" height="28"><span>${esc(MARKE.name)}<small>${esc(MARKE.untertitel)}</small></span></a>
-  <a class="knopf" href="${APP_START}">Zur App</a>
+  <a class="knopf" href="${APP_START}" title="Läuft direkt im Browser – kein Download nötig">Sammlung öffnen</a>
 </header>
 <main>
 ${inhalt}

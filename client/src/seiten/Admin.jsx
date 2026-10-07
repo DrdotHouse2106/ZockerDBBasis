@@ -72,7 +72,7 @@ function Uebersicht({ d }) {
         <Kachel titel="Benutzer" wert={anzahl(d.benutzer)} hinweis={`+${d.neueBenutzer7Tage} in 7 Tagen`} href="#/admin?reiter=benutzer" />
         <Kachel titel="Moderationsteam" wert={anzahl(d.moderatoren)} hinweis="Admins & Moderatoren" href="#/admin?reiter=benutzer" />
         <Kachel titel="Mit 2FA" wert={`${anzahl(d.mitZweiFaktor)} / ${anzahl(d.benutzer)}`} />
-        <Kachel titel="Katalog (global)" wert={anzahl(d.katalogFreigegeben)} hinweis={`${anzahl(d.katalogPrivat)} private Einträge`} href="#/katalog" />
+        <Kachel titel="Katalog (global)" wert={anzahl(d.katalogFreigegeben)} hinweis={`${d.katalogGepflegt != null ? `davon ${anzahl(d.katalogGepflegt)} gepflegt (für Suchmaschinen sichtbar) · ` : ''}${anzahl(d.katalogPrivat)} private Einträge`} href="#/katalog" />
         <Kachel titel="Artikel in Sammlungen" wert={anzahl(d.artikel)} />
         <Kachel titel="Freigegebene Scans" wert={anzahl(d.medienFreigegeben)} />
         {d.speicher && <Kachel titel="Upload-Speicher gesamt" wert={dateigroesse(d.speicher.gesamt) || '0 KB'} />}
