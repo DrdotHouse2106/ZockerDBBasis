@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
   ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, DIGITAL_QUELLEN, istModerator,
-  beilagenAusVollstaendigkeit, vollstaendigkeitAusBeilagen, zustandBeschriftung, KAUFQUELLEN,
+  beilagenAusVollstaendigkeit, vollstaendigkeitAusBeilagen, zustandBeschriftung, KAUFQUELLEN, INLAY_MAENGEL, hatInlayZustand,
 } from '../../../shared/konstanten.js';
 import { usePlattformen } from '../plattformen.js';
 import { useSitzung } from '../sitzung.js';
@@ -28,7 +28,7 @@ const LEER = {
   typ: 'spiel', titel: '', plattform: '', plattform_id: null, variante_id: null, katalog_id: null, barcode: '', cover_url: '', zustand: '', vollstaendigkeit: '',
   region: 'pal_de', farbe: '', edition: '', modellnummer: '', seriennummer: '', notizen: '', kaufpreis: '', kaufdatum: '', anzahl: 1,
   marktwert: '', herkunft: '', konvolut_id: null, bestand: 'besitz', digital_quelle: null,
-  lagerort_ort: '', lagerort_regal: '', lagerort_fach: '', beilagen: null, seriennummer_ovp: '', privat: false, zustand_ovp: '',
+  lagerort_ort: '', lagerort_regal: '', lagerort_fach: '', beilagen: null, seriennummer_ovp: '', privat: false, zustand_ovp: '', zustand_inlay: '', inlay_maengel: '',
   neupreis: '', erstkauf_datum: '', erstkauf_quelle: '', kauf_quelle: '', beilagen_notiz: '', drucknummer: '',
 };
 
@@ -338,6 +338,33 @@ export default function ArtikelFormular({ route, artikelId }) {
               {(id) => <Auswahl id={id} wert={werte.zustand_ovp} onChange={setze('zustand_ovp')} optionen={ZUSTAENDE} />}
             </Feld>
           )}
+          {zeige('zustand_inlay') && hatInlayZustand(werte) && (
+            <>
+              <Feld label="Zustand Inlay (Cover-Einleger)" fehler={fehler.zustand_inlay}>
+                {(id) => <Auswahl id={id} wert={werte.zustand_inlay} onChange={setze('zustand_inlay')} optionen={ZUSTAENDE} />}
+              </Feld>
+              <fieldset className="sm:col-span-2">
+                <legend className="mb-1 text-sm text-leise">Mängel am Inlay (optional)</legend>
+                <div className="flex flex-wrap gap-2">
+                  {INLAY_MAENGEL.map((m) => {
+                    const liste = String(werte.inlay_maengel ?? '').split(',').filter(Boolean);
+                    const an = liste.includes(m.value);
+                    return (
+                      <button key={m.value} type="button" aria-pressed={an}
+                        className={`rounded-full border px-3 py-1 text-sm ${an ? 'border-akzent bg-akzent/15 text-text' : 'border-rand text-leise hover:bg-karte-hover'}`}
+                        onClick={() => setWerte((w) => {
+                          const alt = String(w.inlay_maengel ?? '').split(',').filter(Boolean);
+                          const neu = an ? alt.filter((x) => x !== m.value) : [...alt, m.value];
+                          return { ...w, inlay_maengel: INLAY_MAENGEL.map((x) => x.value).filter((x) => neu.includes(x)).join(',') };
+                        })}>
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            </>
+          )}
           <Feld label="Vollständigkeit" fehler={fehler.vollstaendigkeit}>
             {(id) => (
               <Auswahl id={id} wert={werte.vollstaendigkeit} optionen={VOLLSTAENDIGKEITEN}
@@ -352,12 +379,12 @@ export default function ArtikelFormular({ route, artikelId }) {
             <p className="-mt-1 text-xs text-leise sm:col-span-2">{ZUSTAENDE.find((z) => z.value === werte.zustand)?.beschreibung}</p>
           )}
           {werte.bestand !== 'digital' && (
-            <ZustandHilfe typ={werte.typ} zustand={werte.zustand} zustandOvp={werte.zustand_ovp}
-              mitOvp={zeige('zustand_ovp') && werte.vollstaendigkeit !== 'nur_geraet'} />
+            <ZustandHilfe typ={werte.typ} zustand={werte.zustand} zustandOvp={werte.zustand_ovp} zustandInlay={werte.zustand_inlay}
+              mitOvp={zeige('zustand_ovp') && werte.vollstaendigkeit !== 'nur_geraet'} mitInlay={zeige('zustand_inlay') && hatInlayZustand(werte)} />
           )}
           {beilagenSichtbar && (
             <>
-              <BeilagenCheckliste typ={werte.typ} wert={werte.beilagen}
+              <BeilagenCheckliste typ={werte.typ} plattform={werte.plattform} wert={werte.beilagen}
                 onChange={(b) => setWerte((w) => ({ ...w, beilagen: b, vollstaendigkeit: vollstaendigkeitAusBeilagen(b) ?? w.vollstaendigkeit }))} />
               <Feld label="Welche Beilagen genau? (optional)" fehler={fehler.beilagen_notiz} breit>
                 {(id) => <input id={id} className="eingabe" value={werte.beilagen_notiz} onChange={setze('beilagen_notiz')} maxLength={500}

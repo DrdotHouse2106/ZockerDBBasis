@@ -23,7 +23,7 @@ const FELDER = [
   'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert',
   'plattform_id', 'variante_id', 'herkunft', 'konvolut_id', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
   'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'zustand_ovp',
-  'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer',
+  'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer', 'zustand_inlay', 'inlay_maengel',
 ];
 
 export function artikelZuObjekt(zeile) {

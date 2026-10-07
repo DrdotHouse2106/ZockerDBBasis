@@ -711,6 +711,12 @@ const MIGRATIONEN = [
   ALTER TABLE benachrichtigungen ADD COLUMN sammel TEXT;
   ALTER TABLE benachrichtigungen ADD COLUMN anzahl INTEGER NOT NULL DEFAULT 1;
   `,
+  // 48: Zustand des Inlays (Cover-Einleger hinter der Folie) getrennt von der Hülle, dazu typische Mängel
+  //     als kommagetrennte Schlüssel (z. B. „eingerissen,wasserschaden“)
+  `
+  ALTER TABLE artikel ADD COLUMN zustand_inlay TEXT;
+  ALTER TABLE artikel ADD COLUMN inlay_maengel TEXT;
+  `,
 ];
 
 export function oeffneDatenbank(dateipfad) {

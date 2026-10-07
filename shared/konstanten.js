@@ -192,31 +192,37 @@ export const ZUSTAND_HILFE = {
     traeger: 'Ungespielt, noch eingeschweißt.',
     geraet: 'Unbenutzt, original verpackt bzw. versiegelt.',
     ovp: 'Original eingeschweißt (Folie intakt), keine Druckstellen.',
+    inlay: 'Unberührt hinter der Folie.',
   },
   wie_neu: {
     traeger: 'Keine Kratzer bzw. Spuren, Etikett makellos, Kontakte blank.',
     geraet: 'Keine Kratzer, nicht vergilbt, alle Funktionen einwandfrei.',
     ovp: 'Geöffnet, aber ohne Knicke, Risse oder Verfärbungen; Cover sauber.',
+    inlay: 'Farben satt, keine Knicke, Risse oder Flecken.',
   },
   sehr_gut: {
     traeger: 'Einzelne feine Kratzer, nur im Gegenlicht sichtbar; Etikett vollständig.',
     geraet: 'Leichte Gebrauchsspuren, kaum sichtbare Kratzer, kaum vergilbt.',
     ovp: 'Leichte Lagerspuren (Ecken minimal bestoßen), keine Risse, keine Aufkleber.',
+    inlay: 'Minimal gewellt oder ein leichter Knick am Rand, sonst einwandfrei.',
   },
   gut: {
     traeger: 'Sichtbare Kratzer, läuft aber fehlerfrei; Etikett mit kleinen Spuren.',
     geraet: 'Deutliche Gebrauchsspuren oder Vergilbung, voll funktionsfähig.',
     ovp: 'Knicke, bestoßene Ecken oder kleiner Riss; Preisaufkleber oder Beschriftung.',
+    inlay: 'Sichtbare Knicke, leicht verblichen, kleiner Riss oder Beschriftung.',
   },
   akzeptabel: {
     traeger: 'Viele oder tiefe Kratzer, Etikett beschädigt bzw. beschriftet – läuft noch.',
     geraet: 'Starke Spuren, Risse im Gehäuse oder Teile fehlen, funktioniert noch.',
     ovp: 'Stark beschädigt: Risse, Wasserschaden, fehlende Laschen, zerbrochene Hülle.',
+    inlay: 'Deutlich eingerissen, Wasserschaden, stark verblichen oder Teile fehlen.',
   },
   defekt: {
     traeger: 'Lädt nicht, hängt oder bricht ab (z. B. gebrochene Disc, korrodierte Kontakte).',
     geraet: 'Startet nicht oder wichtige Funktionen fallen aus.',
     ovp: 'Nur noch in Teilen vorhanden oder unbrauchbar.',
+    inlay: 'Nur noch in Resten vorhanden oder durch eine Kopie ersetzt.',
   },
 };
 
@@ -224,6 +230,7 @@ export const ZUSTAND_HILFE = {
 export const AUSBLENDBARE_FELDER = [
   { value: 'region', label: 'Region' },
   { value: 'zustand_ovp', label: 'Zustand der Hülle / OVP' },
+  { value: 'zustand_inlay', label: 'Zustand des Inlays (Disc-Spiele)' },
   { value: 'farbe', label: 'Farbe / Sonderfarbe' },
   { value: 'edition', label: 'Edition / Variante' },
   { value: 'modellnummer', label: 'Modellnummer' },
@@ -299,6 +306,7 @@ export const BEILAGEN = {
     { value: 'ovp', label: 'OVP / Hülle' },
     { value: 'anleitung', label: 'Anleitung' },
     { value: 'inlay', label: 'Inlay / Schutzhülle' },
+    { value: 'steelbook', label: 'Steelbook' },
     { value: 'poster', label: 'Poster / Karte' },
     { value: 'registrierkarte', label: 'Registrierkarte' },
     { value: 'beilagen', label: 'Werbebeilagen / Kataloge' },
@@ -318,6 +326,33 @@ export const BEILAGEN = {
     { value: 'kabel', label: 'Kabel' },
   ],
 };
+
+/**
+ * Beilagen-Liste mit passender Beschriftung je Datenträger: Bei Disc-Spielen ist „Inlay“ der Cover-Einleger hinter der
+ * Folie der Hülle, bei Modul-Spielen die Plastik-Schutzhülle bzw. der Einsatz im Karton. Der Schlüssel bleibt „inlay“.
+ */
+export function beilagenFuer(typ, plattform = null) {
+  const liste = BEILAGEN[typ] ?? BEILAGEN.spiel;
+  if ((typ ?? 'spiel') !== 'spiel') return liste;
+  const traeger = plattform ? datentraegerVon(plattform) : null;
+  const label = traeger === 'disc' ? 'Inlay / Cover-Einleger' : traeger === 'modul' ? 'Schutzhülle / Einsatz' : 'Inlay / Schutzhülle';
+  return liste.map((b) => (b.value === 'inlay' ? { ...b, label } : b));
+}
+
+/** Typische Mängel am Inlay (Cover-Einleger hinter der Folie der Hülle). */
+export const INLAY_MAENGEL = [
+  { value: 'eingerissen', label: 'Eingerissen' },
+  { value: 'wasserschaden', label: 'Wasserschaden / gewellt' },
+  { value: 'verblichen', label: 'Verblichen' },
+  { value: 'beschriftet', label: 'Beschriftet' },
+  { value: 'aufkleber', label: 'Aufkleber / Klebereste' },
+  { value: 'geknickt', label: 'Geknickt' },
+  { value: 'kopie', label: 'Kopie / Nachdruck' },
+];
+
+/** Gibt es bei diesem Exemplar ein Inlay zu bewerten? Nur Disc-Spiele (bzw. unbekannter Datenträger) mit Hülle. */
+export const hatInlayZustand = ({ typ, plattform, bestand, vollstaendigkeit }) => typ === 'spiel' && bestand !== 'digital'
+  && vollstaendigkeit !== 'nur_geraet' && (plattform ? datentraegerVon(plattform) : null) !== 'modul';
 
 /**
  * Beilagen-Werte: true = vorhanden, false = fehlt, Zahl ≥ 2 = so viele Stück vorhanden (z. B. drei Werbebeilagen).
@@ -379,6 +414,7 @@ export const ALLE_WERTE = {
   typ: ARTIKELTYPEN.map((e) => e.value),
   zustand: ZUSTAENDE.map((e) => e.value),
   zustand_ovp: ZUSTAENDE.map((e) => e.value),
+  zustand_inlay: ZUSTAENDE.map((e) => e.value),
   kauf_quelle: KAUFQUELLEN.map((e) => e.value),
   vollstaendigkeit: VOLLSTAENDIGKEITEN.map((e) => e.value),
   region: REGIONEN.map((e) => e.value),

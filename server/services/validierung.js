@@ -1,4 +1,4 @@
-import { ALLE_WERTE, BEILAGEN } from '../../shared/konstanten.js';
+import { ALLE_WERTE, BEILAGEN, INLAY_MAENGEL } from '../../shared/konstanten.js';
 
 const BEILAGEN_SCHLUESSEL = new Set(Object.values(BEILAGEN).flat().map((b) => b.value));
 
@@ -28,7 +28,7 @@ const TEXTFELDER = {
   beilagen_notiz: 500,
 };
 
-const AUSWAHLFELDER = ['zustand', 'zustand_ovp', 'vollstaendigkeit', 'region', 'herkunft', 'spielstatus', 'kauf_quelle'];
+const AUSWAHLFELDER = ['zustand', 'zustand_ovp', 'zustand_inlay', 'vollstaendigkeit', 'region', 'herkunft', 'spielstatus', 'kauf_quelle'];
 
 /** Datum TT.MM.JJJJ-frei: JJJJ-MM-TT, plausibel. */
 const gueltigerTag = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d)) && Number(d.slice(0, 4)) >= 1950 && Number(d.slice(0, 4)) <= 2100;
@@ -153,6 +153,13 @@ export function pruefeArtikel(eingabe, teilweise = false) {
         .map(([k, v]) => [k, v === 1 ? true : v]));
       daten.beilagen = Object.keys(liste).length ? JSON.stringify(liste) : null;
     }
+  }
+
+  // Mängel am Inlay: Liste bekannter Schlüssel (auch als Text „eingerissen,verblichen“), leer = null
+  if (!teilweise || hat('inlay_maengel')) {
+    const roh = Array.isArray(eingabe.inlay_maengel) ? eingabe.inlay_maengel : String(eingabe.inlay_maengel ?? '').split(',');
+    const bekannt = INLAY_MAENGEL.map((m) => m.value).filter((w) => roh.map((x) => String(x).trim()).includes(w));
+    daten.inlay_maengel = bekannt.length ? bekannt.join(',') : null;
   }
 
   // Privat: nur für den Besitzer sichtbar (auch aus Formularen als „true“/„1“/„on“)

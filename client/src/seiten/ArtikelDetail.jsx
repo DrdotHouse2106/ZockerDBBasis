@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, BEILAGEN, beschriftung, beilageText, beilageVorhanden, beilageOhne, zustandBeschriftung, KAUFQUELLEN,
+  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, beilagenFuer, INLAY_MAENGEL, beschriftung, beilageText, beilageVorhanden, beilageOhne, zustandBeschriftung, KAUFQUELLEN,
 } from '../../../shared/konstanten.js';
 import { deutschKurz } from '../../../shared/sprachen.js';
 import { api } from '../api.js';
@@ -238,6 +238,9 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     ['Sprache', artikel.typ === 'spiel' ? deutschKurz(artikel.katalog_sprachen) : null],
     [artikel.zustand_ovp ? zustandBeschriftung(artikel.typ).traeger : 'Zustand', beschriftung(ZUSTAENDE, artikel.zustand)],
     [zustandBeschriftung(artikel.typ).ovp, artikel.zustand_ovp ? beschriftung(ZUSTAENDE, artikel.zustand_ovp) : null],
+    ['Zustand Inlay', [artikel.zustand_inlay && beschriftung(ZUSTAENDE, artikel.zustand_inlay),
+      ...String(artikel.inlay_maengel ?? '').split(',').filter(Boolean).map((m) => INLAY_MAENGEL.find((x) => x.value === m)?.label ?? m)]
+      .filter(Boolean).join(' · ') || null],
     ['Vollständigkeit', beschriftung(VOLLSTAENDIGKEITEN, artikel.vollstaendigkeit)],
     ['Farbe', artikel.farbe],
     ['Edition/Variante', artikel.edition],
@@ -489,7 +492,7 @@ function Preisgeschichte({ artikel: a }) {
 /** Beilagen als Text: „✓ Anleitung, ✓ OVP, ✗ Poster“. */
 function beilagenText(a) {
   if (!a.beilagen || typeof a.beilagen !== 'object') return null;
-  const liste = BEILAGEN[a.typ] ?? BEILAGEN.spiel;
+  const liste = beilagenFuer(a.typ, a.plattform);
   const teile = liste.filter((b) => b.value in a.beilagen).map((b) => beilageText(b.label, a.beilagen[b.value]));
   if (!teile.length) return null;
   // Automatisch: vollständig (CIB), wenn OVP und Anleitung da sind und nichts als fehlend markiert ist

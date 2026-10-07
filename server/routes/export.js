@@ -125,7 +125,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
       'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'plattform_id',
       'herkunft', 'konvolut_id', 'kaufpreis_anteilig', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
       'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'importiert_aus', 'zustand_ovp',
-      'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer'];
+      'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer', 'zustand_inlay', 'inlay_maengel'];
     const einfuegen = db.prepare(`INSERT INTO artikel (${felder.join(', ')}) VALUES (${felder.map((f) => `@${f}`).join(', ')}) RETURNING id`);
     const wartungEinfuegen = db.prepare('INSERT INTO wartungen (artikel_id, benutzer_id, art, datum, notiz) VALUES (?, ?, ?, ?, ?)');
     const wartungenJe = new Map();

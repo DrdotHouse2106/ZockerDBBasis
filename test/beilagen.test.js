@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { beilagenAusVollstaendigkeit, vollstaendigkeitAusBeilagen, beilageText } from '../shared/konstanten.js';
+import { starteTestServer } from './hilfen.js';
 
 test('Vollständigkeit → Beilagen (andere Beilagen bleiben, Anzahlen auch)', () => {
   assert.deepEqual(beilagenAusVollstaendigkeit('cib', null), { ovp: true, anleitung: true });
@@ -32,4 +33,33 @@ test('Inlay (Cover) löst kein Foto „Beilagen“ aus, andere Beilagen schon', 
   const ps4 = { kurz: 'PS4', name: 'PlayStation 4' };
   assert.ok(!gesuchteFotos('spiel', ps4, { beilagen: { ovp: true, inlay: true } }).includes('foto_beilagen'));
   assert.ok(gesuchteFotos('spiel', ps4, { beilagen: { ovp: true, inlay: true, poster: true } }).includes('foto_beilagen'));
+});
+
+test('Inlay: Beschriftung je Datenträger, eigener Zustand mit Mängeln, Steelbook als Beilage', async () => {
+  const { beilagenFuer, hatInlayZustand } = await import('../shared/konstanten.js');
+  const label = (p) => beilagenFuer('spiel', p).find((b) => b.value === 'inlay').label;
+  assert.equal(label('PlayStation 4'), 'Inlay / Cover-Einleger');
+  assert.equal(label('Nintendo 64'), 'Schutzhülle / Einsatz');
+  assert.equal(label(null), 'Inlay / Schutzhülle');
+  assert.ok(beilagenFuer('spiel').some((b) => b.value === 'steelbook'));
+  assert.equal(hatInlayZustand({ typ: 'spiel', plattform: 'PlayStation 2', vollstaendigkeit: 'cib' }), true);
+  assert.equal(hatInlayZustand({ typ: 'spiel', plattform: 'Game Boy', vollstaendigkeit: 'cib' }), false);
+  assert.equal(hatInlayZustand({ typ: 'spiel', plattform: 'PlayStation 2', vollstaendigkeit: 'nur_geraet' }), false);
+
+  const server = await starteTestServer();
+  try {
+    const anna = await server.registriere('anna');
+    const r = await anna.api('/api/artikel', { methode: 'POST', daten: {
+      typ: 'spiel', titel: 'Gran Turismo 4', plattform: 'PlayStation 2', zustand_inlay: 'gut',
+      inlay_maengel: ['wasserschaden', 'quatsch', 'eingerissen'], beilagen: { steelbook: true },
+    } });
+    assert.equal(r.status, 201, r.text);
+    assert.equal(r.json.zustand_inlay, 'gut');
+    assert.equal(r.json.inlay_maengel, 'eingerissen,wasserschaden', 'nur bekannte Mängel, feste Reihenfolge');
+    assert.equal(r.json.beilagen.steelbook, true);
+    const falsch = await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'X', zustand_inlay: 'kaputt' } });
+    assert.equal(falsch.status, 400);
+  } finally {
+    await server.stoppe();
+  }
 });

@@ -11,6 +11,11 @@ Sammler sehen neue Einträge nach einem Update unter „Neu seit deinem letzten 
 oder die Moderation, direkt unter die Überschrift „<!-- für: admin -->“ bzw. „<!-- für: moderation -->“ schreiben.
 -->
 
+## Inlay, Schutzhülle und Steelbook
+- Die Beilage „Inlay / Schutzhülle“ heißt jetzt passend zur Plattform: bei Disc-Spielen „Inlay / Cover-Einleger“, bei Modul-Spielen „Schutzhülle / Einsatz“. Bestehende Angaben bleiben erhalten.
+- Neu bei Disc-Spielen: eigener „Zustand Inlay (Cover-Einleger)“ und typische Mängel zum Antippen (eingerissen, Wasserschaden, verblichen, beschriftet, Aufkleber, geknickt, Kopie). Die Bewertungshilfe erklärt auch die Stufen fürs Inlay. Das Feld lässt sich im Konto ausblenden.
+- Neue Beilage „Steelbook“.
+
 ## Fotos aus Apple Fotos, Early Access, Menüleiste auf dem iPhone
 - Foto-Upload: Fotos werden vor dem Hochladen vollständig gelesen. Liegt ein Foto nur in iCloud oder bricht die Übertragung ab, erscheint eine verständliche Meldung statt „Interner Serverfehler“. HEIC-Fotos wandelt der Browser – wenn er es kann – vor dem Hochladen in JPEG um.
 - Spiele im Early Access (z. B. Enshrouded) bekommen als Erscheinungsjahr das Jahr der Vollversion, sobald IGDB es kennt. In den Erscheinungsterminen ist der Early-Access-Termin gekennzeichnet.

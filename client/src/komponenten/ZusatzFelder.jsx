@@ -1,6 +1,6 @@
 // Zuschaltbare Zusatzfelder am Exemplar (Profil → Konto → „Zusätzliche Felder“): Lagerort, Beilagen & Seriennummer der OVP.
 import { useEffect, useId, useState } from 'react';
-import { BEILAGEN, BEILAGE_OHNE, beilageOhne, beilageVorhanden, seriennummerPasst } from '../../../shared/konstanten.js';
+import { beilagenFuer, BEILAGE_OHNE, beilageOhne, beilageVorhanden, seriennummerPasst } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 
 /** Lagerort in drei Stufen mit Vorschlägen aus den bereits verwendeten Orten. */
@@ -32,8 +32,8 @@ export function LagerortFelder({ werte, setze, fehler = {} }) {
 
 
 /** Beilagen-Checkliste je Artikeltyp: Tippen wechselt zwischen „keine Angabe“, „vorhanden“, „fehlt“ und „gab es nicht“. */
-export function BeilagenCheckliste({ typ, wert, onChange }) {
-  const liste = BEILAGEN[typ] ?? BEILAGEN.spiel;
+export function BeilagenCheckliste({ typ, plattform, wert, onChange }) {
+  const liste = beilagenFuer(typ, plattform);
   const aktuell = wert && typeof wert === 'object' ? wert : {};
   const setze = (schluessel, w) => {
     const neu = { ...aktuell };
