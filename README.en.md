@@ -1,5 +1,7 @@
 # 🎮 ZockerDB Basis
 
+[![Buy me a coffee](https://img.shields.io/badge/☕_Buy_me_a_coffee-PayPal-0070ba?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/DrdotHouse)
+
 **Your game collection, self-hosted – mobile-first, German user interface.**
 
 > 🇩🇪 The primary documentation is in German: [README.md](README.md). The app's user interface is German only.
@@ -50,3 +52,10 @@ npm run build
 
 [PolyForm Noncommercial License 1.0.0](LICENSE) – free for personal, hobby and non-profit use; commercial use requires permission.
 Game data and cover art provided by [IGDB.com](https://www.igdb.com).
+
+## ☕ Support
+
+If this project saves you work, I'd be happy about a coffee – voluntary, no support
+obligation, just a nice gesture:
+
+[![Buy me a coffee](https://img.shields.io/badge/☕_Buy_me_a_coffee-PayPal-0070ba?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/DrdotHouse)

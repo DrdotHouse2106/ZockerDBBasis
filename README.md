@@ -1,5 +1,7 @@
 # 🎮 ZockerDB Basis
 
+[![Spendier mir einen Kaffee](https://img.shields.io/badge/☕_Spendier_mir_einen_Kaffee-PayPal-0070ba?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/DrdotHouse)
+
 **Deine Spielesammlung selbst gehostet – mobil, auf Deutsch, auf deinem eigenen Server.**
 
 <p><img src="client/public/icons/icon.svg" alt="ZockerDB-Logo" width="96"></p>
@@ -218,3 +220,10 @@ Entwicklung von zockerdb.de aktualisiert; Pull Requests werden dort übernommen 
 **[PolyForm Noncommercial License 1.0.0](LICENSE)** ([deutsche Zusammenfassung](LIZENZ.md)): private, Hobby- und
 gemeinnützige Nutzung ist erlaubt – inklusive Selbsthosting für dich, Familie, Freunde oder deinen Verein.
 Kommerzielle Nutzung nur mit gesonderter Erlaubnis. Spieldaten und Coverbilder stammen von [IGDB.com](https://www.igdb.com).
+
+## ☕ Unterstützen
+
+Wenn dir dieses Projekt Arbeit erspart, freue ich mich über einen Kaffee – freiwillig, ohne
+Support-Anspruch, einfach eine nette Geste:
+
+[![Spendier mir einen Kaffee](https://img.shields.io/badge/☕_Spendier_mir_einen_Kaffee-PayPal-0070ba?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/DrdotHouse)
