@@ -2,6 +2,9 @@
 
 [![Buy me a coffee](https://img.shields.io/badge/☕_Buy_me_a_coffee-PayPal-0070ba?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/DrdotHouse)
 
+> [!TIP]
+> **Testers wanted!** Want to try my apps before everyone else – on iPhone, Android, Fire TV, Android TV or LG webOS? Send a short e-mail to **tester.entwickler@zockerdb.de** with your name, your devices and the e-mail address of your Apple ID or Google account. I'll add you and let you know whenever there is a new app or version to test. Your details stay private and are only used for this.
+
 **Your game collection, self-hosted – mobile-first, German user interface.**
 
 > 🇩🇪 The primary documentation is in German: [README.md](README.md). The app's user interface is German only.

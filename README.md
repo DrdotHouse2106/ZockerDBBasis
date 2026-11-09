@@ -2,6 +2,9 @@
 
 [![Spendier mir einen Kaffee](https://img.shields.io/badge/☕_Spendier_mir_einen_Kaffee-PayPal-0070ba?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/DrdotHouse)
 
+> [!TIP]
+> **Tester gesucht!** Du möchtest meine Apps vor allen anderen ausprobieren – auf iPhone, Android, Fire TV, Android TV oder LG webOS? Schreib eine kurze E-Mail an **tester.entwickler@zockerdb.de** mit deinem Namen, deinen Geräten und der E-Mail-Adresse deiner Apple-ID bzw. deines Google-Kontos. Ich trage dich ein, und du bekommst Bescheid, sobald es eine neue App oder Version zum Testen gibt. Deine Angaben bleiben privat und werden nur dafür verwendet.
+
 **Deine Spielesammlung selbst gehostet – mobil, auf Deutsch, auf deinem eigenen Server.**
 
 <p><img src="client/public/icons/icon.svg" alt="ZockerDB-Logo" width="96"></p>
