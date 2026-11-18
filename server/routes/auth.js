@@ -295,7 +295,8 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
   router.post('/auth/passwort-zuruecksetzen', async (req, res) => {
     if (drossel.gesperrt(req.ip)) return res.status(429).json({ fehler: ZU_VIELE });
     try {
-      await kontoMail.zuruecksetzen(req.body?.token, req.body?.neuesPasswort);
+      const b = await kontoMail.zuruecksetzen(req.body?.token, req.body?.neuesPasswort);
+      await erweiterungen.fuehreAus('konto.abgemeldet', b.id);
     } catch (e) {
       if (e instanceof KontoFehler) drossel.fehlschlag(req.ip);
       throw e;
@@ -412,12 +413,15 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     pruefeNeuesPasswort(req.body?.neuesPasswort, 'neuesPasswort');
     await konten.aenderePasswort(req.benutzer.id, req.body.neuesPasswort);
     konten.beendeAndereSitzungen(req.benutzer.id, req.sitzungHash);
+    // Zusatzmodule widerrufen dauerhafte Zugänge (z. B. Sync-Schlüssel), wie die Sitzungen der anderen Geräte
+    await erweiterungen.fuehreAus('konto.abgemeldet', req.benutzer.id);
     await kontoMail.sicherheitshinweis(req.benutzer, 'Dein Passwort wurde geändert', 'Das Passwort deines Kontos wurde gerade in den Kontoeinstellungen geändert. Andere Geräte wurden abgemeldet.');
     res.json({ ok: true });
   });
 
-  router.post('/konto/abmelden-ueberall', angemeldet, (req, res) => {
+  router.post('/konto/abmelden-ueberall', angemeldet, async (req, res) => {
     konten.beendeAndereSitzungen(req.benutzer.id, req.sitzungHash);
+    await erweiterungen.fuehreAus('konto.abgemeldet', req.benutzer.id);
     res.json({ ok: true });
   });
 

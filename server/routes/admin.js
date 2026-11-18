@@ -305,6 +305,7 @@ export function adminRouter({ db, konten, dateien, kontoLoeschung, speicher, sic
     await bestaetigeAdminEingriff(req, b);
     await konten.aenderePasswort(b.id, req.body?.neuesPasswort);
     konten.beendeAlleSitzungen(b.id);
+    await erweiterungen.fuehreAus('konto.abgemeldet', b.id);
     res.json({ ok: true });
   });
 
