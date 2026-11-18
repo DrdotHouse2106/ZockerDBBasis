@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, MEDIENARTEN, PRUEFSTATUS, ROLLEN,
+  ARTIKELTYPEN, MERCH_KATEGORIEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, MEDIENARTEN, PRUEFSTATUS, ROLLEN,
 } from '../../shared/konstanten.js';
 
 export function statusRouter({ igdb, barcode, plattformen, konfiguration, version, erweiterungen, ideen }) {
@@ -30,7 +30,7 @@ export function statusRouter({ igdb, barcode, plattformen, konfiguration, versio
 
   router.get('/meta', (_req, res) => {
     res.json({
-      ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, MEDIENARTEN, PRUEFSTATUS, ROLLEN,
+      ARTIKELTYPEN, MERCH_KATEGORIEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, MEDIENARTEN, PRUEFSTATUS, ROLLEN,
       PLATTFORMEN: plattformen.alle(),
     });
   });

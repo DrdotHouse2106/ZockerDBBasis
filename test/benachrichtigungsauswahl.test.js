@@ -20,7 +20,7 @@ test('Benachrichtigungen je Art und Kanal abschalten; Konto & Sicherheit bleibt 
     let a = (await nutzer.api('/api/benachrichtigungen/auswahl')).json;
     assert.equal(a.kanaele.email, true);
     assert.equal(a.kanaele.email_an, true);
-    assert.ok(a.kategorien.every((k) => k.app && k.email && k.push));
+    assert.ok(a.kategorien.every((k) => k.app && (k.email || k.ohne_email) && k.push), 'alles an – außer E-Mail bei Kategorien ohne E-Mail');
     assert.equal(a.kategorien.some((k) => k.id === 'moderation'), false);
     assert.ok((await admin.api('/api/benachrichtigungen/auswahl')).json.kategorien.some((k) => k.id === 'moderation'));
 

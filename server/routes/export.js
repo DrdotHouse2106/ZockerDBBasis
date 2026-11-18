@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, WARTUNGSARTEN, beschriftung,
+  ARTIKELTYPEN, MERCH_KATEGORIEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, WARTUNGSARTEN, beschriftung,
 } from '../../shared/konstanten.js';
 import { pruefeArtikel, pruefeKatalogEintrag, ValidierungsFehler } from '../services/validierung.js';
 
@@ -10,6 +10,8 @@ const CSV_SPALTEN = [
   ['typ', 'Artikeltyp', (w) => beschriftung(ARTIKELTYPEN, w)],
   ['titel', 'Titel'],
   ['plattform', 'Plattform'],
+  ['merch_kategorie', 'Merch-Kategorie', (w) => beschriftung(MERCH_KATEGORIEN, w)],
+  ['spiel_titel', 'Gehört zu (Spiel)'],
   ['region', 'Region', (w) => beschriftung(REGIONEN, w)],
   ['zustand', 'Zustand', (w) => beschriftung(ZUSTAENDE, w)],
   ['vollstaendigkeit', 'Vollständigkeit', (w) => beschriftung(VOLLSTAENDIGKEITEN, w)],
@@ -57,7 +59,11 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
     const konvolute = db.prepare('SELECT * FROM konvolute WHERE benutzer_id = ? ORDER BY id').all(req.benutzer.id).map(({ benutzer_id: _b, ...rest }) => rest);
     // Wartungsverlauf gehört zum Exemplar (über die alte Artikel-ID zugeordnet)
     const wartungen = db.prepare('SELECT artikel_id, art, datum, notiz FROM wartungen WHERE benutzer_id = ? ORDER BY id').all(req.benutzer.id);
-    res.json({ format: 'zockerdb', version: 1, exportiert_am: new Date().toISOString(), artikel, eigeneKatalogeintraege, konvolute, wartungen });
+    // Andockpunkt „export.json“ (benutzerId): Zusatzmodule ergänzen eigene Daten zum Exemplar (über die Artikel-ID zugeordnet)
+    res.json({
+      format: 'zockerdb', version: 1, exportiert_am: new Date().toISOString(), artikel, eigeneKatalogeintraege, konvolute, wartungen,
+      ...erweiterungen.sammle('export.json', req.benutzer.id),
+    });
   });
 
   /**
@@ -69,7 +75,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
     const alle = (sql) => db.prepare(sql).all(b);
     const konto = db.prepare(`SELECT id, benutzername, anzeigename, email, rolle, gesperrt, totp_aktiv, sammlung_oeffentlich, benachrichtigung_email, steam_id,
         freigabe_token IS NOT NULL AS freigabe_link_aktiv, freigabe_wert, speicher_limit_mb, bedingungen_akzeptiert_am, erstellt_am, letzte_anmeldung,
-        funktionen, meine_systeme, touren
+        funktionen, meine_systeme, touren, freistellen_helfer, freistellen_hilft, avatar_symbol, avatar_farbe, avatar_datei
       FROM benutzer WHERE id = ?`).get(b);
     const json = (w) => { try { return w ? JSON.parse(w) : null; } catch { return null; } };
     res.attachment(`zockerdb-datenauskunft-${datumHeute()}.json`);
@@ -80,9 +86,11 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
       angemeldete_geraete: alle('SELECT geraet, erstellt_am, laeuft_ab FROM sitzungen WHERE benutzer_id = ? AND stufe = \'voll\' ORDER BY erstellt_am'),
       sammlung: alle('SELECT * FROM artikel WHERE benutzer_id = ? ORDER BY id').map(({ benutzer_id: _b, ...rest }) => rest),
       konvolute: alle('SELECT * FROM konvolute WHERE benutzer_id = ? ORDER BY id').map(({ benutzer_id: _b, ...rest }) => rest),
-      eigene_katalogeintraege: alle("SELECT id, typ, titel, plattformen, erscheinungsjahr, hersteller, status, erstellt_am FROM katalog WHERE erstellt_von = ? ORDER BY id"),
+      eigene_katalogeintraege: alle("SELECT id, typ, titel, plattformen, erscheinungsjahr, hersteller, status, serie_id, serien_nummer, erstellt_am FROM katalog WHERE erstellt_von = ? ORDER BY id"),
+      gefolgte_serien: alle('SELECT s.id, s.name, f.erstellt_am FROM serien_folgen f JOIN serien s ON s.id = f.serie_id WHERE f.benutzer_id = ? ORDER BY s.name'),
+      eigene_serien: alle('SELECT id, name, ueber_id, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, status, erstellt_am FROM serien WHERE erstellt_von = ? ORDER BY id'),
       // Inkl. Einwilligung zur öffentlichen Anzeige von Fotos (mit Zeitpunkt) und Namensnennung
-      scans_und_dokumente: alle(`SELECT id, katalog_id, art, titel, sichtbarkeit, originalname, mime, groesse, erstellt_am,
+      scans_und_dokumente: alle(`SELECT id, katalog_id, art, titel, sichtbarkeit, originalname, mime, groesse, erstellt_am, frei_status,
         oeffentlich_erlaubt, oeffentlich_erlaubt_am, name_nennen, oeffentlich FROM medien WHERE benutzer_id = ? ORDER BY id`),
       kommentare: alle('SELECT katalog_id, text, erstellt_am, aktualisiert_am FROM kommentare WHERE benutzer_id = ? ORDER BY id'),
       wartungen: alle('SELECT artikel_id, art, datum, notiz, erstellt_am FROM wartungen WHERE benutzer_id = ? ORDER BY id'),
@@ -96,8 +104,9 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
 
   // CSV im deutschen Excel-Format: Semikolon als Trenner, Dezimalkomma, UTF-8 mit BOM.
   router.get('/export.csv', (req, res) => {
-    const artikel = db.prepare(`SELECT a.*, k.name AS konvolut_name,
+    const artikel = db.prepare(`SELECT a.*, k.name AS konvolut_name, sk.titel AS spiel_titel,
         NULLIF(concat_ws(' › ', a.lagerort_ort, a.lagerort_regal, a.lagerort_fach), '') AS lagerort FROM artikel a LEFT JOIN konvolute k ON k.id = a.konvolut_id
+        LEFT JOIN katalog sk ON sk.id = a.spiel_katalog_id
       WHERE a.benutzer_id = ? ORDER BY a.titel COLLATE NOCASE`).all(req.benutzer.id);
     const zeilen = [
       CSV_SPALTEN.map(([, kopf]) => csvFeld(kopf)).join(';'),
@@ -112,6 +121,12 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
     const daten = req.body;
     const liste = Array.isArray(daten) ? daten : daten?.artikel;
     if (!Array.isArray(liste)) return res.status(400).json({ fehler: 'Unbekanntes Dateiformat. Bitte eine Export-Datei dieser App verwenden.' });
+    // Obergrenzen: Der Import läuft in einer Transaktion und blockiert so lange den Server
+    const MAX_IMPORT = { artikel: 20_000, konvolute: 5_000, eigeneKatalogeintraege: 20_000 };
+    if (liste.length > MAX_IMPORT.artikel) return res.status(400).json({ fehler: `Höchstens ${MAX_IMPORT.artikel.toLocaleString('de-DE')} Exemplare je Import. Bitte die Datei aufteilen.` });
+    if ((Array.isArray(daten?.konvolute) ? daten.konvolute.length : 0) > MAX_IMPORT.konvolute || (Array.isArray(daten?.eigeneKatalogeintraege) ? daten.eigeneKatalogeintraege.length : 0) > MAX_IMPORT.eigeneKatalogeintraege) {
+      return res.status(400).json({ fehler: 'Die Datei enthält zu viele Konvolute oder Katalogeinträge. Bitte die Datei aufteilen.' });
+    }
 
     const katalogIds = new Map();
     const katalogEinfuegen = db.prepare(`
@@ -125,7 +140,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
       'farbe', 'edition', 'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'plattform_id',
       'herkunft', 'konvolut_id', 'kaufpreis_anteilig', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
       'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'importiert_aus', 'zustand_ovp',
-      'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer', 'zustand_inlay', 'inlay_maengel'];
+      'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer', 'zustand_inlay', 'inlay_maengel', 'merch_kategorie', 'spiel_katalog_id'];
     const einfuegen = db.prepare(`INSERT INTO artikel (${felder.join(', ')}) VALUES (${felder.map((f) => `@${f}`).join(', ')}) RETURNING id`);
     const wartungEinfuegen = db.prepare('INSERT INTO wartungen (artikel_id, benutzer_id, art, datum, notiz) VALUES (?, ?, ?, ?, ?)');
     const wartungenJe = new Map();
@@ -137,6 +152,7 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
 
     const fehlerhaft = [];
     let importiert = 0;
+    const artikelIds = new Map(); // alte Artikel-ID aus der Datei → neue ID
     // Konvolute neu anlegen (alte ID → neue ID)
     const konvolutIds = new Map();
     db.transaction(() => {
@@ -179,9 +195,12 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
           artikel.kaufpreis_anteilig = artikel.konvolut_id && roh?.kaufpreis_anteilig ? 1 : 0;
           const alteKatalogId = roh?.katalog_id;
           artikel.katalog_id = katalogIds.get(alteKatalogId) ?? (katalogVorhanden.get(alteKatalogId ?? -1, req.benutzer.id)?.id ?? null);
+          const alteSpielId = roh?.spiel_katalog_id;
+          artikel.spiel_katalog_id = alteSpielId == null ? null : (katalogIds.get(alteSpielId) ?? (katalogVorhanden.get(alteSpielId, req.benutzer.id)?.id ?? null));
           if (artikel.cover_url?.startsWith('/')) artikel.cover_url = null; // Fotos werden nicht mit exportiert
           const plattform = plattformen.zuordnen(artikel.plattform);
           const { id } = einfuegen.get({ ...artikel, benutzer_id: req.benutzer.id, plattform_id: plattform?.id ?? null, plattform: plattform?.name ?? artikel.plattform, importiert_aus: 'sicherung' });
+          if (roh?.id != null) artikelIds.set(roh.id, id);
           for (const w of (roh?.id != null && wartungenJe.get(roh.id)) || []) {
             wartungEinfuegen.run(id, req.benutzer.id, w.art, w.datum, w.notiz ? String(w.notiz).slice(0, 1000) : null);
           }
@@ -191,6 +210,8 @@ export function exportRouter({ db, plattformen, erweiterungen }) {
           fehlerhaft.push({ zeile: index + 1, titel: roh?.titel ?? null, fehler: fehler.fehler });
         }
       });
+      // Andockpunkt „import.json“ ({ daten, benutzerId, artikelIds }): Zusatzmodule übernehmen ihre Daten aus der Datei
+      for (const fn of erweiterungen.alle('import.json')) fn({ daten, benutzerId: req.benutzer.id, artikelIds });
     })();
     res.json({ importiert, fehlerhaft });
   });

@@ -6,7 +6,8 @@ import fs from 'node:fs';
 import sharp from 'sharp';
 import { starteTestServer } from './hilfen.js';
 import { gesuchteFotos, datentraegerVon, istFotoArt } from '../shared/konstanten.js';
-import { medienDateien, webDateiVon } from '../server/services/medien.js';
+import { medienDateien, webDateiVon, kameraAusExif } from '../server/services/medien.js';
+import { exifAusJpeg } from '../shared/exif.js';
 
 const jpeg = () => sharp({ create: { width: 80, height: 60, channels: 3, background: '#224488' } }).jpeg().toBuffer();
 
@@ -36,7 +37,9 @@ test('Gesuchte Fotos richten sich nach Art und Datenträger der Plattform', () =
   assert.equal(istFotoArt('cover_vorne'), false);
   assert.equal(istFotoArt('label'), false);
   assert.equal(webDateiVon('m-abc.jpg'), 'm-abc-web.webp');
-  assert.deepEqual(medienDateien({ datei: 'm-a.png', anzeige_datei: null, vorschau_datei: 'm-a-vorschau.webp' }), ['m-a.png', 'm-a-vorschau.webp', 'm-a-web.webp']);
+  assert.deepEqual(medienDateien({ datei: 'm-a.png', anzeige_datei: null, vorschau_datei: 'm-a-vorschau.webp' }), ['m-a.png', 'm-a-vorschau.webp', 'm-a-web.webp', 'm-a-helfer.webp']);
+  assert.deepEqual(medienDateien({ datei: 'm-b.webp', frei_datei: 'm-b-frei.webp', frei_status: 'angenommen' }),
+    ['m-b.webp', 'm-b-frei.webp', 'm-b-web.webp', 'm-b-frei-web.webp', 'm-b-helfer.webp'], 'freigestellte Fassung samt Web-Version fällt mit dem Foto weg');
 });
 
 test('Fotos: getrennt von Scans teilbar, Einwilligung nur für Fotos und nur durch den Fotografen', async () => {
@@ -175,6 +178,162 @@ test('Abgebrochener Foto-Upload ergibt eine verständliche Meldung statt „Inte
     const r = await anna.api(`/api/artikel/${artikel.id}/medien`, { methode: 'POST', headers: { 'Content-Type': 'multipart/form-data; boundary=X' }, formular: abgeschnitten });
     assert.equal(r.status, 400);
     assert.match(r.json.fehler, /nicht vollständig/);
+  } finally {
+    await server.stoppe();
+  }
+});
+
+test('Fassung am Foto: wird vom Exemplar übernommen, Platinum-Cover nur beim Platinum-Exemplar, korrigierbar', async () => {
+  const server = await starteTestServer();
+  try {
+    const { db } = server;
+    await server.registriere('admin');
+    const anna = await server.registriere('anna');
+    const platin = (await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Gran Turismo 4', plattform: 'PS2', edition: 'Platinum' } })).json;
+    const katalogId = platin.katalog_id;
+    const pal = db.prepare("INSERT INTO katalog_varianten (katalog_id, bezeichnung, region, status) VALUES (?, 'PAL-DE', 'pal_de', 'freigegeben') RETURNING id").pluck().get(katalogId);
+    db.prepare('UPDATE artikel SET variante_id = ? WHERE id = ?').run(pal, platin.id);
+
+    // Hochladen am Platinum-Exemplar: Fassung kommt vom Exemplar, nicht aus der Bezeichnung
+    const foto = (await hochladen(anna, platin.id, { puffer: await jpeg(), felder: { art: 'foto_vorne', variante_id: String(pal) } })).json;
+    assert.equal(foto.edition, 'Platinum');
+    assert.equal(foto.titel, null);
+    db.prepare("UPDATE medien SET sichtbarkeit = 'freigegeben' WHERE id = ?").run(foto.id);
+
+    // Cover: beim Platinum-Exemplar das Platinum-Foto, bei der Erstauflage nicht
+    const erst = (await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Gran Turismo 4', plattform: 'PS2', katalog_id: katalogId, variante_id: pal } })).json;
+    const bild = async (id) => (await anna.api(`/api/artikel/${id}`)).json.bild_url;
+    assert.match(await bild(platin.id), new RegExp(foto.vorschau_url.split('/').pop()));
+    assert.doesNotMatch(String(await bild(erst.id)), new RegExp(foto.vorschau_url.split('/').pop()));
+
+    // Korrektur durch den Fotografen: Fassung leeren → gilt als Erstauflage, geht erneut in die Prüfung
+    const geaendert = (await anna.api(`/api/medien/${foto.id}`, { methode: 'PUT', daten: { edition: '' } })).json;
+    assert.equal(geaendert.edition, null);
+    assert.equal(geaendert.sichtbarkeit, 'eingereicht');
+    assert.equal((await anna.api(`/api/medien/${foto.id}`, { methode: 'PUT', daten: { edition: 5 } })).status, 400);
+  } finally {
+    await server.stoppe();
+  }
+});
+
+test('Region am Foto: vom Exemplar übernommen, PAL-UK-Cover nicht beim deutschen Exemplar, korrigierbar', async () => {
+  const server = await starteTestServer();
+  try {
+    const { db } = server;
+    await server.registriere('admin');
+    const anna = await server.registriere('anna');
+    const uk = (await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'FIFA 12', plattform: 'PS3', region: 'pal_uk' } })).json;
+    const katalogId = uk.katalog_id;
+    const foto = (await hochladen(anna, uk.id, { puffer: await jpeg(), felder: { art: 'foto_vorne' } })).json;
+    assert.equal(foto.region, 'pal_uk');
+    db.prepare("UPDATE medien SET sichtbarkeit = 'freigegeben' WHERE id = ?").run(foto.id);
+    db.prepare("UPDATE katalog SET status = 'freigegeben' WHERE id = ?").run(katalogId);
+
+    // Cover: beim UK-Exemplar das UK-Foto, beim deutschen nicht
+    const de = (await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'FIFA 12', plattform: 'PS3', katalog_id: katalogId, region: 'pal_de' } })).json;
+    const datei = new RegExp(foto.vorschau_url.split('/').pop());
+    const bild = async (id) => (await anna.api(`/api/artikel/${id}`)).json.bild_url;
+    assert.match(await bild(uk.id), datei);
+    assert.doesNotMatch(String(await bild(de.id)), datei);
+    // Spieleseite: das Foto gilt als Cover der Region PAL-UK (auch ohne Variante)
+    const eintrag = (await anna.api(`/api/katalog/${katalogId}`)).json;
+    assert.ok(eintrag.cover_regionen.some((c) => c.region === 'pal_uk' && c.quelle === 'community'));
+
+    // Korrektur: Region ändern → erneut prüfen; unbekannte Region abgelehnt; leer = unbekannt
+    const geaendert = (await anna.api(`/api/medien/${foto.id}`, { methode: 'PUT', daten: { region: 'pal_de' } })).json;
+    assert.equal(geaendert.region, 'pal_de');
+    assert.equal(geaendert.sichtbarkeit, 'eingereicht');
+    // Andere Region als das (UK-)Exemplar: gehört nicht mehr dazu, bleibt beim Spiel
+    assert.equal(geaendert.artikel_id, null);
+    assert.equal(db.prepare('SELECT katalog_id FROM medien WHERE id = ?').pluck().get(foto.id), katalogId);
+    // Gleiche Region wie das Exemplar: bleibt dabei
+    const deFoto = (await hochladen(anna, de.id, { puffer: await jpeg(), felder: { art: 'foto_hinten' } })).json;
+    assert.equal((await anna.api(`/api/medien/${deFoto.id}`, { methode: 'PUT', daten: { region: 'pal_de' } })).json.artikel_id, de.id);
+    assert.equal((await anna.api(`/api/medien/${foto.id}`, { methode: 'PUT', daten: { region: 'mars' } })).status, 400);
+    assert.equal((await anna.api(`/api/medien/${foto.id}`, { methode: 'PUT', daten: { region: '' } })).json.region, null);
+  } finally {
+    await server.stoppe();
+  }
+});
+
+test('Migration: bestehende Spielfotos bekommen die Fassung, wenn der Hochladende nur eine hat', async () => {
+  const path = await import('node:path');
+  const os = await import('node:os');
+  const { oeffneDatenbank } = await import('../server/db.js');
+  const datei = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'fassung-')), 'test.db');
+  let db = oeffneDatenbank(datei);
+  const benutzer = db.prepare("INSERT INTO benutzer (benutzername, passwort_hash) VALUES ('fritz', 'x') RETURNING id").pluck().get();
+  const katalog = (titel) => db.prepare("INSERT INTO katalog (quelle, externe_id, typ, titel, plattformen, status) VALUES ('eigen', ?, 'spiel', ?, '[]', 'freigegeben') RETURNING id").pluck().get(`test:${titel}`, titel);
+  const eins = katalog('Eins');
+  const zwei = katalog('Zwei');
+  const exemplar = (k, edition) => db.prepare("INSERT INTO artikel (benutzer_id, typ, titel, katalog_id, edition) VALUES (?, 'spiel', 'x', ?, ?)").run(benutzer, k, edition);
+  exemplar(eins, 'Platinum');
+  exemplar(zwei, 'Platinum');
+  exemplar(zwei, null); // zwei Fassungen → offen lassen
+  const foto = (k) => db.prepare(`INSERT INTO medien (katalog_id, benutzer_id, art, sichtbarkeit, datei, mime, groesse)
+    VALUES (?, ?, 'foto_vorne', 'freigegeben', ?, 'image/webp', 1) RETURNING id`).pluck().get(k, benutzer, `f${k}.webp`);
+  const f1 = foto(eins);
+  const f2 = foto(zwei);
+  db.prepare('UPDATE medien SET edition = NULL').run();
+  db.pragma(`user_version = ${db.pragma('user_version', { simple: true }) - 9}`); // Fassung, Kameradaten, vier Freistell-Migrationen, Avatar, Exemplar und Region am Foto
+  db.close();
+  db = oeffneDatenbank(datei);
+  const edition = (id) => db.prepare('SELECT edition FROM medien WHERE id = ?').pluck().get(id);
+  assert.equal(edition(f1), 'Platinum');
+  assert.equal(edition(f2), null);
+  db.close();
+});
+
+test('Kameradaten: nur der Hinweis „Original hatte Hersteller/Modell“ wird gespeichert, die Daten selbst nicht', async () => {
+  // Lesen der EXIF-Tags Make/Model
+  const exif = await sharp({ create: { width: 10, height: 10, channels: 3, background: '#000' } })
+    .withExif({ IFD0: { Make: 'Apple', Model: 'iPhone 15' } }).jpeg().toBuffer();
+  assert.equal(kameraAusExif((await sharp(exif).metadata()).exif), 'Apple iPhone 15');
+  assert.equal(kameraAusExif(undefined), null);
+  assert.equal(kameraAusExif(Buffer.from('Exif\0\0kaputt')), null);
+  // JPEG-Kopf im Browser: APP1-Block finden
+  assert.equal(kameraAusExif(exifAusJpeg(new Uint8Array(exif))), 'Apple iPhone 15');
+  assert.equal(exifAusJpeg(new Uint8Array(await jpeg())), null);
+
+  const server = await starteTestServer();
+  try {
+    const anna = await server.registriere('anna');
+    const artikel = (await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Kamerafoto', plattform: 'PS2' } })).json;
+    const mitKamera = await sharp({ create: { width: 80, height: 60, channels: 3, background: '#224488' } })
+      .withExif({ IFD0: { Make: 'Apple', Model: 'iPhone 15' } }).jpeg().toBuffer();
+    const a = (await hochladen(anna, artikel.id, { puffer: mitKamera, felder: { art: 'foto_vorne' } })).json;
+    const b = (await hochladen(anna, artikel.id, { puffer: await jpeg(), felder: { art: 'foto_hinten' } })).json;
+    const kamera = (id) => server.db.prepare('SELECT kamera_daten FROM medien WHERE id = ?').pluck().get(id);
+    assert.deepEqual([kamera(a.id), kamera(b.id)], [1, 0]);
+    // Im Browser zugeschnitten (Kameradaten dabei verworfen): der Browser meldet sie vorher
+    const c = (await hochladen(anna, artikel.id, { puffer: await jpeg(), felder: { art: 'foto_disc', kamera_original: '1' } })).json;
+    assert.equal(kamera(c.id), 1);
+    // Die gespeicherte Datei enthält die Kameradaten nicht mehr
+    const original = await anna.api(a.original_url);
+    assert.equal(original.status, 200);
+    assert.equal(kameraAusExif((await sharp(original.puffer).metadata()).exif), null);
+  } finally {
+    await server.stoppe();
+  }
+});
+
+test('Exemplar am Foto: Upload merkt sich das Exemplar, nur der Fotograf sieht die Zuordnung', async () => {
+  const server = await starteTestServer({ env: { PHOTO_SHARING: 'true', MEDIA_SHARING: 'true' } });
+  try {
+    const anna = await server.registriere('anna');
+    const bernd = await server.registriere('bernd');
+    const k = server.db.prepare(`INSERT INTO katalog (quelle, externe_id, typ, titel, plattformen, status)
+      VALUES ('eigen', 'test:exemplar', 'spiel', 'Zelda', '["Nintendo 64"]', 'freigegeben') RETURNING id`).pluck().get();
+    const a1 = (await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Zelda', plattform: 'Nintendo 64', katalog_id: k } })).json;
+    const formular = new FormData();
+    formular.append('art', 'foto_modul');
+    formular.append('sichtbarkeit', 'eingereicht');
+    formular.append('datei', new Blob([await sharp({ create: { width: 50, height: 50, channels: 3, background: '#123456' } }).png().toBuffer()], { type: 'image/png' }), 'f.png');
+    const m = (await anna.api(`/api/artikel/${a1.id}/medien`, { methode: 'POST', formular })).json;
+    assert.equal(m.artikel_id, a1.id);
+    server.db.prepare("UPDATE medien SET sichtbarkeit = 'freigegeben' WHERE id = ?").run(m.id);
+    const fremd = (await bernd.api(`/api/katalog/${a1.katalog_id}/medien`)).json.find((x) => x.id === m.id);
+    assert.equal(fremd.artikel_id, null, 'andere sehen nicht, zu welchem Exemplar es gehört');
   } finally {
     await server.stoppe();
   }

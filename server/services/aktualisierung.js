@@ -105,8 +105,31 @@ export function erstelleAktualisierung({ konfiguration, sicherung, build, fetchF
   }
 
   /**
-   * Gibt es einen neueren, fertig gebauten Stand? Maßgeblich ist der letzte erfolgreiche CI-Lauf (Tests + Docker-Image)
-   * auf main im eingestellten Repository. Neuer heißt: anderer Commit und später fertig als das eigene Image gebaut wurde.
+   * Lokal gebautes und hochgeladenes Image: Wer selbst baut, setzt danach das annotierte Tag `docker-latest` auf den
+   * gebauten Commit (`git tag -f -a docker-latest -m "<Titel>" && git push -f origin refs/tags/docker-latest`); das Datum
+   * des Tags gilt als Bauzeit. Ohne dieses Tag: null.
+   */
+  async function lokalerBuild(repo) {
+    try {
+      const optionen = { headers: githubKopf(), signal: AbortSignal.timeout(15_000) };
+      const ref = await fetchFn(`https://api.github.com/repos/${repo}/git/ref/tags/docker-latest`, optionen);
+      if (!ref.ok) return null;
+      const objekt = (await ref.json())?.object;
+      if (objekt?.type !== 'tag' || !/^[0-9a-f]{40}$/i.test(objekt.sha ?? '')) return null;
+      const tag = await fetchFn(`https://api.github.com/repos/${repo}/git/tags/${objekt.sha}`, optionen);
+      if (!tag.ok) return null;
+      const t = await tag.json();
+      if (!/^[0-9a-f]{40}$/i.test(t?.object?.sha ?? '') || Number.isNaN(Date.parse(t?.tagger?.date ?? ''))) return null;
+      return { head_sha: t.object.sha, updated_at: t.tagger.date, display_title: String(t.message ?? '').trim().split('\n')[0] };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Gibt es einen neueren, fertig gebauten Stand? Maßgeblich ist das lokal gebaute Image (Tag `docker-latest`), sonst der
+   * letzte erfolgreiche CI-Lauf auf main im eingestellten Repository. Neuer heißt: anderer Commit und später fertig als das
+   * eigene Image gebaut wurde.
    */
   async function pruefe({ erzwingen = false } = {}) {
     if (!erzwingen && pruefung && Date.now() - Date.parse(pruefung.geprueft) < 60 * 60 * 1000 && !pruefung.fehler) return pruefung;
@@ -114,16 +137,17 @@ export function erstelleAktualisierung({ konfiguration, sicherung, build, fetchF
     if (!repo) return (pruefung = null);
     const geprueft = new Date().toISOString();
     try {
-      const antwort = await fetchFn(`https://api.github.com/repos/${repo}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1`, {
+      const lokal = await lokalerBuild(repo);
+      const antwort = lokal ? null : await fetchFn(`https://api.github.com/repos/${repo}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1`, {
         headers: githubKopf(),
         signal: AbortSignal.timeout(15_000),
       });
-      if (antwort.status === 404 || antwort.status === 401) {
+      if (antwort && (antwort.status === 404 || antwort.status === 401)) {
         throw new Error(k().githubToken ? `Kein Zugriff auf ${repo} – GitHub-Token prüfen (Berechtigung „Actions: Read-only“).`
           : `${repo} ist privat oder nicht erreichbar – für private Repositorys einen GitHub-Token eintragen.`);
       }
-      if (!antwort.ok) throw new Error(`GitHub antwortet mit Fehler ${antwort.status}.`);
-      const run = (await antwort.json()).workflow_runs?.[0];
+      if (antwort && !antwort.ok) throw new Error(`GitHub antwortet mit Fehler ${antwort.status}.`);
+      const run = lokal ?? (await antwort.json()).workflow_runs?.[0];
       if (!run) throw new Error('Noch kein erfolgreicher Build gefunden.');
       const verfuegbar = { commit: String(run.head_sha).slice(0, 7), datum: run.updated_at, titel: String(run.display_title ?? '').slice(0, 200) };
       const neu = Boolean(build.commit && verfuegbar.commit !== build.commit

@@ -13,6 +13,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
+import { verarbeiteBild } from './medien.js';
 import { pruefeArtikel, ValidierungsFehler } from './validierung.js';
 import { verschluessele, entschluessele } from './sicherheit.js';
 import { zentralZuEintrag } from './zentrale.js';
@@ -21,7 +22,7 @@ const SEITE = 500;
 const FELDER = ['typ', 'titel', 'plattform', 'barcode', 'cover_url', 'zustand', 'vollstaendigkeit', 'region', 'farbe', 'edition',
   'modellnummer', 'seriennummer', 'notizen', 'kaufpreis', 'kaufdatum', 'anzahl', 'marktwert', 'herkunft', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
   'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'zustand_ovp',
-  'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer', 'zustand_inlay', 'inlay_maengel'];
+  'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer', 'zustand_inlay', 'inlay_maengel', 'merch_kategorie'];
 const ZEIT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 const UUID = /^[0-9a-f]{32}$/;
 const IMPORTARTEN = ['csv', 'sicherung', 'steam'];
@@ -135,7 +136,7 @@ export function wendeAn(db, benutzer, { artikel = [], geloescht = [] }, { katalo
         if (roh.bestand === undefined && vorhanden) Object.assign(eingabe, { bestand: vorhanden.bestand, abgang_am: vorhanden.abgang_am, verkaufspreis: vorhanden.verkaufspreis, digital_quelle: vorhanden.digital_quelle });
         // Ebenso Lagerort, Beilagen und Seriennummer der OVP (neuere Felder)
         if (vorhanden) for (const f of ['lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'zustand_ovp',
-          'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer', 'zustand_inlay', 'inlay_maengel']) if (roh[f] === undefined) eingabe[f] = vorhanden[f];
+          'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer', 'zustand_inlay', 'inlay_maengel', 'merch_kategorie']) if (roh[f] === undefined) eingabe[f] = vorhanden[f];
         daten = pruefeArtikel(eingabe);
       } catch (e) {
         ergebnis.fehler.push({ sync_uuid: uuid, fehler: e instanceof ValidierungsFehler ? Object.values(e.fehler ?? {}).join(' ') || e.message : e.message });
@@ -249,15 +250,23 @@ export function erstelleSyncDienst(db, { zentrale, katalog, schluessel, dateien,
       if (!z || z.sync_bild_hash === a.bild || z.aktualisiert_am > a.aktualisiert_am) continue;
       const antwort = await zentrale.roh(`/api/sync/bild/${a.sync_uuid}`, { token: token(v), roh: true }).catch(() => null);
       if (!antwort?.puffer) continue;
+      // Wie bei eigenen Uploads: nur echte Bilder, neu kodiert – im Upload-Ordner landen keine fremden Bytes
+      let puffer;
       try {
-        speicher.pruefe(benutzer.id, antwort.puffer.length, { abzueglich: z.bild_groesse ?? 0 });
+        // Fotos von zockerdb.de sind höchstens 800 px – 25 Mpx reichen mit großem Abstand
+        puffer = await verarbeiteBild(antwort.puffer, (b) => b.rotate().jpeg({ quality: 85 }).toBuffer(), { limitInputPixels: 25_000_000 });
+      } catch {
+        continue;
+      }
+      try {
+        speicher.pruefe(benutzer.id, puffer.length, { abzueglich: z.bild_groesse ?? 0 });
       } catch {
         continue; // Speicher zu Hause voll – Foto bleibt nur auf zockerdb.de
       }
       const name = `${crypto.randomUUID()}.jpg`;
-      fs.writeFileSync(path.join(dateien.verzeichnis, name), antwort.puffer);
+      fs.writeFileSync(path.join(dateien.verzeichnis, name), puffer);
       db.prepare('UPDATE artikel SET bild_datei = ?, bild_groesse = ?, sync_bild = 1, sync_bild_hash = ? WHERE id = ?')
-        .run(name, antwort.puffer.length, a.bild, z.id);
+        .run(name, puffer.length, a.bild, z.id);
       dateien.loesche(z.bild_datei);
     }
   }

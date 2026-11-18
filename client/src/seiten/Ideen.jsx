@@ -1,7 +1,8 @@
-// Ideen & Wünsche: Funktionen vorschlagen, abstimmen („Daumen hoch“) und sehen, was geplant oder umgesetzt ist.
+// Ideen & Fehler melden: Funktionen vorschlagen, Fehler melden, abstimmen („Daumen hoch“) und sehen, was geplant oder umgesetzt ist.
 // Selbst gehostet gehen Ideen an zockerdb.de – hier stehen dann nur die eigenen mit ihrem Stand.
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
+import { umgebung } from '../zugang.js';
 import { datumDe } from '../format.js';
 import { useSitzung } from '../sitzung.js';
 import Layout from '../komponenten/Layout.jsx';
@@ -30,16 +31,16 @@ export default function Ideen({ route }) {
   const gefiltert = (d?.ideen ?? []).filter((i) => (filter === 'offen' ? !['umgesetzt', 'abgelehnt'].includes(i.status) : filter === 'alle' || i.status === filter));
 
   return (
-    <Layout route={route} titel="Ideen & Wünsche" zurueck="/einstellungen">
+    <Layout route={route} titel="Ideen & Fehler melden" zurueck="/einstellungen">
       <div className="mx-auto max-w-3xl space-y-4">
         {!d ? <p className="text-leise">Wird geladen …</p> : !d.modus ? (
-          <p className="karte p-4 text-sm text-leise">Ideen lassen sich auf diesem Server nicht einreichen.</p>
+          <p className="karte p-4 text-sm text-leise">Ideen und Fehler lassen sich auf diesem Server nicht melden.</p>
         ) : (
           <>
             <p className="text-sm text-leise">
               {brett
-                ? 'Was fehlt dir? Schlag eine Funktion vor oder unterstütze Ideen anderer mit 👍 – die beliebtesten kommen zuerst dran.'
-                : 'Was fehlt dir? Deine Idee geht an zockerdb.de, wo ZockerDB weiterentwickelt wird. Hier siehst du ihren Stand.'}
+                ? 'Was fehlt dir, oder funktioniert etwas nicht? Schlag eine Funktion vor, melde einen Fehler oder unterstütze andere mit 👍 – die beliebtesten kommen zuerst dran.'
+                : 'Was fehlt dir, oder funktioniert etwas nicht? Deine Meldung geht an zockerdb.de, wo ZockerDB weiterentwickelt wird. Hier siehst du ihren Stand.'}
             </p>
             <NeueIdee d={d} brett={brett} onNeu={(i) => { setD((alt) => ({ ...alt, ideen: [i, ...alt.ideen] })); setFilter('offen'); }} onStimme={(id) => aktion(() => api.ideeStimme(id))} />
 
@@ -51,7 +52,7 @@ export default function Ideen({ route }) {
               ))}
             </div>
 
-            {gefiltert.length === 0 && <p className="karte p-6 text-center text-sm text-leise">{brett ? 'Hier gibt es noch keine Ideen.' : 'Du hast noch keine Ideen eingereicht.'}</p>}
+            {gefiltert.length === 0 && <p className="karte p-6 text-center text-sm text-leise">{brett ? 'Hier gibt es noch keine Ideen oder Fehlermeldungen.' : 'Du hast noch nichts gemeldet.'}</p>}
             <ul className="space-y-2">
               {gefiltert.map((i) => (
                 <li key={i.id} className="karte flex gap-3 p-4">
@@ -76,6 +77,14 @@ export default function Ideen({ route }) {
                     </div>
                     {i.beschreibung && <p className="text-sm whitespace-pre-line">{i.beschreibung}</p>}
                     {i.antwort && <p className="rounded-lg bg-karte-hover p-2 text-sm"><strong>Antwort:</strong> {i.antwort}</p>}
+                    {i.anhaenge?.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="idee-anhaenge">
+                        <span className="text-leise">Anhänge (nur für dich{i.eigene ? '' : ' als Admin'} und das Team):</span>
+                        {i.anhaenge.map((a) => (a.art === 'bild'
+                          ? <a key={a.id} href={a.url} target="_blank" rel="noreferrer"><img src={a.url} alt={a.name ?? 'Screenshot'} className="h-16 rounded border border-rand" /></a>
+                          : <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="underline">📄 {a.name ?? 'Beispieldatei'}</a>))}
+                      </div>
+                    )}
                     {i.github && <a href={i.github.url} target="_blank" rel="noopener noreferrer" className="text-xs text-akzent-hell underline">Auf GitHub verfolgen (#{i.github.nummer}){i.github.privat ? ' – nur für dich sichtbar (privates Repository)' : ''} ↗</a>}
                     {i.kommentare?.length > 0 && (
                       <details className="rounded-lg border border-rand p-2 text-sm" data-testid="idee-kommentare">
@@ -90,7 +99,7 @@ export default function Ideen({ route }) {
                         </ul>
                       </details>
                     )}
-                    <p className="text-xs text-leise">{i.eigene ? 'Deine Idee' : i.von ? `von ${i.von}` : ''} · {datumDe(i.erstellt_am?.slice(0, 10))}</p>
+                    <p className="text-xs text-leise">{i.eigene ? 'Deine Idee' : i.von ? `von ${i.von}` : ''} · {datumDe(i.erstellt_am?.slice(0, 10))}{i.umgebung ? ` · gemeldet aus ${i.umgebung}` : ''}</p>
                     {benutzer?.rolle === 'admin' && brett && <Entscheiden idee={i} status={d.status} onFertig={ersetze} />}
                     <div className="flex flex-wrap gap-3">
                       {(i.eigene && !['umgesetzt', 'abgelehnt'].includes(i.status)) || (benutzer?.rolle === 'admin' && brett) ? (
@@ -137,9 +146,9 @@ function NeueIdee({ d, brett, onNeu, onStimme }) {
     setSendet(true);
     setFehler({});
     try {
-      const i = await api.ideeEinreichen(w);
+      const i = await api.ideeEinreichen({ ...w, umgebung: umgebung() });
       onNeu(i);
-      zeigeHinweis(i.ziel === 'zockerdb.de' ? 'Danke! Deine Idee ist bei zockerdb.de angekommen.' : 'Danke für deine Idee!');
+      zeigeHinweis(i.ziel === 'zockerdb.de' ? 'Danke! Deine Meldung ist bei zockerdb.de angekommen.' : 'Danke für deine Meldung!');
       setW(leer);
       setOffen(false);
     } catch (f) {
@@ -150,11 +159,11 @@ function NeueIdee({ d, brett, onNeu, onStimme }) {
   }
 
   if (!offen) {
-    return <button type="button" className="knopf-primaer" onClick={() => setOffen(true)}><Symbol name="plus" className="size-4" />Idee vorschlagen</button>;
+    return <button type="button" className="knopf-primaer" onClick={() => setOffen(true)}><Symbol name="plus" className="size-4" />Idee oder Fehler melden</button>;
   }
   return (
     <form onSubmit={absenden} className="karte space-y-3 p-4">
-      <h2 className="font-semibold">Neue Idee</h2>
+      <h2 className="font-semibold">Idee oder Fehler melden</h2>
       <label className="block text-sm">
         <span className="mb-1 block text-leise">Was fehlt dir? (kurz) *</span>
         <input className="eingabe" value={w.titel} onChange={setze('titel')} maxLength={120} required autoFocus placeholder="z. B. Verkaufte Spiele in der Sammlung behalten" />
@@ -187,13 +196,14 @@ function NeueIdee({ d, brett, onNeu, onStimme }) {
       </label>
       {d.github && (
         <p className="text-xs text-leise">
-          Ideen werden auch als öffentliches Issue auf GitHub veröffentlicht (Titel, Beschreibung, Bereich, Stimmen – ohne deinen Namen).
-          Bitte keine persönlichen Daten in den Text schreiben.
+          Ideen und Fehlermeldungen werden auch als öffentliches Issue auf GitHub veröffentlicht (Titel, Beschreibung, Bereich, Stimmen, wo gemeldet –
+          ohne deinen Namen). Bitte keine persönlichen Daten in den Text schreiben.
         </p>
       )}
+      {umgebung() && <p className="text-xs text-leise" data-testid="idee-umgebung">Gemeldet aus: {umgebung()} – so lässt sich ein Fehler leichter nachstellen.</p>}
       {fehler.allgemein && <p className="text-sm text-gefahr" role="alert">{fehler.allgemein}</p>}
       <div className="flex flex-wrap gap-2">
-        <button type="submit" className="knopf-primaer" disabled={sendet}>{sendet ? 'Wird gesendet …' : 'Idee einreichen'}</button>
+        <button type="submit" className="knopf-primaer" disabled={sendet}>{sendet ? 'Wird gesendet …' : 'Absenden'}</button>
         <button type="button" className="knopf-sekundaer" onClick={() => setOffen(false)}>Abbrechen</button>
       </div>
     </form>

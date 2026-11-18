@@ -49,6 +49,20 @@ export function leseBearer(req) {
 export const istAppAnfrage = (req) => req.headers.authorization !== undefined || req.headers['x-zockerdb-client'] === 'app';
 
 /**
+ * Was das Helfer-Token der App (Sitzungsart 'freistellen', Freistellen im Hintergrund am Ladegerät) darf: nur Aufträge holen,
+ * das Foto zum Auftrag laden, die Maske bzw. den Fehlschlag melden, den Stand lesen und sich selbst abmelden. Für alles andere
+ * gilt die Anfrage als nicht angemeldet. Pfade relativ zu /api.
+ */
+const HELFER_PFADE = [
+  ['GET', /^\/freistellen\/(status|naechste)$/],
+  ['GET', /^\/freistellen\/\d+\/bild$/],
+  ['PUT', /^\/freistellen\/\d+$/],
+  ['POST', /^\/freistellen\/\d+\/fehler$/],
+  ['DELETE', /^\/freistellen\/hintergrund$/],
+];
+export const helferDarf = (req) => HELFER_PFADE.some(([methode, muster]) => req.method === methode && muster.test(req.path));
+
+/**
  * Liest die Sitzung und hängt req.benutzer an (falls angemeldet): bei App-Anfragen nur aus dem Authorization-Kopf,
  * sonst aus dem Cookie (Browser). Bei App-Anfragen wird ein Cookie immer ignoriert – sie sind von der Herkunftsprüfung
  * ausgenommen und dürfen deshalb nie mit dem Cookie eines Besuchers handeln.
@@ -57,7 +71,8 @@ export function ladeSitzung(konten) {
   return (req, _res, next) => {
     req.perToken = istAppAnfrage(req);
     req.sitzungsToken = req.perToken ? leseBearer(req) : leseCookies(req.headers.cookie)[COOKIE_NAME];
-    const ergebnis = konten.leseSitzung(req.sitzungsToken);
+    let ergebnis = konten.leseSitzung(req.sitzungsToken);
+    if (ergebnis?.sitzung.art === 'freistellen' && (!req.perToken || !helferDarf(req))) ergebnis = null;
     if (ergebnis) {
       req.benutzer = ergebnis.benutzer;
       req.sitzungHash = ergebnis.tokenHash;

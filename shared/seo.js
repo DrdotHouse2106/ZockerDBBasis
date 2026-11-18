@@ -1,6 +1,6 @@
 // Adressen der öffentlichen, für Suchmaschinen gedachten Seiten (Server und Client).
 
-const PRAEFIX = { spiel: 'spiel', konsole: 'konsole', zubehoer: 'zubehoer' };
+const PRAEFIX = { spiel: 'spiel', konsole: 'konsole', zubehoer: 'zubehoer', merch: 'merch' };
 
 /** „Pokémon Gelbe Edition“ → „pokemon-gelbe-edition“ */
 export function slug(text) {

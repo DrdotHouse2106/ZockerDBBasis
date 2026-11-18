@@ -8,11 +8,11 @@ import { ValidierungsFehler } from '../services/validierung.js';
 import { normalisiereEmail } from '../services/kontomail.js';
 import { zufallsToken, erzeugeWiederherstellungscodes, normalisiereWiederherstellungscode, sha256 } from '../services/sicherheit.js';
 import { istInterneAdresse } from '../services/netz.js';
-import { FUNKTIONEN, leseAusgeblendeteFelder } from '../../shared/konstanten.js';
+import { FUNKTIONEN, leseAusgeblendeteFelder, AVATAR_SYMBOLE, AVATAR_FARBEN } from '../../shared/konstanten.js';
 
 const ZU_VIELE = 'Zu viele Fehlversuche. Bitte warte 15 Minuten und versuche es dann erneut.';
 
-export function authRouter({ db, konten, konfiguration, dateien, speicher, kontoMail, captcha, erweiterungen, benachrichtigungen }) {
+export function authRouter({ db, konten, konfiguration, dateien, speicher, kontoMail, captcha, erweiterungen, benachrichtigungen, freistellen, kontoLoeschung }) {
   const router = Router();
   const { cookieSicher } = konfiguration.konten;
   // Live-Werte (über Admin → Einstellungen änderbar)
@@ -76,8 +76,10 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
       emailAktiv: kontoMail.bereit(),
       emailPflicht: emailPflicht(),
       captcha: captcha.oeffentlich(),
-      // Nur für App-Sitzungen: Schlüssel für Bilder und Scans (GET /api/dateien/…?schluessel=…)
-      ...(req.benutzer && req.sitzungArt === 'app' ? { dateiSchluessel: konten.dateiSchluessel(req.sitzungHash) } : {}),
+      // Fotos freistellen: an? Wie viele freigestellte Fotos warten auf die Prüfung (Menüpunkt „Freistellungen prüfen“)?
+      freistellen: req.benutzer && freistellen.aktiv() ? { zuPruefen: freistellen.zuPruefenListe(req.benutzer, { grenze: 1 }).gesamt } : null,
+      // Nur für App-Sitzungen: Schlüssel für Bilder und Scans (GET /api/dateien/…?schluessel=…) und ob das Gerät beim Freistellen helfen darf
+      ...(req.benutzer && req.sitzungArt === 'app' ? { dateiSchluessel: konten.dateiSchluessel(req.sitzungHash), freistellenHelfer: freistellen.darfHelfen(req.benutzer) } : {}),
       // Angaben von Zusatzmodulen
       ...erweiterungen.sammle('auth.status'),
     });
@@ -151,11 +153,22 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     const email = kontoMail.bereit() ? normalisiereEmail(req.body?.email) : null;
     if (emailPflicht() && !email) throw new ValidierungsFehler({ email: 'Bitte gib eine E-Mail-Adresse an.' });
     const offen = registrierungOffen();
-    const benutzer = await konten.registriere(req.body ?? {});
+    // Vor dem (langsamen) Passwort-Hash zählen und die Einladung reservieren – sonst passieren parallele Anfragen die
+    // Drossel bzw. lösen dieselbe Einladung mehrfach ein
+    registrierDrossel.fehlschlag(req.ip); // zählt jeden Versuch
+    if (einladung && !konten.reserviereEinladung(einladung.id)) {
+      return res.status(403).json({ fehler: 'Der Einladungslink ist ungültig, abgelaufen oder wurde schon benutzt.' });
+    }
+    let benutzer;
+    try {
+      benutzer = await konten.registriere(req.body ?? {});
+    } catch (fehler) {
+      if (einladung) konten.gibEinladungFrei(einladung.id);
+      throw fehler;
+    }
     if (einladung) konten.loeseEinladungEin(einladung.id, benutzer.id);
     // Andockpunkt „konto.registriert“: z. B. Empfehlungsprogramm (Werber-Code nur bei offener Registrierung)
     erweiterungen.melde('konto.registriert', benutzer, { werber: offen && !einladung ? req.body?.werber : null, ip: req.ip, email });
-    registrierDrossel.fehlschlag(req.ip); // zählt jede Registrierung
     if (email) {
       try {
         await kontoMail.anfordernBestaetigung(benutzer, email);
@@ -204,6 +217,8 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
   });
 
   router.post('/auth/abmelden', (req, res) => {
+    // Abmelden in der App beendet auch das Helfer-Token fürs Freistellen im Hintergrund
+    if (req.benutzer && req.sitzungArt === 'app') konten.beendeSitzungenDerArt(req.benutzer.id, 'freistellen');
     konten.beendeSitzung(req.sitzungsToken);
     loescheSitzungsCookie(req, res, cookieSicher);
     res.json({ angemeldet: false });
@@ -235,6 +250,10 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
       emailPflicht: emailPflicht(),
       benachrichtigung_email: Boolean(req.benutzer.benachrichtigung_email),
       freigabe: freigabeInfo(req.benutzer),
+      // Fotos freistellen: Funktion an? Darf dieses Konto als Helfer-Gerät mitmachen? Häkchen gesetzt?
+      freistellen: freistellen.stand(req.benutzer),
+      // Für die Frage im Löschdialog: geteilte (freigegebene) Fotos, die der Community überlassen werden können
+      geteilte_fotos: kontoLoeschung.geteilteFotos(req.benutzer.id),
       speicher: speicher.info(req.benutzer.id),
       datenspende: Boolean(req.benutzer.datenspende),
       datenspendeAktiv: Boolean(konfiguration.zentrale?.url && konfiguration.zentrale.spende),
@@ -267,7 +286,8 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     if (mailDrossel.gesperrt(req.ip)) return res.status(429).json({ fehler: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
     mailDrossel.fehlschlag(req.ip);
     await captcha.pruefe(req.body?.captcha, { aktion: 'passwort', ip: req.ip });
-    await kontoMail.anfordernReset(req.body?.kennung);
+    // Versand nicht abwarten: Sonst verriete die Antwortzeit (SMTP dauert), ob es das Konto gibt
+    kontoMail.anfordernReset(req.body?.kennung).catch((e) => console.warn('[mail] Passwort zurücksetzen:', e.message));
     // Immer dieselbe Antwort – verrät nicht, ob das Konto existiert
     res.json({ ok: true, hinweis: 'Falls ein Konto mit bestätigter E-Mail-Adresse existiert, haben wir dir einen Link geschickt. Er ist 60 Minuten gültig.' });
   });
@@ -310,6 +330,17 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     const { anzeigename, sammlung_oeffentlich: oeffentlich, benachrichtigung_email: perEmail } = req.body ?? {};
     // Einstellungen von Zusatzmodulen (z. B. wöchentliche Zusammenfassung)
     for (const fn of erweiterungen.alle('konto.aendern')) fn(req.benutzer, req.body ?? {});
+    // Avatar: Symbol und Farbe nur aus den festen Listen ('' bzw. null = Standard)
+    if (req.body?.avatar_symbol !== undefined) {
+      const symbol = req.body.avatar_symbol || null;
+      if (symbol && !AVATAR_SYMBOLE.includes(symbol)) throw new ValidierungsFehler({ avatar_symbol: 'Bitte ein Symbol aus der Liste wählen.' });
+      db.prepare('UPDATE benutzer SET avatar_symbol = ? WHERE id = ?').run(symbol, req.benutzer.id);
+    }
+    if (req.body?.avatar_farbe !== undefined) {
+      const farbe = req.body.avatar_farbe || null;
+      if (farbe && !AVATAR_FARBEN.some((f) => f.hex === farbe)) throw new ValidierungsFehler({ avatar_farbe: 'Bitte eine Farbe aus der Liste wählen.' });
+      db.prepare('UPDATE benutzer SET avatar_farbe = ? WHERE id = ?').run(farbe, req.benutzer.id);
+    }
     if (req.body?.datenspende !== undefined) {
       db.prepare('UPDATE benutzer SET datenspende = ? WHERE id = ?').run(req.body.datenspende ? 1 : 0, req.benutzer.id);
     }
@@ -322,6 +353,16 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     }
     if (req.body?.fotos_nachfragen !== undefined) {
       db.prepare('UPDATE benutzer SET fotos_nachfragen = ? WHERE id = ?').run(req.body.fotos_nachfragen ? 1 : 0, req.benutzer.id);
+    }
+    // Helfer-Gerät fürs Freistellen: das Häkchen setzt der Benutzer selbst, wirkt aber nur, wenn er freigeschaltet ist
+    if (req.body?.freistellen_hilft !== undefined) {
+      db.prepare('UPDATE benutzer SET freistellen_hilft = ? WHERE id = ?').run(req.body.freistellen_hilft === true ? 1 : 0, req.benutzer.id);
+    }
+    // Höchstens so viele Fotos am Tag freistellen (0 = unbegrenzt)
+    if (req.body?.freistellen_limit !== undefined) {
+      const limit = Number(req.body.freistellen_limit);
+      if (!Number.isInteger(limit) || limit < 0 || limit > 10_000) throw new ValidierungsFehler({ freistellen_limit: 'Bitte eine ganze Zahl zwischen 0 (unbegrenzt) und 10.000 angeben.' });
+      db.prepare('UPDATE benutzer SET freistellen_limit = ? WHERE id = ?').run(limit, req.benutzer.id);
     }
     if (perEmail !== undefined) {
       db.prepare('UPDATE benutzer SET benachrichtigung_email = ? WHERE id = ?').run(perEmail ? 1 : 0, req.benutzer.id);
@@ -418,6 +459,20 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     res.json({ wiederherstellungscodes: konten.neueWiederherstellungscodes(req.benutzer.id) });
   });
 
+  // Sammlung leeren: alle eigenen Einträge (auch Verkauftes, Abgegebenes, Verliehenes) und Konvolute löschen – das Konto bleibt.
+  // Fotos bleiben wie beim Löschen einzelner Einträge erhalten (geteilte beim Katalogeintrag). Mit Passwort bestätigt.
+  router.post('/konto/sammlung-leeren', angemeldet, async (req, res) => {
+    await bestaetigePasswort(req);
+    const bilder = db.prepare('SELECT bild_datei FROM artikel WHERE benutzer_id = ? AND bild_datei IS NOT NULL').pluck().all(req.benutzer.id);
+    const geloescht = db.transaction(() => {
+      const n = db.prepare('DELETE FROM artikel WHERE benutzer_id = ?').run(req.benutzer.id).changes;
+      db.prepare('DELETE FROM konvolute WHERE benutzer_id = ?').run(req.benutzer.id);
+      return n;
+    })();
+    for (const datei of bilder) dateien.loesche(datei);
+    res.json({ geloescht });
+  });
+
   router.delete('/konto', angemeldet, async (req, res) => {
     await bestaetigePasswort(req);
     if (req.benutzer.rolle === 'admin') {
@@ -426,7 +481,8 @@ export function authRouter({ db, konten, konfiguration, dateien, speicher, konto
     }
     // Zusatzmodule räumen vorher auf (z. B. laufende Abos kündigen)
     await erweiterungen.fuehreAus('konto.loeschen', req.benutzer.id);
-    dateien.loescheBenutzerdaten(req.benutzer.id);
+    // Geteilte Fotos auf Wunsch anonym der Community überlassen (Einwilligung im Löschdialog), sonst mit dem Konto löschen
+    kontoLoeschung.loesche(req.benutzer.id, { fotosUeberlassen: req.body?.fotos_ueberlassen === true });
     loescheSitzungsCookie(req, res, cookieSicher);
     res.status(204).end();
   });

@@ -1,23 +1,30 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, DIGITAL_QUELLEN, istModerator,
-  beilagenAusVollstaendigkeit, vollstaendigkeitAusBeilagen, zustandBeschriftung, KAUFQUELLEN, INLAY_MAENGEL, hatInlayZustand,
+  ARTIKELTYPEN, MERCH_KATEGORIEN, MERCH_VERPACKUNGEN, merchVerpackung, merchVerpackungAnwenden, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, DIGITAL_QUELLEN, istModerator,
+  beilagenAusVollstaendigkeit, datentraegerVon, neuauflagenFuer, vollstaendigkeitAusBeilagen, BEILAGE_OHNE, ohneAnleitungUeblich, zustandBeschriftung, KAUFQUELLEN, INLAY_MAENGEL, hatInlayZustand,
 } from '../../../shared/konstanten.js';
+import { nummernHilfe } from '../../../shared/nummernhilfe.js';
+import { RegionHilfe, RegionAusNummer } from '../komponenten/RegionHilfe.jsx';
 import { usePlattformen } from '../plattformen.js';
 import { useSitzung } from '../sitzung.js';
 import PlattformAuswahl from '../komponenten/PlattformAuswahl.jsx';
+import SpielWahl from '../komponenten/SpielWahl.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import ZustandHilfe from '../komponenten/ZustandHilfe.jsx';
 import { api, ApiFehler } from '../api.js';
 import { navigiere, zurueck, vorherigeSeite, useVerlassenSchutz } from '../router.js';
-import { preisFeld, datumFeld, leseDatum, euro } from '../format.js';
+import { preisFeld, datumFeld, leseDatum, datumAnzeigen, euro } from '../format.js';
 import Layout from '../komponenten/Layout.jsx';
 import Cover from '../komponenten/Cover.jsx';
+import { ZuschnittDialog } from '../komponenten/Zuschnitt.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
 import BarcodeScanner from '../komponenten/BarcodeScanner.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { MODUL } from '../erweiterungen.jsx';
 import { LagerortFelder, BeilagenCheckliste, SeriennummerAbgleich } from '../komponenten/ZusatzFelder.jsx';
+
+/** Katalogeintrag mit dem Vermerk „Handbuch laut Verpackung nur online“ (optionales Feld, das Zusatzmodule im Katalogeintrag mitliefern). */
+const anleitungNurOnline = (eintrag, typ) => typ === 'spiel' && eintrag?.anleitung_online === 1;
 
 const FARBVORSCHLAEGE = [
   'Schwarz', 'Weiß', 'Grau', 'Silber', 'Clear', 'Clear Red', 'Clear Blue', 'Clear Green', 'Atomic Purple',
@@ -30,7 +37,46 @@ const LEER = {
   marktwert: '', herkunft: '', konvolut_id: null, bestand: 'besitz', digital_quelle: null,
   lagerort_ort: '', lagerort_regal: '', lagerort_fach: '', beilagen: null, seriennummer_ovp: '', privat: false, zustand_ovp: '', zustand_inlay: '', inlay_maengel: '',
   neupreis: '', erstkauf_datum: '', erstkauf_quelle: '', kauf_quelle: '', beilagen_notiz: '', drucknummer: '',
+  merch_kategorie: '', spiel_katalog_id: null,
 };
+
+// Natives <select> unkontrolliert lassen (defaultValue statt value): React erzwingt einen kontrollierten Wert bei
+// jedem Re-Render neu – rendert die Seite mitten in der nativen Auswahl (z. B. während eine Hintergrundabfrage noch
+// läuft), setzt das die gerade offene Auswahl zurück, bevor die angetippte Option ankommt. Der Ref-Callback läuft bei
+// jedem Render erneut und gleicht den Wert nur ab, wenn das Feld gerade nicht fokussiert/in Benutzung ist.
+/** Ist die gewählte Variante eine Sonderausgabe (eigene Edition, keine Neuauflage wie Platinum)? Dann gibt es keine „Fassung“. */
+const istSonderVariante = (varianten, varianteId, neuauflagen) => {
+  const v = varianteId ? varianten.find((x) => x.id === Number(varianteId)) : null;
+  if (!v) return false;
+  if (v.edition) return !neuauflagen.includes(v.edition);
+  // Ohne Feld „Edition“: an der Bezeichnung erkennen („Collector’s Edition“, „Limited“, „Steelbook“ …)
+  return SONDERAUSGABE_NAME.test(v.bezeichnung ?? '') && !neuauflagen.includes(v.bezeichnung);
+};
+const SONDERAUSGABE_NAME = /\b(edition|collector|limited|special|deluxe|steelbook|goty|game of the year|complete|premium|bundle|sammler)/i;
+
+const unkontrolliert = (wert) => (el) => {
+  if (!el || document.activeElement === el) return;
+  const soll = wert ?? '';
+  if (el.value !== soll) el.value = soll;
+};
+
+/** „ⓘ“ an der Modellnummer: was die Buchstaben bedeuten und wo man die Nummer findet – je Plattform. */
+function NummernInfo({ hilfe }) {
+  const [offen, setOffen] = useState(false);
+  return (
+    <div className="mt-1 text-xs">
+      <button type="button" className="font-medium text-akzent-hell underline" aria-expanded={offen} onClick={() => setOffen((o) => !o)} data-testid="nummern-info">
+        ⓘ Was bedeuten die Nummern?
+      </button>
+      {offen && (
+        <div className="mt-2 space-y-1 rounded-lg bg-karte-hover p-2" role="note" data-testid="nummern-hilfe">
+          <p className="font-semibold">{hilfe.titel}</p>
+          {hilfe.punkte.map((p) => <p key={p}>• {p}</p>)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ArtikelFormular({ route, artikelId }) {
   const p = route.parameter;
@@ -39,12 +85,16 @@ export default function ArtikelFormular({ route, artikelId }) {
   const [werte, setWerte] = useState(null);
   const [katalogEintrag, setKatalogEintrag] = useState(null);
   const [katalogFreigabe, setKatalogFreigabe] = useState('privat'); // privat | einreichen | veroeffentlichen
+  // Selbst eingetragene Edition, die es im Katalog noch nicht gibt: beim Speichern als Variante anlegen ('' = nein)
+  const [varianteAusEdition, setVarianteAusEdition] = useState('');
   const [varianten, setVarianten] = useState([]);
   const plattformen = usePlattformen();
   const { benutzer, status } = useSitzung();
   const funktionen = benutzer?.funktionen ?? {};
   // Beilagen-Liste (Zusatzfeld) – steht direkt unter der Vollständigkeit, beide füllen sich gegenseitig vor
-  const beilagenSichtbar = Boolean(funktionen.beilagen) && werte?.bestand !== 'digital';
+  // Merch (Figuren, Funko Pops …): Sockel, Zertifikat und Karte/Code gehören zum Typ – die Checkliste ist hier immer da
+  const merch = werte?.typ === 'merch';
+  const beilagenSichtbar = (Boolean(funktionen.beilagen) || merch) && werte?.bestand !== 'digital';
   // Im Konto ausgeblendete Felder (bereits ausgefüllte bleiben sichtbar, damit nichts unbemerkt verloren geht)
   const ausgeblendet = new Set(benutzer?.ausgeblendete_felder ?? []);
   const zeige = (feld) => !ausgeblendet.has(feld) || Boolean(werte?.[feld]);
@@ -57,9 +107,18 @@ export default function ArtikelFormular({ route, artikelId }) {
   const [beruehrt, setBeruehrt] = useState(false);
   const verlassenFreigeben = useVerlassenSchutz(beruehrt && !speichert);
   const [bildDatei, setBildDatei] = useState(null);
+  const [bildZuschneiden, setBildZuschneiden] = useState(null);
   const [scannerOffen, setScannerOffen] = useState(false);
   const [konvolute, setKonvolute] = useState([]);
-  useEffect(() => { api.konvolute().then(setKonvolute).catch(() => {}); }, []);
+  // Erst laden, wenn tatsächlich gebraucht (Herkunft „Konvolut“): Ein unbeteiligter Ladevorgang kurz nach dem Öffnen des
+  // Formulars re-rendert sonst das ganze Formular und kann dabei ein gerade offenes natives Auswahlmenü (z. B. Plattform)
+  // zurücksetzen – iOS übernimmt die angetippte Option dann nicht.
+  const [konvoluteGeladen, setKonvoluteGeladen] = useState(false);
+  useEffect(() => {
+    if (werte?.herkunft !== 'konvolut' || konvoluteGeladen) return;
+    setKonvoluteGeladen(true);
+    api.konvolute().then(setKonvolute).catch(() => {});
+  }, [werte?.herkunft, konvoluteGeladen]);
 
   useEffect(() => {
     (async () => {
@@ -74,8 +133,13 @@ export default function ArtikelFormular({ route, artikelId }) {
             katalog_id: a.katalog_id, plattform_id: a.plattform_id, variante_id: a.variante_id,
           });
           if (a.katalog_id) {
-            setKatalogEintrag(await api.katalogEintrag(a.katalog_id).catch(() => null));
+            const eintrag = await api.katalogEintrag(a.katalog_id).catch(() => null);
+            setKatalogEintrag(eintrag);
             setVarianten(await api.varianten(a.katalog_id).catch(() => []));
+            // Handbuch laut Verpackung nur online und zur Anleitung nichts eingetragen: „gab es nicht“ vorschlagen (gespeichert wird erst mit „Speichern“)
+            if (funktionen.beilagen && anleitungNurOnline(eintrag, a.typ) && !(a.beilagen && 'anleitung' in a.beilagen)) {
+              setWerte((w) => ({ ...w, beilagen: { ...(w.beilagen ?? {}), anleitung: BEILAGE_OHNE } }));
+            }
           }
           return;
         }
@@ -92,8 +156,10 @@ export default function ArtikelFormular({ route, artikelId }) {
             plattform_id: vorlage.plattform_id, region: vorlage.region ?? '', cover_url: vorlage.cover_url ?? '',
           });
           if (vorlage.katalog_id) {
-            setKatalogEintrag(await api.katalogEintrag(vorlage.katalog_id).catch(() => null));
+            const eintrag = await api.katalogEintrag(vorlage.katalog_id).catch(() => null);
+            setKatalogEintrag(eintrag);
             setVarianten(await api.varianten(vorlage.katalog_id).catch(() => []));
+            if (funktionen.beilagen && anleitungNurOnline(eintrag, vorlage.typ)) basis.beilagen = { anleitung: BEILAGE_OHNE };
           }
         }
         if (p.katalog) {
@@ -106,11 +172,19 @@ export default function ArtikelFormular({ route, artikelId }) {
             cover_url: eintrag.cover_url ?? '',
             plattform: eintrag.plattformen.length === 1 ? eintrag.plattformen[0] : eintrag.typ === 'konsole' ? eintrag.titel : '',
           });
+          // Handbuch laut Verpackung nur online: Anleitung „gab es nicht“ vorbelegen
+          if (funktionen.beilagen && anleitungNurOnline(eintrag, eintrag.typ)) basis.beilagen = { anleitung: BEILAGE_OHNE };
           // Plattform aus dem Barcode-Produktnamen (z. B. „Ps3“), falls es den Titel dafür gibt
-          if (p.plattform_id) basis.plattform_id = Number(p.plattform_id);
+          // – aber nur, wenn das Spiel für diese Plattform erschienen ist (der Produktname kann täuschen: „playstation 2k Games“)
+          if (p.plattform_id && (!eintrag.plattform_ids?.length || eintrag.plattform_ids.map(Number).includes(Number(p.plattform_id)))) {
+            basis.plattform_id = Number(p.plattform_id);
+          }
           const liste = await api.varianten(eintrag.id).catch(() => []);
           setVarianten(liste);
-          const gewaehlt = liste.find((v) => String(v.id) === p.variante);
+          // Vorauswahl der Ausgabe (z. B. vom letzten Exemplar mit demselben Barcode): Region und Fassung, Variante geht vor
+          if (p.region) basis.region = p.region;
+          if (p.edition) basis.edition = p.edition;
+          const gewaehlt = liste.find((v) => String(v.id) === String(p.variante));
           if (gewaehlt) {
             Object.assign(basis, {
               variante_id: gewaehlt.id, modellnummer: gewaehlt.modellnummer ?? '', farbe: gewaehlt.farbe ?? '',
@@ -135,11 +209,23 @@ export default function ArtikelFormular({ route, artikelId }) {
     const treffer = plattformZu(werte.plattform);
     if (treffer) setWerte((w) => ({ ...w, plattform_id: treffer.id }));
   }, [werte?.plattform, plattformen.length]);
-  // Barcodes sind je Plattform eindeutig: bekannte Plattform aus dem Scan steht fest (Ausnahmen über „Andere Plattform …“)
-  const barcodePlattform = !bearbeiten && p.plattform_id ? Number(p.plattform_id) : null;
+  // Umgekehrt: Plattform nur als ID bekannt (z. B. aus dem Barcode-Scan „PS3“) – den Namen ergänzen, damit Vorgaben wie
+  // Inlay bei CIB oder „Anleitung gab es nicht“ greifen
+  useEffect(() => {
+    if (!werte || !werte.plattform_id || werte.plattform || !plattformen.length) return;
+    const pl = plattformen.find((x) => x.id === Number(werte.plattform_id));
+    if (pl) setWerte((w) => ({ ...w, plattform: pl.name }));
+  }, [werte?.plattform_id, plattformen.length]); // eslint-disable-line react-hooks/exhaustive-deps
   // Plattformen, für die es den gewählten Katalogeintrag gibt – nur diese stehen zur Wahl
-  const katalogPlattformIds = useMemo(() => [...new Set((katalogEintrag?.plattformen ?? []).map((n) => plattformZu(n)?.id).filter(Boolean))],
-    [katalogEintrag?.id, plattformen.length]);
+  // (Server-Zuordnung bevorzugt; die Namen sind nur der Rückfall, z. B. bei älteren Servern)
+  const katalogPlattformIds = useMemo(() => (katalogEintrag?.plattform_ids?.length
+    ? [...new Set(katalogEintrag.plattform_ids.map(Number))]
+    : [...new Set((katalogEintrag?.plattformen ?? []).map((n) => plattformZu(n)?.id).filter(Boolean))]),
+  [katalogEintrag?.id, plattformen.length]);
+  // Barcodes sind je Plattform eindeutig: bekannte Plattform aus dem Scan steht fest (Ausnahmen über „Andere Plattform …“) –
+  // sofern es den Katalogeintrag für sie gibt; sonst war die Erkennung aus dem Produktnamen falsch und alle Plattformen des Spiels stehen zur Wahl
+  const barcodePlattformRoh = !bearbeiten && p.plattform_id ? Number(p.plattform_id) : null;
+  const barcodePlattform = barcodePlattformRoh && (!katalogPlattformIds.length || katalogPlattformIds.includes(barcodePlattformRoh)) ? barcodePlattformRoh : null;
   // Genau eine passende Plattform: gleich vorauswählen
   useEffect(() => {
     if (werte && !werte.plattform_id && katalogPlattformIds.length === 1) {
@@ -147,6 +233,22 @@ export default function ArtikelFormular({ route, artikelId }) {
       setWerte((w) => ({ ...w, plattform_id: pl.id, plattform: pl.name }));
     }
   }, [katalogPlattformIds.join(','), Boolean(werte)]);
+
+  // Neues Spiel auf PS4, PS5, Xbox One/Series oder Switch: Anleitung „gab es nicht“ vorbelegen (dort meist keine gedruckte dabei)
+  useEffect(() => {
+    if (bearbeiten || !werte || werte.typ !== 'spiel' || !beilagenSichtbar || !ohneAnleitungUeblich(werte.plattform)) return;
+    if (werte.beilagen && 'anleitung' in werte.beilagen) return;
+    setWerte((w) => ({ ...w, beilagen: { ...(w.beilagen ?? {}), anleitung: BEILAGE_OHNE } }));
+  }, [werte?.plattform, werte?.typ, beilagenSichtbar]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // CIB bei Disc-Spielen (PS3, PS4 …) heißt: mit Inlay – auch wenn CIB vor der Plattform gewählt oder über die Beilagen
+  // (OVP + Anleitung angekreuzt) entstanden ist. Nur solange zum Inlay noch nichts eingetragen ist.
+  useEffect(() => {
+    if (bearbeiten || !werte || werte.typ !== 'spiel' || !beilagenSichtbar || werte.vollstaendigkeit !== 'cib') return;
+    if (!werte.plattform || datentraegerVon(werte.plattform) !== 'disc') return;
+    if (werte.beilagen && 'inlay' in werte.beilagen) return;
+    setWerte((w) => ({ ...w, beilagen: { ...(w.beilagen ?? {}), inlay: true } }));
+  }, [werte?.plattform, werte?.typ, werte?.vollstaendigkeit, beilagenSichtbar]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bildVorschau = useMemo(() => (bildDatei ? URL.createObjectURL(bildDatei) : null), [bildDatei]);
   useEffect(() => () => bildVorschau && URL.revokeObjectURL(bildVorschau), [bildVorschau]);
@@ -198,6 +300,9 @@ export default function ArtikelFormular({ route, artikelId }) {
       const daten = { ...werte };
       const felder = Object.keys(LEER);
       const nutzdaten = Object.fromEntries(felder.map((f) => [f, daten[f]]));
+      // App: für die Offline-Anzeige zwischengespeicherte Bilder stehen als „blob:“-Adresse im Formular – die gilt nur
+      // lokal und darf nicht als neue Coverbild-Adresse gespeichert werden (unverändert lassen, wenn nur das betroffen ist)
+      if (typeof nutzdaten.cover_url === 'string' && nutzdaten.cover_url.startsWith('blob:')) delete nutzdaten.cover_url;
       nutzdaten.kaufdatum = leseDatum(daten.kaufdatum);
       nutzdaten.erstkauf_datum = leseDatum(daten.erstkauf_datum);
       if (daten.herkunft !== 'konvolut') nutzdaten.konvolut_id = null;
@@ -205,6 +310,19 @@ export default function ArtikelFormular({ route, artikelId }) {
       if (!bearbeiten && !daten.katalog_id) {
         nutzdaten.katalog_einreichen = katalogFreigabe === 'einreichen';
         nutzdaten.katalog_veroeffentlichen = katalogFreigabe === 'veroeffentlichen';
+      }
+      // Edition als neue Variante des Katalogeintrags anlegen und das Exemplar gleich damit verknüpfen
+      const neueVariante = daten.edition?.trim();
+      if (varianteAusEdition && neueVariante && daten.katalog_id && !daten.variante_id) {
+        try {
+          const v = await api.varianteAnlegen(daten.katalog_id, {
+            bezeichnung: neueVariante, edition: neueVariante,
+            einreichen: varianteAusEdition === 'einreichen', veroeffentlichen: varianteAusEdition === 'veroeffentlichen',
+          });
+          nutzdaten.variante_id = v.id;
+        } catch (e) {
+          zeigeHinweis(`Die Variante konnte nicht angelegt werden: ${e.message}`, 'fehler');
+        }
       }
       const beschreibung = `„${daten.titel}“ ${bearbeiten ? 'geändert' : 'angelegt'}`;
       let artikel = bearbeiten
@@ -258,16 +376,21 @@ export default function ArtikelFormular({ route, artikelId }) {
               <Symbol name="kamera" className="size-4" />
               {bildDatei || werte.bild_datei ? 'Anderes Foto' : 'Eigenes Foto'}
               <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only"
-                onChange={(e) => setBildDatei(e.target.files?.[0] ?? null)} />
+                onChange={(e) => { const d = e.target.files?.[0]; e.target.value = ''; if (d) setBildZuschneiden(d); }} />
             </label>
+            {bildZuschneiden && (
+              <ZuschnittDialog datei={bildZuschneiden} titel="Eigenes Foto zuschneiden"
+                hinweis="Nur das Cover statt der ganzen Hülle? Wähle „Frei“ (Breite und Höhe einzeln) oder ein Format und zieh den Rahmen an die richtige Stelle. Mit „Original“ bleibt das ganze Foto."
+                onFertig={(d) => { setBildDatei(d); setBildZuschneiden(null); }} onAbbrechen={() => setBildZuschneiden(null)} />
+            )}
           </div>
         </div>
 
         <Abschnitt titel="Grunddaten">
           <Feld label="Artikeltyp" fehler={fehler.typ} breit>
-            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Artikeltyp">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Artikeltyp">
               {ARTIKELTYPEN.map((t) => (
-                <button key={t.value} type="button" role="radio" aria-checked={werte.typ === t.value}
+                <button key={t.value} type="button" role="radio" aria-checked={werte.typ === t.value} title={t.beschreibung}
                   onClick={() => setze('typ')(t.value)}
                   className={`${werte.typ === t.value ? 'chip-aktiv' : 'chip'} justify-center rounded-xl py-2`}>
                   <Symbol name={t.value} className="size-4" />{t.label}
@@ -277,9 +400,24 @@ export default function ArtikelFormular({ route, artikelId }) {
           </Feld>
           <Feld label="Titel / Bezeichnung *" fehler={fehler.titel} breit>
             {(id) => <input id={id} className="eingabe" value={werte.titel} onChange={setze('titel')} required maxLength={200}
-              placeholder={werte.typ === 'spiel' ? 'z. B. The Legend of Zelda: Ocarina of Time' : werte.typ === 'konsole' ? 'z. B. Nintendo 64' : 'z. B. Controller Pak'} />}
+              placeholder={werte.typ === 'spiel' ? 'z. B. The Legend of Zelda: Ocarina of Time' : werte.typ === 'konsole' ? 'z. B. Nintendo 64' : merch ? 'z. B. Funko Pop Link #123, Amiibo Zelda' : 'z. B. Controller Pak'} />}
           </Feld>
-          <Feld label="Plattform / System" fehler={fehler.plattform_id ?? fehler.plattform}>
+          {merch && (
+            <>
+              <Feld label="Kategorie" fehler={fehler.merch_kategorie}>
+                {(id) => (
+                  <>
+                    <Auswahl id={id} wert={werte.merch_kategorie} onChange={setze('merch_kategorie')} optionen={MERCH_KATEGORIEN} />
+                    {werte.merch_kategorie && <span className="mt-1 block text-xs text-leise">{MERCH_KATEGORIEN.find((k) => k.value === werte.merch_kategorie)?.beschreibung}</span>}
+                  </>
+                )}
+              </Feld>
+              <Feld label="Gehört zu (Spiel, optional)" fehler={fehler.spiel_katalog_id}>
+                {(id) => <SpielWahl id={id} katalogId={werte.spiel_katalog_id} titel={werte.spiel_titel} onChange={(kid, t) => setWerte((w) => ({ ...w, spiel_katalog_id: kid, spiel_titel: t }))} />}
+              </Feld>
+            </>
+          )}
+          {!merch && <Feld label="Plattform / System" fehler={fehler.plattform_id ?? fehler.plattform}>
             {(id) => (
               <>
                 <PlattformAuswahl id={id} wert={werte.plattform_id} nur={barcodePlattform ? [barcodePlattform] : katalogPlattformIds}
@@ -287,11 +425,11 @@ export default function ArtikelFormular({ route, artikelId }) {
                 {barcodePlattform && werte.plattform_id === barcodePlattform && <span className="mt-1 block text-xs text-leise">Aus dem Barcode erkannt</span>}
               </>
             )}
-          </Feld>
-          {varianten.length > 0 && (
+          </Feld>}
+          {varianten.length > 0 && !merch && (
             <Feld label="Variante / Revision" fehler={fehler.variante_id} breit>
               {(id) => (
-                <select id={id} className="eingabe" value={werte.variante_id ?? ''} onChange={(e) => waehleVariante(e.target.value)}>
+                <select id={id} className="eingabe" defaultValue={werte.variante_id ?? ''} ref={unkontrolliert(werte.variante_id)} onChange={(e) => waehleVariante(e.target.value)}>
                   <option value="">– keine bestimmte Variante –</option>
                   {varianten.map((v) => (
                     <option key={v.id} value={v.id}>
@@ -301,6 +439,23 @@ export default function ArtikelFormular({ route, artikelId }) {
                   ))}
                 </select>
               )}
+            </Feld>
+          )}
+          {/* Fassung: Erstauflage oder übliche Neuauflage (Platinum, Essentials, Classics …) – auch ohne gepflegte Varianten und bei
+              Varianten wie „PAL-DE“ oder einer Revision; nur bei einer Sonderausgabe (Special, Collector's …) entfällt sie */}
+          {werte.typ === 'spiel' && !merch && neuauflagenFuer(werte.plattform).length > 0 && !istSonderVariante(varianten, werte.variante_id, neuauflagenFuer(werte.plattform)) && (
+            <Feld label="Fassung" fehler={fehler.edition}>
+              {(id) => {
+                const liste = neuauflagenFuer(werte.plattform);
+                const eigene = werte.edition && !liste.includes(werte.edition);
+                return (
+                  <select id={id} className="eingabe" defaultValue={werte.edition ?? ''} ref={unkontrolliert(werte.edition)} onChange={(e) => setWerte((w) => ({ ...w, edition: e.target.value }))}>
+                    <option value="">Erstauflage / Standard</option>
+                    {liste.map((n) => <option key={n} value={n}>{n}</option>)}
+                    {eigene && <option value={werte.edition}>{werte.edition}</option>}
+                  </select>
+                );
+              }}
             </Feld>
           )}
           {/* Physische Exemplare sind der Normalfall – „digital“ nur als unauffällige Zeile, die Box erst nach dem Umschalten */}
@@ -320,7 +475,7 @@ export default function ArtikelFormular({ route, artikelId }) {
               </label>
               {werte.bestand === 'digital' && (
                 <>
-                  <select className="eingabe" value={werte.digital_quelle ?? ''} onChange={setze('digital_quelle')} aria-label="Store">
+                  <select className="eingabe" defaultValue={werte.digital_quelle ?? ''} ref={unkontrolliert(werte.digital_quelle)} onChange={setze('digital_quelle')} aria-label="Store">
                     {DIGITAL_QUELLEN.map((q) => <option key={q.value} value={q.value}>{q.label}</option>)}
                   </select>
                   <p className="text-xs text-leise">
@@ -331,15 +486,22 @@ export default function ArtikelFormular({ route, artikelId }) {
               )}
             </div>
           )}
-          {zeige('region') && (
+          {zeige('region') && !merch && (
             <Feld label="Region" fehler={fehler.region}>
-              {(id) => <Auswahl id={id} wert={werte.region} onChange={setze('region')} optionen={REGIONEN} />}
+              {(id) => (
+                <>
+                  <Auswahl id={id} wert={werte.region} onChange={setze('region')} optionen={REGIONEN} />
+                  {spiel && <RegionAusNummer nummer={werte.modellnummer} region={werte.region} onUebernehmen={(region) => setWerte((w) => ({ ...w, region }))} />}
+                  <RegionHilfe />
+                </>
+              )}
             </Feld>
           )}
-          <Feld label={zeige('zustand_ovp') && werte.bestand !== 'digital' && werte.vollstaendigkeit !== 'nur_geraet' ? zustandBeschriftung(werte.typ).traeger : 'Zustand'} fehler={fehler.zustand}>
+          <Feld label={(zeige('zustand_ovp') && werte.bestand !== 'digital' && werte.vollstaendigkeit !== 'nur_geraet') || merch ? zustandBeschriftung(werte.typ).traeger : 'Zustand'} fehler={fehler.zustand}>
             {(id) => <Auswahl id={id} wert={werte.zustand} onChange={setze('zustand')} optionen={ZUSTAENDE} />}
           </Feld>
-          {zeige('zustand_ovp') && werte.bestand !== 'digital' && werte.vollstaendigkeit !== 'nur_geraet' && (
+          {/* Merch: Verpackung (Box, Blister) nur bewerten, wenn sie geöffnet vorhanden ist – ungeöffnet ist sie „Neu/OVP“ */}
+          {zeige('zustand_ovp') && werte.bestand !== 'digital' && werte.vollstaendigkeit !== 'nur_geraet' && (!merch || merchVerpackung(werte) === 'geoeffnet') && (
             <Feld label={zustandBeschriftung(werte.typ).ovp} fehler={fehler.zustand_ovp}>
               {(id) => <Auswahl id={id} wert={werte.zustand_ovp} onChange={setze('zustand_ovp')} optionen={ZUSTAENDE} />}
             </Feld>
@@ -371,16 +533,28 @@ export default function ArtikelFormular({ route, artikelId }) {
               </fieldset>
             </>
           )}
+          {merch ? (
+            <Feld label="Verpackung" fehler={fehler.vollstaendigkeit}>
+              {(id) => (
+                <select id={id} className="eingabe" defaultValue={merchVerpackung(werte) ?? ''} ref={unkontrolliert(merchVerpackung(werte))}
+                  onChange={(e) => setWerte((w) => ({ ...w, ...merchVerpackungAnwenden(e.target.value, w) }))}>
+                  <option value="">– keine Angabe –</option>
+                  {MERCH_VERPACKUNGEN.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                </select>
+              )}
+            </Feld>
+          ) : (
           <Feld label="Vollständigkeit" fehler={fehler.vollstaendigkeit}>
             {(id) => (
               <Auswahl id={id} wert={werte.vollstaendigkeit} optionen={VOLLSTAENDIGKEITEN}
                 onChange={(e) => {
                   const v = e.target.value;
                   // Mit Beilagen-Liste: OVP und Anleitung gleich mit ankreuzen (nur noch ergänzen, was sonst dabei ist)
-                  setWerte((w) => ({ ...w, vollstaendigkeit: v, beilagen: beilagenSichtbar ? beilagenAusVollstaendigkeit(v, w.beilagen) : w.beilagen }));
+                  setWerte((w) => ({ ...w, vollstaendigkeit: v, beilagen: beilagenSichtbar ? beilagenAusVollstaendigkeit(v, w.beilagen, w.plattform) : w.beilagen }));
                 }} />
             )}
           </Feld>
+          )}
           {werte.vollstaendigkeit === 'nur_ovp' && (
             <p className="rounded-lg bg-karte-hover p-2 text-xs text-leise sm:col-span-2" data-testid="hinweis-leere-huelle">
               Nur die Verpackung ohne Spiel? Dann ist das eine <strong className="text-text">leere Hülle</strong>: Sie zählt nicht zur Sammlung,
@@ -392,15 +566,15 @@ export default function ArtikelFormular({ route, artikelId }) {
           )}
           {werte.bestand !== 'digital' && (
             <ZustandHilfe typ={werte.typ} zustand={werte.zustand} zustandOvp={werte.zustand_ovp} zustandInlay={werte.zustand_inlay}
-              mitOvp={zeige('zustand_ovp') && werte.vollstaendigkeit !== 'nur_geraet'} mitInlay={zeige('zustand_inlay') && hatInlayZustand(werte)} />
+              mitOvp={zeige('zustand_ovp') && werte.vollstaendigkeit !== 'nur_geraet' && (!merch || merchVerpackung(werte) === 'geoeffnet')} mitInlay={zeige('zustand_inlay') && hatInlayZustand(werte)} />
           )}
           {beilagenSichtbar && (
             <>
-              <BeilagenCheckliste typ={werte.typ} plattform={werte.plattform} wert={werte.beilagen}
-                onChange={(b) => setWerte((w) => ({ ...w, beilagen: b, vollstaendigkeit: vollstaendigkeitAusBeilagen(b) ?? w.vollstaendigkeit }))} />
+              <BeilagenCheckliste typ={werte.typ} plattform={werte.plattform} wert={werte.beilagen} anleitungOnline={anleitungNurOnline(katalogEintrag, werte.typ)} lieferumfang={varianten.find((v) => v.id === werte.variante_id)?.lieferumfang ?? null}
+                onChange={(b) => setWerte((w) => ({ ...w, beilagen: b, ...(merch ? {} : { vollstaendigkeit: vollstaendigkeitAusBeilagen(b, w.vollstaendigkeit) ?? w.vollstaendigkeit }) }))} />
               <Feld label="Welche Beilagen genau? (optional)" fehler={fehler.beilagen_notiz} breit>
                 {(id) => <input id={id} className="eingabe" value={werte.beilagen_notiz} onChange={setze('beilagen_notiz')} maxLength={500}
-                  placeholder="z. B. Club-Nintendo-Katalog 1998, Poster Ocarina of Time, Garantiekarte" />}
+                  placeholder={merch ? 'z. B. Amiibo-Karte Serie 1, Zertifikat Nr. 123/500' : 'z. B. Club-Nintendo-Katalog 1998, Poster Ocarina of Time, Garantiekarte'} />}
               </Feld>
             </>
           )}
@@ -408,7 +582,7 @@ export default function ArtikelFormular({ route, artikelId }) {
 
         {(['farbe', 'edition', 'modellnummer', 'seriennummer', 'drucknummer'].some(zeige) || beilagenSichtbar) && (
         <Abschnitt titel="Variante" hinweis="Sonderfarben, Editionen und Modellrevisionen unterscheiden">
-          {zeige('farbe') && (
+          {zeige('farbe') && !merch && (
             <Feld label="Farbe / Sonderfarbe" fehler={fehler.farbe}>
               {(id) => (
                 <>
@@ -419,31 +593,43 @@ export default function ArtikelFormular({ route, artikelId }) {
             </Feld>
           )}
           {zeige('edition') && (
-            <Feld label="Edition / Variante" fehler={fehler.edition}>
-              {(id) => <input id={id} className="eingabe" value={werte.edition} onChange={setze('edition')} placeholder="z. B. Zelda 25th Anniversary" />}
+            <Feld label={merch ? 'Edition (Exclusive, Chase, Glow, limitiert …)' : 'Edition / Variante'} fehler={fehler.edition}>
+              {(id) => <input id={id} className="eingabe" value={werte.edition} onChange={setze('edition')} placeholder={merch ? 'z. B. Chase, Glow-in-the-Dark, Convention Exclusive' : 'z. B. Zelda 25th Anniversary'} />}
             </Feld>
           )}
+          {zeige('edition') && <EditionAlsVariante werte={werte} varianten={varianten} merch={merch} wahl={varianteAusEdition} setWahl={setVarianteAusEdition}
+            onWaehle={waehleVariante} moderator={istModerator(benutzer)} einreichenMoeglich={Boolean(MODUL.moderation)} neuauflagen={neuauflagenFuer(werte.plattform)} />}
           {zeige('modellnummer') && (
-            <Feld label="Modellnummer" fehler={fehler.modellnummer}>
-              {(id) => <input id={id} className="eingabe" value={werte.modellnummer} onChange={setze('modellnummer')} placeholder={spiel ? 'z. B. CUSA-03067, SLES-00972' : 'z. B. SCPH-1002, HEG-001 (OLED)'} />}
+            <Feld label={merch ? 'Nummer (z. B. Funko #123)' : 'Modellnummer'} fehler={fehler.modellnummer}>
+              {(id) => (
+                <>
+                  <input id={id} className="eingabe" value={werte.modellnummer} onChange={setze('modellnummer')} placeholder={spiel ? nummernHilfe(werte.plattform).beispiel : merch ? 'z. B. 123 oder #123' : 'z. B. SCPH-1002, HEG-001 (OLED)'} />
+                  {spiel && (
+                    <>
+                      <span className="mt-1 block text-xs text-leise">Wie auf der Hülle bzw. der Disc oder dem Modul; mehrere Nummern mit Komma trennen. Bindestrich und Leerzeichen sind für die Suche egal.</span>
+                      <NummernInfo hilfe={nummernHilfe(werte.plattform)} />
+                    </>
+                  )}
+                </>
+              )}
             </Feld>
           )}
           {spiel && zeige('drucknummer') && (
             <Feld label="Drucknummer (Cover)" fehler={fehler.drucknummer}>
               {(id) => (
                 <>
-                  <input id={id} className="eingabe" value={werte.drucknummer} onChange={setze('drucknummer')} maxLength={40} placeholder="z. B. 8826161" autoComplete="off" />
-                  <p className="mt-1 text-xs text-leise">Kleine Nummer auf dem Cover-Rücken, meist unter der CUSA-/SLES-Nummer – unterscheidet Nachdrucke.</p>
+                  <input id={id} className="eingabe" value={werte.drucknummer} onChange={setze('drucknummer')} maxLength={40} placeholder={nummernHilfe(werte.plattform).druck.beispiel} autoComplete="off" />
+                  <p className="mt-1 text-xs text-leise">{nummernHilfe(werte.plattform).druck.text}</p>
                 </>
               )}
             </Feld>
           )}
-          {zeige('seriennummer') && (!spiel || werte.seriennummer) && (
+          {zeige('seriennummer') && !merch && (!spiel || werte.seriennummer) && (
             <Feld label="Seriennummer" fehler={fehler.seriennummer}>
               {(id) => <input id={id} className="eingabe" value={werte.seriennummer} onChange={setze('seriennummer')} autoComplete="off" />}
             </Feld>
           )}
-          {beilagenSichtbar && (!spiel || werte.seriennummer_ovp) && (
+          {beilagenSichtbar && !merch && (!spiel || werte.seriennummer_ovp) && (
             <>
               <Feld label="Seriennummer der OVP" fehler={fehler.seriennummer_ovp}>
                 {(id) => (
@@ -467,7 +653,7 @@ export default function ArtikelFormular({ route, artikelId }) {
         <Abschnitt titel="Kauf & Details">
           <Feld label="Herkunft" fehler={fehler.herkunft}>
             {(id) => (
-              <select id={id} className="eingabe" value={werte.herkunft} onChange={setze('herkunft')}>
+              <select id={id} className="eingabe" defaultValue={werte.herkunft} ref={unkontrolliert(werte.herkunft)} onChange={setze('herkunft')}>
                 <option value="">– keine Angabe –</option>
                 {HERKUNFT.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
               </select>
@@ -490,7 +676,7 @@ export default function ArtikelFormular({ route, artikelId }) {
             <Feld label="Kaufdatum" fehler={fehler.kaufdatum}>
               {(id) => (
                 <>
-                  <input id={id} className="eingabe" value={werte.kaufdatum} onChange={setze('kaufdatum')} inputMode="numeric" placeholder="TT.MM.JJJJ, MM.JJJJ oder nur JJJJ" />
+                  <input id={id} className="eingabe" value={werte.kaufdatum} onChange={setze('kaufdatum')} onBlur={(e) => setWerte((w) => ({ ...w, kaufdatum: datumAnzeigen(e.target.value) }))} inputMode="numeric" placeholder="TT.MM.JJJJ, MM.JJJJ oder JJJJ – Punkte optional" />
                   <span className="mt-1 block text-xs text-leise">Auch ungefähr – z. B. nur das Jahr.</span>
                 </>
               )}
@@ -510,7 +696,7 @@ export default function ArtikelFormular({ route, artikelId }) {
                   {(id) => <input id={id} className="eingabe" value={werte.neupreis} onChange={setze('neupreis')} inputMode="decimal" placeholder="z. B. 59,99" />}
                 </Feld>
                 <Feld label="Datum" fehler={fehler.erstkauf_datum}>
-                  {(id) => <input id={id} className="eingabe" value={werte.erstkauf_datum} onChange={setze('erstkauf_datum')} inputMode="numeric" placeholder="TT.MM.JJJJ oder JJJJ" />}
+                  {(id) => <input id={id} className="eingabe" value={werte.erstkauf_datum} onChange={setze('erstkauf_datum')} onBlur={(e) => setWerte((w) => ({ ...w, erstkauf_datum: datumAnzeigen(e.target.value) }))} inputMode="numeric" placeholder="TT.MM.JJJJ, MM.JJJJ oder JJJJ – Punkte optional" />}
                 </Feld>
                 <Feld label="Händler" fehler={fehler.erstkauf_quelle}>
                   {(id) => <input id={id} className="eingabe" value={werte.erstkauf_quelle} onChange={setze('erstkauf_quelle')} maxLength={100} placeholder="z. B. Media Markt" />}
@@ -629,7 +815,7 @@ function KonvolutWahl({ konvolute, wert, fehler, onWahl, onNeu }) {
     <Feld label="Konvolut" fehler={fehler}>
       {(id) => (
         <>
-          <select id={id} className="eingabe" value={wert ?? ''} onChange={(e) => (e.target.value === 'neu' ? setNeu({ name: '', preis: '', kaufdatum: '' }) : onWahl(e.target.value ? Number(e.target.value) : null))}>
+          <select id={id} className="eingabe" defaultValue={wert ?? ''} ref={unkontrolliert(wert)} onChange={(e) => (e.target.value === 'neu' ? setNeu({ name: '', preis: '', kaufdatum: '' }) : onWahl(e.target.value ? Number(e.target.value) : null))}>
             <option value="">– ohne Konvolut –</option>
             {konvolute.map((k) => <option key={k.id} value={k.id}>{k.name}{k.preis != null ? ` (${euro(k.preis)})` : ''}</option>)}
             <option value="neu">+ Neues Konvolut …</option>
@@ -657,7 +843,9 @@ function Feld({ label, fehler, breit, children }) {
   const id = useId();
   const inhalt = typeof children === 'function' ? children(id) : children;
   return (
-    <div className={breit ? 'sm:col-span-2' : ''}>
+    // min-w-0: Grid-Felder dürfen sonst nicht unter ihre Inhaltsbreite schrumpfen – ein <select> mit langer Option
+    // (z. B. eine frei eingegebene, lange Fassungs-Bezeichnung) würde sonst die ganze Seite seitlich aufreißen.
+    <div className={`min-w-0 ${breit ? 'sm:col-span-2' : ''}`}>
       {typeof children === 'function' ? <label htmlFor={id} className="beschriftung">{label}</label> : <span className="beschriftung">{label}</span>}
       {inhalt}
       {fehler && <p className="mt-1 text-sm text-gefahr" role="alert">{fehler}</p>}
@@ -667,9 +855,49 @@ function Feld({ label, fehler, breit, children }) {
 
 function Auswahl({ id, wert, onChange, optionen }) {
   return (
-    <select id={id} className="eingabe" value={wert ?? ''} onChange={onChange}>
+    <select id={id} className="eingabe" defaultValue={wert ?? ''} ref={unkontrolliert(wert)} onChange={onChange}>
       <option value="">– keine Angabe –</option>
       {optionen.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
+  );
+}
+
+/**
+ * Unter „Edition / Variante“: Gibt es die eingetragene Edition im Katalog schon als Variante, zum Auswählen anbieten –
+ * sonst anbieten, sie beim Speichern als neue Variante anzulegen (nur für mich, zur Aufnahme einreichen oder – Moderation – veröffentlichen).
+ */
+function EditionAlsVariante({ werte, varianten, merch, wahl, setWahl, onWaehle, moderator, einreichenMoeglich, neuauflagen }) {
+  const name = String(werte.edition ?? '').trim();
+  // Übliche Neuauflagen (Platinum, Essentials …) sind keine eigene Variante – die stehen unter „Fassung“
+  if (merch || !name || !werte.katalog_id || werte.variante_id || neuauflagen.includes(name)) return null;
+  const klein = name.toLowerCase();
+  const vorhanden = varianten.find((v) => [v.bezeichnung, v.edition].some((t) => String(t ?? '').trim().toLowerCase() === klein));
+  if (vorhanden) {
+    return (
+      <p className="-mt-1 text-xs text-leise sm:col-span-2" data-testid="edition-vorhanden">
+        „{vorhanden.bezeichnung}“ gibt es im Katalog als Variante.{' '}
+        <button type="button" className="text-akzent-hell underline" onClick={() => onWaehle(vorhanden.id)}>Diese Variante wählen</button>
+      </p>
+    );
+  }
+  const optionen = [
+    ['privat', 'nur für mich'],
+    ...(einreichenMoeglich ? [['einreichen', 'zur Aufnahme in den Katalog einreichen']] : []),
+    ...(moderator ? [['veroeffentlichen', 'direkt veröffentlichen (Moderation)']] : []),
+  ];
+  return (
+    <div className="-mt-1 space-y-1.5 rounded-xl bg-karte-hover p-3 text-sm sm:col-span-2" data-testid="edition-als-variante">
+      <label className="flex items-start gap-2">
+        <input type="checkbox" className="mt-0.5 size-5 accent-akzent" checked={Boolean(wahl)}
+          onChange={(e) => setWahl(e.target.checked ? (einreichenMoeglich ? 'einreichen' : 'privat') : '')} />
+        <span>„{name}“ als <strong>Variante dieses Spiels</strong> anlegen
+          <span className="block text-xs text-leise">Dann erscheint sie bei „Varianten &amp; Revisionen“, und dein Exemplar wird gleich damit verknüpft.</span></span>
+      </label>
+      {wahl && optionen.length > 1 && (
+        <select className="eingabe" aria-label="Sichtbarkeit der neuen Variante" value={wahl} onChange={(e) => setWahl(e.target.value)}>
+          {optionen.map(([wert, text]) => <option key={wert} value={wert}>{text[0].toUpperCase() + text.slice(1)}</option>)}
+        </select>
+      )}
+    </div>
   );
 }

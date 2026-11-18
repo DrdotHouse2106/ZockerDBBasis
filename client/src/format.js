@@ -19,18 +19,28 @@ export function datumDe(iso) {
 export const datumFeld = (iso) => (iso ? iso.split('-').reverse().join('.') : '');
 
 /**
- * Eingabe im deutschen Format lesen – auch ungefähr: „12.3.1995“, „3.1995“, „03/1995“ oder „1995“.
+ * Eingabe im deutschen Format lesen – auch ungefähr: „12.3.1995“, „3.1995“, „03/1995“, „1995“ oder nur Ziffern („12031995“).
  * Liefert JJJJ, JJJJ-MM oder JJJJ-MM-TT; unverständliche Eingaben bleiben unverändert (der Server meldet den Fehler).
  */
 export function leseDatum(text) {
   const t = String(text ?? '').trim();
   if (!t) return '';
   if (/^\d{4}(-\d{2}(-\d{2})?)?$/.test(t)) return t;
-  const teile = t.split(/[./\s-]+/).filter(Boolean);
+  // Nur Ziffern (Handy-Zahlentastatur ohne Punkt): 29122012 → TT.MM.JJJJ, 122012 → MM.JJJJ
+  if (/^\d{8}$/.test(t)) return `${t.slice(4)}-${t.slice(2, 4)}-${t.slice(0, 2)}`;
+  if (/^\d{6}$/.test(t)) return `${t.slice(2)}-${t.slice(0, 2)}`;
+  const teile = t.split(/[.,/\s-]+/).filter(Boolean);
   const zwei = (z) => String(z).padStart(2, '0');
   if (teile.length === 3 && /^\d{4}$/.test(teile[2])) return `${teile[2]}-${zwei(teile[1])}-${zwei(teile[0])}`;
   if (teile.length === 2 && /^\d{4}$/.test(teile[1])) return `${teile[1]}-${zwei(teile[0])}`;
   return t;
+}
+
+/** Datumseingabe beim Verlassen des Felds lesbar machen: „29122012“ → „29.12.2012“, „3,1995“ → „03.1995“ (Unverständliches bleibt). */
+export function datumAnzeigen(text) {
+  const iso = leseDatum(text);
+  if (!/^\d{4}(-\d{2}(-\d{2})?)?$/.test(iso)) return text;
+  return iso.split('-').reverse().join('.');
 }
 
 /** Preis für ein Eingabefeld im deutschen Format: 49.9 → "49,90". */

@@ -74,6 +74,48 @@ test('Steam-Import: digitale Spiele, deutlich getrennt von der Sammlung', async 
   }
 });
 
+test('Steam-Import mit eigenem Schlüssel: auch bei privatem Profil, Schlüssel wird nicht gespeichert', async () => {
+  const EIGEN = '0123456789ABCDEF0123456789ABCDEF';
+  const aufrufe = [];
+  const fetchFn = async (url) => {
+    const u = new URL(String(url));
+    aufrufe.push(u);
+    const key = u.searchParams.get('key');
+    if (key === 'FEDCBA9876543210FEDCBA9876543210') return new Response('Forbidden', { status: 403 });
+    if (u.pathname.includes('ResolveVanityURL')) return Response.json({ response: { success: 1, steamid: '76561197960287930' } });
+    // Privates Profil: nur mit dem Schlüssel des Kontoinhabers liefert Steam die Spiele
+    if (u.pathname.includes('GetOwnedGames')) return Response.json(key === EIGEN ? { response: { game_count: 1, games: [{ appid: 220, name: 'Half-Life 2', playtime_forever: 5 }] } } : { response: {} });
+    return new Response('nicht gefunden', { status: 404 });
+  };
+  const server = await starteTestServer({ env: { STEAM_API_KEY: 'schluessel' }, fetchFn });
+  try {
+    const b = await server.registriere('privatfan');
+    let r = await b.api('/api/steam/import', { methode: 'POST', daten: { profil: '76561197960287930' } });
+    assert.equal(r.status, 409);
+    assert.match(r.json.fehler, /eigenen Steam-API-Schlüssel/);
+    r = await b.api('/api/steam/import', { methode: 'POST', daten: { profil: '76561197960287930', schluessel: 'zu-kurz' } });
+    assert.equal(r.status, 400);
+    assert.match(r.json.felder.schluessel, /32 Zeichen/);
+    r = await b.api('/api/steam/import', { methode: 'POST', daten: { profil: '76561197960287930', schluessel: 'FEDCBA9876543210FEDCBA9876543210' } });
+    assert.equal(r.status, 400, 'abgelehnter eigener Schlüssel: Hinweis am Feld, kein Serverfehler');
+    assert.match(r.json.felder.schluessel, /lehnt diesen API-Schlüssel ab/);
+    aufrufe.length = 0;
+    r = await b.api('/api/steam/import', { methode: 'POST', daten: { profil: 'https://steamcommunity.com/id/gabe', schluessel: ` ${EIGEN.toLowerCase()} ` } });
+    assert.equal(r.status, 200);
+    assert.equal(r.json.neu, 1);
+    assert.ok(aufrufe.length === 2 && aufrufe.every((u) => u.searchParams.get('key') === EIGEN), 'beide Abrufe mit dem eigenen Schlüssel');
+    // Nirgends gespeichert
+    const tabellen = server.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").pluck().all();
+    for (const t of tabellen) {
+      const inhalt = JSON.stringify(server.db.prepare(`SELECT * FROM "${t}"`).all()).toLowerCase();
+      assert.ok(!inhalt.includes(EIGEN.toLowerCase()), `Schlüssel steht in Tabelle ${t}`);
+    }
+    assert.ok(!JSON.stringify(r.json).toLowerCase().includes(EIGEN.toLowerCase()));
+  } finally {
+    await server.stoppe();
+  }
+});
+
 test('Steam-Import ohne Schlüssel: ausgeblendet', async () => {
   const server = await starteTestServer();
   try {

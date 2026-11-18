@@ -8,7 +8,8 @@ import { ZUSTAENDE, ZUSTAND_HILFE } from '../../../shared/konstanten.js';
 export default function ZustandHilfe({ typ, zustand, zustandOvp, zustandInlay, mitOvp, mitInlay = false }) {
   const [offen, setOffen] = useState(false);
   const spiel = typ === 'spiel';
-  const traeger = spiel ? 'Disc / Modul' : 'Gerät';
+  const merch = typ === 'merch';
+  const traeger = spiel ? 'Disc / Modul' : merch ? 'Figur / Artikel' : 'Gerät';
   return (
     <div className="sm:col-span-2">
       <button type="button" className="text-sm text-akzent-hell underline" aria-expanded={offen} onClick={() => setOffen((o) => !o)}>
@@ -26,8 +27,8 @@ export default function ZustandHilfe({ typ, zustand, zustandOvp, zustandInlay, m
               return (
                 <div key={z.value} className={`rounded-md p-2 ${gewaehlt ? 'bg-akzent/10 ring-1 ring-akzent/40' : ''}`}>
                   <dt className="font-semibold">{z.label}</dt>
-                  <dd><span className="text-leise">{traeger}:</span> {spiel ? h.traeger : h.geraet}</dd>
-                  {mitOvp && <dd><span className="text-leise">{spiel ? 'Hülle / OVP' : 'OVP'}:</span> {h.ovp}</dd>}
+                  <dd><span className="text-leise">{traeger}:</span> {spiel ? h.traeger : merch ? h.figur : h.geraet}</dd>
+                  {mitOvp && <dd><span className="text-leise">{spiel ? 'Hülle / OVP' : merch ? 'Verpackung' : 'OVP'}:</span> {h.ovp}</dd>}
                   {mitInlay && <dd><span className="text-leise">Inlay:</span> {h.inlay}</dd>}
                 </div>
               );

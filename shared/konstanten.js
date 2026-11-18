@@ -7,7 +7,43 @@ export const ARTIKELTYPEN = [
   { value: 'spiel', label: 'Spiel', mehrzahl: 'Spiele', icon: '🎮' },
   { value: 'konsole', label: 'Konsole', mehrzahl: 'Konsolen', icon: '🕹️' },
   { value: 'zubehoer', label: 'Zubehör', mehrzahl: 'Zubehör', icon: '🔌' },
+  // Kurz „Merch“ in Reitern, Filtern und Knöpfen; die lange Form nur als Beschreibung/Tooltip
+  { value: 'merch', label: 'Merch', mehrzahl: 'Merch', icon: '🧸', beschreibung: 'Merch & Sammlerstücke' },
 ];
+
+/** Kategorien für Merch (Spalte artikel.merch_kategorie). */
+export const MERCH_KATEGORIEN = [
+  { value: 'spielfigur', label: 'Spielfiguren', beschreibung: 'Spielfiguren mit Funktion: Amiibo, Skylanders, Disney Infinity, LEGO Dimensions, Starlink' },
+  { value: 'karte', label: 'Sammelkarten', beschreibung: 'Sammelkarten mit Spielebezug, z. B. amiibo-Karten' },
+  { value: 'figur', label: 'Figuren & Statuen', beschreibung: 'Figuren, Statuen, Actionfiguren – ausdrücklich auch Funko Pop mit Spiele-Lizenz' },
+  { value: 'buch', label: 'Bücher & Hefte', beschreibung: 'Lösungsbücher, Artbooks, Magazine' },
+  { value: 'musik', label: 'Musik', beschreibung: 'Soundtracks auf CD oder Vinyl' },
+  { value: 'kleidung', label: 'Kleidung & Accessoires', beschreibung: 'Shirts, Mützen, Taschen, Pins und mehr' },
+  { value: 'promo', label: 'Werbung & Promo', beschreibung: 'Poster, Aufsteller, Händlermaterial' },
+];
+
+/**
+ * Verpackung bei Merch: „OVP ungeöffnet / OVP geöffnet / lose“. Gespeichert wird sie in den vorhandenen Feldern
+ * (ungeöffnet = Zustand „Neu/OVP“ + komplett, geöffnet = komplett, lose = nur der Gegenstand) – keine eigene Spalte.
+ */
+export const MERCH_VERPACKUNGEN = [
+  { value: 'ungeoeffnet', label: 'OVP ungeöffnet' },
+  { value: 'geoeffnet', label: 'OVP geöffnet' },
+  { value: 'lose', label: 'Lose' },
+];
+/** Verpackung eines Merch-Exemplars aus Zustand und Vollständigkeit (null = keine Angabe). */
+export function merchVerpackung({ zustand, vollstaendigkeit } = {}) {
+  if (vollstaendigkeit === 'nur_geraet') return 'lose';
+  if (vollstaendigkeit === 'cib') return zustand === 'neu_ovp' ? 'ungeoeffnet' : 'geoeffnet';
+  return null;
+}
+/** Zustand und Vollständigkeit zur gewählten Verpackung (bei „geöffnet“ ist „Neu/OVP“ ausgeschlossen). */
+export function merchVerpackungAnwenden(verpackung, { zustand } = {}) {
+  if (verpackung === 'ungeoeffnet') return { vollstaendigkeit: 'cib', zustand: 'neu_ovp' };
+  if (verpackung === 'geoeffnet') return { vollstaendigkeit: 'cib', zustand: zustand === 'neu_ovp' ? 'wie_neu' : zustand };
+  if (verpackung === 'lose') return { vollstaendigkeit: 'nur_geraet', zustand: zustand === 'neu_ovp' ? 'wie_neu' : zustand };
+  return {};
+}
 
 export const ZUSTAENDE = [
   { value: 'neu_ovp', label: 'Neu/OVP', beschreibung: 'Neu und originalverschweißt, nie benutzt.' },
@@ -25,6 +61,8 @@ export const VOLLSTAENDIGKEITEN = [
   { value: 'mit_huelle', label: 'Mit Schutzhülle (ohne Karton)', kurz: 'Hülle' },
   { value: 'nur_ovp', label: 'Nur OVP', kurz: 'Nur OVP' },
   { value: 'fehlt_anleitung', label: 'Fehlt Anleitung', kurz: 'o. Anl.' },
+  // Disc-Spiele: Hülle da, aber der Cover-Einleger (Inlay) hinter der Folie fehlt
+  { value: 'fehlt_inlay', label: 'Fehlt Inlay', kurz: 'o. Inlay' },
 ];
 
 export const REGIONEN = [
@@ -44,6 +82,25 @@ export const REGIONEN = [
 
 /** Region samt genauerer Fassungen – für Filter: „pal_eu“ → pal_eu, pal_uk, pal_fr … */
 export const regionUmfang = (wert) => [wert, ...REGIONEN.filter((r) => r.gruppe === wert).map((r) => r.value)];
+
+/**
+ * Cover-Regionen in der Reihenfolge, in der sie für eine Fassung passen: genau die Region, dann die europäische Fassung als nächste
+ * Verwandte (PAL-DE → PAL-DE, PAL-EU). Ohne Region gilt der deutsche Markt.
+ */
+export function coverRegionKette(region) {
+  const r = REGIONEN.some((x) => x.value === region) ? region : 'pal_de';
+  return r.startsWith('pal_') && r !== 'pal_eu' ? [r, 'pal_eu'] : [r];
+}
+
+/** Region einer regionalen Fassung bei IGDB (Name bzw. Kennung, z. B. „Europe“/„EU“, „North America“, „Japan“) → Wert aus REGIONEN. */
+export function regionAusIgdb(name, kennung = '') {
+  const t = `${name ?? ''}|${kennung ?? ''}`.toLowerCase();
+  if (/german|deutsch|\|de$/.test(t)) return 'pal_de';
+  if (/europe|\|eu$|pal/.test(t)) return 'pal_eu';
+  if (/north america|\|na$|usa|united states/.test(t)) return 'ntsc_u';
+  if (/japan|\|jp$/.test(t)) return 'ntsc_j';
+  return null;
+}
 
 // Stammdaten der Plattformen (werden beim ersten Start in die Datenbank übernommen und
 // können danach von Admins/Moderatoren gepflegt werden). „aliase“ dienen der Zuordnung
@@ -190,46 +247,53 @@ export const FUNKTIONEN = [
 /** Beschriftung der beiden Zustände: Datenträger bzw. Gerät und Hülle bzw. OVP. */
 export const zustandBeschriftung = (typ) => (typ === 'spiel'
   ? { traeger: 'Zustand Disc / Modul', ovp: 'Zustand Hülle / OVP' }
-  : { traeger: 'Zustand Gerät', ovp: 'Zustand OVP' });
+  : typ === 'merch' ? { traeger: 'Zustand Figur / Artikel', ovp: 'Zustand Verpackung (Box, Blister)' }
+    : { traeger: 'Zustand Gerät', ovp: 'Zustand OVP' });
 
 /**
- * Bewertungshilfe je Zustandsstufe – getrennt für den Datenträger (Disc/Modul), ein Gerät und die Hülle/OVP.
+ * Bewertungshilfe je Zustandsstufe – getrennt für den Datenträger (Disc/Modul), ein Gerät, eine Figur bzw. Merch und die Hülle/OVP.
  * Angelehnt an die üblichen Stufen beim Sammeln und auf Verkaufsplattformen.
  */
 export const ZUSTAND_HILFE = {
   neu_ovp: {
     traeger: 'Ungespielt, noch eingeschweißt.',
     geraet: 'Unbenutzt, original verpackt bzw. versiegelt.',
+    figur: 'Unbenutzt, noch original verpackt bzw. im ungeöffneten Blister.',
     ovp: 'Original eingeschweißt (Folie intakt), keine Druckstellen.',
     inlay: 'Unberührt hinter der Folie.',
   },
   wie_neu: {
     traeger: 'Keine Kratzer bzw. Spuren, Etikett makellos, Kontakte blank.',
     geraet: 'Keine Kratzer, nicht vergilbt, alle Funktionen einwandfrei.',
+    figur: 'Keine Abriebstellen, Farben satt, Gelenke fest, nichts vergilbt.',
     ovp: 'Geöffnet, aber ohne Knicke, Risse oder Verfärbungen; Cover sauber.',
     inlay: 'Farben satt, keine Knicke, Risse oder Flecken.',
   },
   sehr_gut: {
     traeger: 'Einzelne feine Kratzer, nur im Gegenlicht sichtbar; Etikett vollständig.',
     geraet: 'Leichte Gebrauchsspuren, kaum sichtbare Kratzer, kaum vergilbt.',
+    figur: 'Minimaler Farbabrieb an Kanten (nur bei genauem Hinsehen), sonst einwandfrei.',
     ovp: 'Leichte Lagerspuren (Ecken minimal bestoßen), keine Risse, keine Aufkleber.',
     inlay: 'Minimal gewellt oder ein leichter Knick am Rand, sonst einwandfrei.',
   },
   gut: {
     traeger: 'Sichtbare Kratzer, läuft aber fehlerfrei; Etikett mit kleinen Spuren.',
     geraet: 'Deutliche Gebrauchsspuren oder Vergilbung, voll funktionsfähig.',
+    figur: 'Sichtbarer Farbabrieb oder leichte Verfärbung, kleine Kratzer; nichts gebrochen.',
     ovp: 'Knicke, bestoßene Ecken oder kleiner Riss; Preisaufkleber oder Beschriftung.',
     inlay: 'Sichtbare Knicke, leicht verblichen, kleiner Riss oder Beschriftung.',
   },
   akzeptabel: {
     traeger: 'Viele oder tiefe Kratzer, Etikett beschädigt bzw. beschriftet – läuft noch.',
     geraet: 'Starke Spuren, Risse im Gehäuse oder Teile fehlen, funktioniert noch.',
+    figur: 'Deutlicher Abrieb, Vergilbung oder lockere Gelenke; kleine Teile fehlen oder sind geklebt.',
     ovp: 'Stark beschädigt: Risse, Wasserschaden, fehlende Laschen, zerbrochene Hülle.',
     inlay: 'Deutlich eingerissen, Wasserschaden, stark verblichen oder Teile fehlen.',
   },
   defekt: {
     traeger: 'Lädt nicht, hängt oder bricht ab (z. B. gebrochene Disc, korrodierte Kontakte).',
     geraet: 'Startet nicht oder wichtige Funktionen fallen aus.',
+    figur: 'Gebrochen, Teile fehlen oder Chip/Funktion (z. B. NFC) geht nicht mehr.',
     ovp: 'Nur noch in Teilen vorhanden oder unbrauchbar.',
     inlay: 'Nur noch in Resten vorhanden oder durch eine Kopie ersetzt.',
   },
@@ -318,7 +382,15 @@ export const BEILAGEN = {
     { value: 'steelbook', label: 'Steelbook' },
     { value: 'poster', label: 'Poster / Karte' },
     { value: 'registrierkarte', label: 'Registrierkarte' },
-    { value: 'beilagen', label: 'Werbebeilagen / Kataloge' },
+    { value: 'beilagen', label: 'Beilagen (Kataloge, Werbung, Sicherheitshinweise)' },
+    // Sonderausgaben (Special/Collector's/Limited Edition) – in der Checkliste eingeklappt, bis eines davon erfasst ist
+    { value: 'schuber', label: 'Schuber / Sammlerbox', sonder: true },
+    { value: 'zweite_disc', label: 'Zweite Disc / Data Disc', sonder: true },
+    { value: 'artbook', label: 'Artbook', sonder: true },
+    { value: 'code', label: 'Download-/DLC-Code (unbenutzt)', sonder: true },
+    { value: 'soundtrack', label: 'Soundtrack', sonder: true },
+    { value: 'figur', label: 'Figur / Statue', sonder: true },
+    { value: 'extras', label: 'Sticker, Pins & weitere Extras', sonder: true },
   ],
   konsole: [
     { value: 'ovp', label: 'OVP' },
@@ -333,6 +405,14 @@ export const BEILAGEN = {
     { value: 'ovp', label: 'OVP' },
     { value: 'anleitung', label: 'Anleitung' },
     { value: 'kabel', label: 'Kabel' },
+  ],
+  // Merch: Sockel, Zertifikat und Karte/Code (z. B. Amiibo-Karten) statt Inlay und Datenträger
+  merch: [
+    { value: 'ovp', label: 'OVP / Karton' },
+    { value: 'sockel', label: 'Sockel' },
+    { value: 'zertifikat', label: 'Zertifikat' },
+    { value: 'karte_code', label: 'Karte / Code' },
+    { value: 'anleitung', label: 'Anleitung' },
   ],
 };
 
@@ -359,15 +439,49 @@ export const INLAY_MAENGEL = [
   { value: 'kopie', label: 'Kopie / Nachdruck' },
 ];
 
-/** Gibt es bei diesem Exemplar ein Inlay zu bewerten? Nur Disc-Spiele (bzw. unbekannter Datenträger) mit Hülle. */
-export const hatInlayZustand = ({ typ, plattform, bestand, vollstaendigkeit }) => typ === 'spiel' && bestand !== 'digital'
-  && vollstaendigkeit !== 'nur_geraet' && (plattform ? datentraegerVon(plattform) : null) !== 'modul';
+/**
+ * Gibt es bei diesem Exemplar ein Inlay zu bewerten? Nur Disc-Spiele (bzw. unbekannter Datenträger) mit Hülle – und nicht,
+ * wenn das Inlay als „gab es nicht“ markiert ist (z. B. Steelbook-/Special-Editionen ohne Cover-Einleger).
+ */
+export const hatInlayZustand = ({ typ, plattform, bestand, vollstaendigkeit, beilagen }) => typ === 'spiel' && bestand !== 'digital'
+  && vollstaendigkeit !== 'nur_geraet' && vollstaendigkeit !== 'fehlt_inlay' && (plattform ? datentraegerVon(plattform) : null) !== 'modul'
+  && !(beilagen && typeof beilagen === 'object' && beilagen.inlay === BEILAGE_OHNE);
 
 /**
  * Beilagen-Werte: true = vorhanden, false = fehlt, Zahl ≥ 2 = so viele Stück vorhanden (z. B. drei Werbebeilagen).
- * Als Text: „✓ Anleitung“, „✓ 3× Werbebeilagen / Kataloge“, „✗ Poster / Karte“.
+ * Als Text: „✓ Anleitung“, „✓ 3× Beilagen (Kataloge, Werbung, Sicherheitshinweise)“, „✗ Poster / Karte“.
  */
 export const beilageVorhanden = (wert) => wert === true || (Number.isInteger(wert) && wert > 0);
+/**
+ * Plattformen, deren Spiele meist ohne gedruckte Anleitung erschienen sind (PS4, PS5, Xbox One/Series, Switch): Dort wird die
+ * Anleitung mit „gab es nicht“ vorbelegt – ein Spiel ohne Anleitung ist dort trotzdem vollständig (CIB).
+ */
+export function ohneAnleitungUeblich(plattform) {
+  const text = typeof plattform === 'string' ? plattform : [plattform?.name, plattform?.kurz].filter(Boolean).join(' ');
+  return /playstation\s*[45]\b|\bps[45]\b|xbox\s*(one|series)|\bswitch\b/i.test(text ?? '');
+}
+// Neuauflagen (Budget-Reihen) je Plattform mit ihren PAL-Namen – zur Auswahl „Fassung“ im Formular, auch wenn für das Spiel
+// noch keine Varianten gepflegt sind (z. B. „F1 2014“ als Essentials). Reihenfolge: genaue Namen vor allgemeinen.
+const NEUAUFLAGEN = [
+  [/playstation\s*4|\bps4\b/i, ['PlayStation Hits']],
+  [/playstation\s*3|\bps3\b/i, ['Platinum', 'Essentials']],
+  [/playstation\s*2|\bps2\b/i, ['Platinum']],
+  [/playstation portable|\bpsp\b/i, ['Platinum', 'Essentials']],
+  [/vita/i, ['Essentials']],
+  [/^playstation(\s*1)?$|\bps1\b|\bpsx\b|psone/i, ['Platinum']],
+  [/xbox\s*360|\bx360\b/i, ['Classics']],
+  [/^xbox$/i, ['Classics']],
+  [/gamecube|\bngc\b/i, ["Player's Choice"]],
+  [/wii\s*u/i, ['Nintendo Selects']],
+  [/\bwii\b/i, ['Nintendo Selects']],
+  [/3ds/i, ['Nintendo Selects']],
+];
+/** Übliche Neuauflagen einer Plattform (leer, wenn es keine gibt). */
+export function neuauflagenFuer(plattform) {
+  const name = String(typeof plattform === 'string' ? plattform : plattform?.name ?? '').trim();
+  return NEUAUFLAGEN.find(([muster]) => muster.test(name))?.[1] ?? [];
+}
+
 /** „Gab es nicht“: z. B. viele PS4-/PS5-Spiele haben keine Anleitung – fehlt also nicht, zählt für CIB wie vorhanden. */
 export const BEILAGE_OHNE = 'ohne';
 export const beilageOhne = (wert) => wert === BEILAGE_OHNE;
@@ -380,19 +494,28 @@ export function beilageText(label, wert) {
  * Vollständigkeit und Beilagen-Liste hängen zusammen (OVP + Anleitung = CIB …): aus dem einen das andere vorbelegen.
  * Andere Beilagen (Poster, Werbebeilagen …) bleiben unverändert.
  */
-export function beilagenAusVollstaendigkeit(vollstaendigkeit, beilagen) {
-  const setzen = { cib: { ovp: true, anleitung: true }, nur_geraet: { ovp: false, anleitung: false }, mit_huelle: { ovp: false, inlay: true }, nur_ovp: { ovp: true }, fehlt_anleitung: { ovp: true, anleitung: false } }[vollstaendigkeit];
+export function beilagenAusVollstaendigkeit(vollstaendigkeit, beilagen, plattform = null) {
+  // Plattformen ohne Anleitung (PS4, Switch …): CIB heißt dort OVP ohne Anleitung – nicht „Anleitung vorhanden“
+  // Disc-Spiele (PS4, PS2, GameCube …): Zu CIB gehört auch das Inlay (Cover-Einleger hinter der Folie)
+  const cib = { ovp: true, anleitung: ohneAnleitungUeblich(plattform) ? BEILAGE_OHNE : true, ...(plattform && datentraegerVon(plattform) === 'disc' ? { inlay: true } : {}) };
+  const setzen = { cib, nur_geraet: { ovp: false, anleitung: false }, mit_huelle: { ovp: false, inlay: true }, nur_ovp: { ovp: true }, fehlt_anleitung: { ovp: true, anleitung: false }, fehlt_inlay: { ovp: true, inlay: false } }[vollstaendigkeit];
   if (!setzen) return beilagen ?? null;
   const neu = { ...(beilagen ?? {}) };
   // Eine schon eingetragene Anzahl (z. B. 2 Anleitungen) bleibt, wenn „vorhanden“ verlangt ist – ebenso „gab es nicht“
-  for (const [k, w] of Object.entries(setzen)) if (!(w === true && (beilageVorhanden(neu[k]) || beilageOhne(neu[k])))) neu[k] = w;
+  for (const [k, w] of Object.entries(setzen)) if (!((w === true || beilageOhne(w)) && (beilageVorhanden(neu[k]) || beilageOhne(neu[k])))) neu[k] = w;
   return neu;
 }
-/** Aus OVP und Anleitung die Vollständigkeit ableiten – null, wenn sich nichts sicher sagen lässt. */
-export function vollstaendigkeitAusBeilagen(beilagen) {
+/**
+ * Aus OVP und Anleitung die Vollständigkeit ableiten – null, wenn sich nichts sicher sagen lässt. `bisher`: die gewählte
+ * Vollständigkeit – „Nur OVP“ (leere Hülle, ohne Disc/Modul) bleibt, solange die OVP angehakt ist, auch wenn alle Beilagen da sind.
+ */
+export function vollstaendigkeitAusBeilagen(beilagen, bisher = null) {
   if (!beilagen || typeof beilagen !== 'object') return null;
+  if (bisher === 'nur_ovp' && beilageVorhanden(beilagen.ovp)) return 'nur_ovp';
   const ovp = beilagen.ovp;
   const anleitung = beilagen.anleitung;
+  // Inlay (Cover-Einleger) ausdrücklich „fehlt“ → nicht komplett
+  if (beilageVorhanden(ovp) && beilagen.inlay === false) return 'fehlt_inlay';
   // Keine Anleitung beigelegt (gab es nicht) → trotzdem komplett
   if (beilageVorhanden(ovp) && (beilageVorhanden(anleitung) || beilageOhne(anleitung))) return 'cib';
   if (beilageVorhanden(ovp) && anleitung === false) return 'fehlt_anleitung';
@@ -400,11 +523,84 @@ export function vollstaendigkeitAusBeilagen(beilagen) {
   return null;
 }
 
+// ── Lieferumfang je Ausgabe (Variante) ───────────────────────────────────────────────
+// Sonderausgaben (Special/Collector's Edition) haben einen festen Lieferumfang, z. B. { zweite_disc: 1, artbook: 1, schuber: 1, steelbook: 1, code: 1 }.
+// Schlüssel sind die der Beilagen-Checkliste (ohne Hülle, Anleitung und Inlay – die gehören zu jedem Spiel), Werte die Anzahl.
+// Bei „zweite_disc“ bedeutet die Zahl die zusätzlichen Discs (1 = zwei Discs insgesamt).
+const LIEFERUMFANG_POSTEN = [
+  ['steelbook', 'Steelbook', 'Steelbook'], ['artbook', 'Artbook', 'Artbook'], ['schuber', 'Schuber', 'Schuber / Sammlerbox'],
+  ['zweite_disc', 'Zweite Disc', 'Zweite Disc / Data Disc'], ['code', 'DLC-Code', 'unbenutzter Download-/DLC-Code'],
+  ['soundtrack', 'Soundtrack', 'Soundtrack'], ['figur', 'Figur', 'Figur / Statue'], ['poster', 'Poster', 'Poster / Karte'],
+  ['registrierkarte', 'Registrierkarte', 'Registrierkarte'], ['beilagen', 'Beilagen', 'Beilagen (Kataloge, Werbung, Sicherheitshinweise)'], ['extras', 'Extras', 'Sticker, Pins & weitere Extras'],
+];
+export const LIEFERUMFANG_SCHLUESSEL = LIEFERUMFANG_POSTEN.map(([k]) => k);
+
+/** Lieferumfang prüfen: { schluessel: Anzahl } mit bekannten Schlüsseln und Anzahlen von 1 bis 9 (true = 1); leer → null. */
+export function normalisiereLieferumfang(roh) {
+  let objekt = roh;
+  if (typeof roh === 'string') { try { objekt = JSON.parse(roh); } catch { return null; } }
+  if (!objekt || typeof objekt !== 'object' || Array.isArray(objekt)) return null;
+  const ergebnis = {};
+  for (const k of LIEFERUMFANG_SCHLUESSEL) {
+    const w = objekt[k];
+    if (w === true) ergebnis[k] = 1;
+    else if (Number.isInteger(w) && w >= 1 && w <= 9) ergebnis[k] = w;
+  }
+  return Object.keys(ergebnis).length ? ergebnis : null;
+}
+
+/** Posten des Lieferumfangs in fester Reihenfolge: [{ schluessel, anzahl, text, name }] – „2 Discs“, „DLC-Code“, „2× Poster“. */
+export function lieferumfangPosten(lieferumfang) {
+  const lu = normalisiereLieferumfang(lieferumfang);
+  if (!lu) return [];
+  return LIEFERUMFANG_POSTEN.filter(([k]) => k in lu).map(([k, name, label]) => {
+    const anzahl = lu[k];
+    const text = k === 'zweite_disc' ? `${anzahl + 1} Discs` : anzahl > 1 ? `${anzahl}× ${name}` : name;
+    return { schluessel: k, anzahl, text, name, label };
+  });
+}
+
+/** „Steelbook, Artbook, Schuber, 2 Discs, DLC-Code“ (leer ohne Lieferumfang). */
+export const lieferumfangText = (lieferumfang) => lieferumfangPosten(lieferumfang).map((p) => p.text).join(', ');
+
+const anzahlVorhanden = (w) => (w === true ? 1 : Number.isInteger(w) && w > 0 ? w : 0);
+
+/**
+ * Stand eines Exemplars gegenüber dem Lieferumfang seiner Ausgabe.
+ *  - fehlt: Bestandteile, die ausdrücklich fehlen (✗, „gab es nicht“ oder zu wenige) – auch OVP und Anleitung
+ *  - offen: Bestandteile des Lieferumfangs, zu denen in der Checkliste noch nichts steht
+ *  - cib:   OVP, Anleitung (oder „gab es nicht“) und der ganze Lieferumfang sind vorhanden
+ *  - text:  „Vollständig (CIB)“, „Unvollständig – Artbook fehlt“ oder null, wenn sich nichts sicher sagen lässt
+ * Ohne Lieferumfang (null) gilt die bisherige Logik: OVP + Anleitung.
+ */
+export function lieferumfangStand(beilagen, lieferumfang = null) {
+  const posten = lieferumfangPosten(lieferumfang);
+  const b = beilagen && typeof beilagen === 'object' ? beilagen : {};
+  const fehlt = [];
+  const offen = [];
+  if (b.ovp === false) fehlt.push({ schluessel: 'ovp', text: 'OVP' });
+  if (b.anleitung === false) fehlt.push({ schluessel: 'anleitung', text: 'Anleitung' });
+  for (const p of posten) {
+    const w = b[p.schluessel];
+    if (w === undefined) { offen.push(p); continue; }
+    const hat = anzahlVorhanden(w);
+    // zweite_disc: „vorhanden“ (true) deckt eine zusätzliche Disc ab
+    if (hat < p.anzahl) fehlt.push({ schluessel: p.schluessel, text: p.schluessel === 'code' ? 'unbenutzter DLC-Code' : p.schluessel === 'zweite_disc' ? 'Zweite Disc' : p.text });
+  }
+  const grundlage = beilageVorhanden(b.ovp) && (beilageVorhanden(b.anleitung) || beilageOhne(b.anleitung));
+  const cib = grundlage && !fehlt.length && !offen.length;
+  let text = null;
+  if (cib) text = 'Vollständig (CIB)';
+  else if (fehlt.length) text = `Unvollständig – ${fehlt.map((f) => f.text).join(', ')} ${fehlt.length === 1 ? 'fehlt' : 'fehlen'}`;
+  return { cib, fehlt, offen, text, mitLieferumfang: posten.length > 0 };
+}
+
 /**
  * Hat das Exemplar Beilagen außer Hülle/OVP und Anleitung? Dann lohnt ein Foto „Beilagen (Inhalt)“.
  * Inlay/Schutzhülle zählt nicht: Das Inlay ist das Cover (steckt schon in „Verpackung vorne/hinten“).
  */
-const KEINE_EXTRA_BEILAGE = ['ovp', 'anleitung', 'inlay'];
+// Das Steelbook hat eine eigene Fotoart – dafür kein Foto „Beilagen“ verlangen
+const KEINE_EXTRA_BEILAGE = ['ovp', 'anleitung', 'inlay', 'steelbook'];
 export const hatExtraBeilagen = (beilagen) => Boolean(beilagen && typeof beilagen === 'object'
   && Object.entries(beilagen).some(([k, w]) => !KEINE_EXTRA_BEILAGE.includes(k) && beilageVorhanden(w)));
 
@@ -421,6 +617,7 @@ export const ALLE_WERTE = {
   bestand: BESTAND.map((e) => e.value),
   herkunft: HERKUNFT.map((e) => e.value),
   typ: ARTIKELTYPEN.map((e) => e.value),
+  merch_kategorie: MERCH_KATEGORIEN.map((e) => e.value),
   zustand: ZUSTAENDE.map((e) => e.value),
   zustand_ovp: ZUSTAENDE.map((e) => e.value),
   zustand_inlay: ZUSTAENDE.map((e) => e.value),
@@ -458,9 +655,17 @@ export const MEDIENARTEN = [
   { value: 'foto_anleitung', label: 'Foto: Anleitung', kurz: 'Anleitung', slug: 'anleitung', foto: true },
   { value: 'foto_komplett', label: 'Foto: Alles zusammen (Hülle, Disc, Anleitung)', kurz: 'Alles zusammen (CIB)', slug: 'komplett-cib', foto: true },
   { value: 'foto_beilagen', label: 'Foto: Beilagen (was drin ist)', kurz: 'Beilagen', slug: 'beilagen', foto: true },
+  { value: 'foto_steelbook', label: 'Foto: Steelbook', kurz: 'Steelbook', slug: 'steelbook', foto: true },
   { value: 'foto_geraet', label: 'Foto: Gerät', kurz: 'Gerät', slug: 'geraet', foto: true },
+  { value: 'foto_figur', label: 'Foto: Figur / Artikel selbst', kurz: 'Figur', slug: 'figur', foto: true },
+  { value: 'foto_karte_vorne', label: 'Foto: Karte vorne', kurz: 'Karte vorne', slug: 'karte-vorne', foto: true },
+  { value: 'foto_karte_hinten', label: 'Foto: Karte Rückseite', kurz: 'Karte Rückseite', slug: 'karte-hinten', foto: true },
   { value: 'foto_detail', label: 'Foto: Detail (Typenschild, Anschlüsse …)', kurz: 'Detail', slug: 'detail', foto: true },
 ];
+/** Fotoarten, bei denen Freistellen sinnvoll ist: der Gegenstand selbst, nicht Beilagen, Anleitungen oder Details. */
+export const FREISTELL_ARTEN = ['foto_figur', 'foto_karte_vorne', 'foto_karte_hinten', 'foto_modul', 'foto_disc', 'foto_diskette',
+  'foto_geraet', 'foto_vorne', 'foto_hinten', 'foto_komplett'];
+
 export const istFotoArt = (art) => Boolean(MEDIENARTEN.find((a) => a.value === art)?.foto);
 
 // Datenträger der Spiele je Plattform (Kurzname) – bestimmt, welches Foto gesucht wird (Modul bei N64, Disc bei der PlayStation)
@@ -485,12 +690,27 @@ export function datentraegerVon(plattform) {
  * `beilagen` (Beilagen-Liste des Exemplars) – mit Anleitung ein Foto der Anleitung, mit zusätzlichen Beilagen auch eins davon.
  * „Alles zusammen (CIB)“ wird nicht eigens gesucht – die Einzelfotos zeigen dasselbe (hochladen lässt es sich weiterhin).
  */
-export function gesuchteFotos(typ, plattform = null, { versiegelt = false, beilagen = null } = {}) {
+export function gesuchteFotos(typ, plattform = null, { versiegelt = false, beilagen = null, mitVerpackung = false, merchKategorie = null, nurVerpackung = false } = {}) {
+  // Leere Verpackung bzw. „Nur OVP“: kein Datenträger, keine Figur, kein Gerät – nur die Verpackung (und was drin liegt)
+  if (nurVerpackung) {
+    if (typ !== 'spiel') return typ === 'merch' ? ['foto_vorne', 'foto_hinten'] : ['foto_vorne'];
+    return ['foto_vorne', 'foto_hinten', ...(beilageVorhanden(beilagen?.anleitung) ? ['foto_anleitung'] : []),
+      ...(hatExtraBeilagen(beilagen) ? ['foto_beilagen'] : []), ...(beilageVorhanden(beilagen?.steelbook) ? ['foto_steelbook'] : [])];
+  }
   if (typ === 'spiel') {
     const traeger = datentraegerVon(plattform);
     if (versiegelt) return ['foto_vorne', 'foto_hinten'];
     return [...(traeger ? [`foto_${traeger}`] : []), 'foto_vorne', 'foto_hinten',
-      ...(beilageVorhanden(beilagen?.anleitung) ? ['foto_anleitung'] : []), ...(hatExtraBeilagen(beilagen) ? ['foto_beilagen'] : [])];
+      ...(beilageVorhanden(beilagen?.anleitung) ? ['foto_anleitung'] : []), ...(hatExtraBeilagen(beilagen) ? ['foto_beilagen'] : []),
+      ...(beilageVorhanden(beilagen?.steelbook) ? ['foto_steelbook'] : [])];
+  }
+  // Merch/Figuren: nach der Verpackung nur fragen, wenn es eine gibt (OVP geöffnet oder ungeöffnet) – lose Figuren haben keine
+  if (typ === 'merch') {
+    if (versiegelt) return ['foto_vorne', 'foto_hinten'];
+    // Sammelkarten (z. B. amiibo-Karten): nur die Vorderseite – die Rückseite ist meist bei allen Karten gleich (Foto davon bleibt möglich).
+    // Detailfotos sind bei Figuren freiwillig (möglich, aber nicht gesucht)
+    const selbst = merchKategorie === 'karte' ? ['foto_karte_vorne'] : ['foto_figur'];
+    return mitVerpackung ? [...selbst, 'foto_vorne', 'foto_hinten'] : selbst;
   }
   if (versiegelt) return ['foto_vorne'];
   if (typ === 'konsole') return ['foto_geraet', 'foto_vorne', 'foto_detail'];
@@ -526,4 +746,48 @@ const AUSGABE_ZUSATZ = /^(.{3,}?)\s*[:–—-]\s*((?:the\s+)?(?:complete|game of
 export function titelUndAusgabe(titel) {
   const m = String(titel ?? '').match(AUSGABE_ZUSATZ);
   return m ? { titel: m[1].trim(), ausgabe: m[2].trim() } : { titel: titel ?? '', ausgabe: null };
+}
+
+/**
+ * Anzeige der Figurenserie eines Exemplars bzw. Katalogeintrags: „Monster in my Pocket · Serie 1 · #4“ (leer ohne Serie).
+ * Die Nummer bekommt das Präfix der Serie („#“, „W“ …).
+ */
+export function serienBezeichnung({ serie_name: name, serie_ueber_name: ueber, serie_praefix: praefix, serien_nummer: nummer } = {}) {
+  if (!name) return '';
+  const nr = nummer ? `${praefix ?? '#'}${nummer}` : null;
+  return [ueber, name, nr].filter(Boolean).join(' · ');
+}
+
+
+/** Jugendschutz in Deutschland (am Katalogeintrag, gepflegt von der Moderation). */
+export const JUGENDSCHUTZ = [
+  { value: 'indiziert', label: 'Indiziert', erklaerung: 'Von der BzKJ (früher BPjM) in die Liste jugendgefährdender Medien aufgenommen – Verkauf nur an Erwachsene, keine Werbung.' },
+  { value: 'beschlagnahmt', label: 'Beschlagnahmt', erklaerung: 'Gerichtlich beschlagnahmt (z. B. § 131 StGB) – in Deutschland nicht verkehrsfähig.' },
+  { value: 'gestrichen', label: 'Vom Index gestrichen', erklaerung: 'War indiziert, wurde später aus der Liste gestrichen (Listenstreichung bzw. nach 25 Jahren).' },
+];
+/** Kurzer Text für die Anzeige, z. B. „Indiziert seit 1997“ oder „Vom Index gestrichen 2019 (indiziert 1997)“. */
+export function jugendschutzText(e) {
+  const art = JUGENDSCHUTZ.find((j) => j.value === e?.jugendschutz);
+  if (!art) return null;
+  if (art.value === 'gestrichen') return `${art.label}${e.jugendschutz_bis ? ` ${e.jugendschutz_bis}` : ''}${e.jugendschutz_seit ? ` (indiziert ${e.jugendschutz_seit})` : ''}`;
+  return `${art.label}${e.jugendschutz_seit ? ` seit ${e.jugendschutz_seit}` : ''}`;
+}
+
+// Avatar: Symbol und Farbe zur Auswahl im Konto (ohne Upload); ein eigenes Bild ersetzt das Symbol.
+// Ohne Auswahl: Anfangsbuchstabe auf einer Farbe, die sich aus der Benutzer-ID ergibt.
+export const AVATAR_SYMBOLE = ['🎮', '👾', '🕹️', '🍄', '⭐', '👻', '🐉', '🗡️', '🛡️', '🏆', '💎', '🚀', '🤖', '🐱', '🦊', '🐸', '🔥', '⚡', '🎲', '🧩', '💾', '📼', '🪙', '❤️'];
+export const AVATAR_FARBEN = [
+  { name: 'Lila', hex: '#8b5cf6' }, { name: 'Blau', hex: '#3b82f6' }, { name: 'Türkis', hex: '#14b8a6' }, { name: 'Grün', hex: '#22c55e' },
+  { name: 'Gelb', hex: '#eab308' }, { name: 'Orange', hex: '#f97316' }, { name: 'Rot', hex: '#ef4444' }, { name: 'Pink', hex: '#ec4899' },
+  { name: 'Braun', hex: '#a16207' }, { name: 'Grau', hex: '#64748b' },
+];
+/** Avatar eines Benutzers für die Anzeige: Symbol, Farbe (Standard aus der ID) und Bildadresse (nur angemeldet abrufbar). */
+export function avatarVon(b) {
+  if (!b) return null;
+  const farbe = AVATAR_FARBEN.some((f) => f.hex === b.avatar_farbe) ? b.avatar_farbe : AVATAR_FARBEN[Math.abs(Number(b.id) || 0) % AVATAR_FARBEN.length].hex;
+  return {
+    symbol: AVATAR_SYMBOLE.includes(b.avatar_symbol) ? b.avatar_symbol : null,
+    farbe,
+    url: b.avatar_datei ? `/api/dateien/${b.avatar_datei}` : null,
+  };
 }

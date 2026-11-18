@@ -35,5 +35,5 @@ test('Zurück führt zur vorherigen Seite – auch nach Foto-Auswahl und nach de
   await page.goto(`/?app=1&neu=1#/artikel/${a.id}`); // anderer Pfad → echter Neustart der Seite
   await expect(page.getByText('Zurück-Test (E2E)').first()).toBeVisible();
   await zurueck();
-  await expect.poll(hash).toMatch(/^(#\/?)?$/);
+  await expect.poll(hash).toBe('#/sammlung');
 });

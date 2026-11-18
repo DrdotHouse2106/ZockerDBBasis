@@ -3,6 +3,7 @@ import { ladeKonfiguration } from './config.js';
 import { erstelleApp } from './app.js';
 import { MODULE } from './module.js';
 import { bereinigeBestand } from './services/medien.js';
+import { bekannteSpieleHolen } from './services/serienspiele.js';
 
 const konfiguration = ladeKonfiguration();
 const { app, db, kontext } = erstelleApp(konfiguration);
@@ -18,11 +19,19 @@ const server = app.listen(konfiguration.port, konfiguration.host, () => {
   if (kontext.konten.istErsteinrichtung()) console.log('   ➜ Noch kein Konto vorhanden: Das erste registrierte Konto wird Administrator.');
 });
 
+// Spiele bekannter Figurenserien (z. B. Monster in my Pocket) vorab in den Katalog holen und verknüpfen – kurz nach dem Start,
+// nur solange die Verknüpfung noch fehlt
+setTimeout(() => {
+  bekannteSpieleHolen(db, kontext.katalog).then((n) => { if (n) console.log(`[serien] ${n} Spiel(e) mit Figurenserien verknüpft.`); })
+    .catch((e) => console.warn('[serien] Spiele holen:', e.message));
+}, 10_000).unref();
+
 // Abgelaufene Cache-Einträge und Sitzungen regelmäßig entfernen.
 const aufraeumen = setInterval(() => {
   kontext.cache.raeumeAuf();
   kontext.konten.raeumeAuf();
   kontext.vorschlaege.aufraeumen(); // Fotos entschiedener Vorschläge
+  kontext.freistellen.raeumeAuf(); // abgelaufene Reservierungen der Helfer-Geräte
 }, 6 * 60 * 60 * 1000);
 aufraeumen.unref();
 

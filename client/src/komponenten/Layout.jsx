@@ -1,19 +1,29 @@
+import { useEffect } from 'react';
 import Symbol from './Symbole.jsx';
 import { MARKE } from '../../../shared/marke.js';
 import { navigiere, zurueck as zurueckZu } from '../router.js';
 import { useSitzung } from '../sitzung.js';
+import Avatar from './Avatar.jsx';
 import Fusszeile from './Fusszeile.jsx';
 import Glocke from './Glocke.jsx';
 import { MODUL, Andockpunkt } from '../erweiterungen.jsx';
 
-// Der zweite Eintrag kann von einem Zusatzmodul kommen (zockerdb.de: „Wert“), sonst die Statistik
+// Der Eintrag neben der Sammlung kann von einem Zusatzmodul kommen (zockerdb.de: „Wert“), sonst die Statistik.
+// Ein Zusatzmodul mit eigener Startseite (MODUL.startseite = { pfad, label, symbol }) setzt sie an die erste Stelle; das Scannen
+// steckt dann auf der Seite „Hinzufügen“ (großer Knopf) und braucht keinen eigenen Tab.
+const START = MODUL.startseite ?? null;
+const SAMMLUNG = { pfad: START ? '/sammlung' : '/', label: 'Sammlung', symbol: 'sammlung' };
+const WEITERES = MODUL.hauptnavigation ?? { pfad: '/statistik', label: 'Statistik', symbol: 'statistik' };
 const NAVIGATION = [
-  { pfad: '/', label: 'Sammlung', symbol: 'sammlung' },
-  MODUL.hauptnavigation ?? { pfad: '/statistik', label: 'Statistik', symbol: 'statistik' },
+  ...(START ? [START] : []),
+  SAMMLUNG,
+  WEITERES,
   { pfad: '/neu', label: 'Hinzufügen', symbol: 'plus', hervorgehoben: true },
-  { pfad: '/neu?scan=1', label: 'Scannen', symbol: 'scan' },
+  ...(START ? [] : [{ pfad: '/neu?scan=1', label: 'Scannen', symbol: 'scan' }]),
   { pfad: '/einstellungen', label: 'Mehr', symbol: 'einstellungen' },
 ];
+// Desktop: die zusätzlichen Einträge stehen nach den ersten Plätzen (Startseite, Sammlung, Wert/Statistik)
+const DESKTOP_AB = START ? 3 : 2;
 
 // Zusätzliche Einträge nur in der Desktop-Navigation
 const NUR_DESKTOP = [
@@ -25,16 +35,28 @@ const NUR_DESKTOP = [
 const MEHR_PFADE = ['/einstellungen', '/konto', '/statistik', '/admin', '/druck', '/katalog', '/seite', '/konvolute', '/ideen', '/kalender', '/verliehen', '/lagerorte', ...(MODUL.mehrPfade ?? [])];
 
 function istAktiv(eintrag, route) {
-  if (eintrag.pfad === '/') return route.pfad === '/' || route.pfad.startsWith('/artikel');
+  if (eintrag.pfad === '/' || eintrag.pfad === '/sammlung') return route.pfad === '/' || route.pfad === '/sammlung' || route.pfad.startsWith('/artikel');
   if (eintrag.pfad === '/einstellungen') return MEHR_PFADE.some((p) => route.pfad.startsWith(p));
   if (eintrag.pfad === '/neu?scan=1') return route.pfad === '/neu' && route.parameter.scan === '1';
   if (eintrag.pfad === '/neu') return route.pfad.startsWith('/neu') && route.parameter.scan !== '1';
   return route.pfad.startsWith(eintrag.pfad);
 }
 
-/** `titelImInhalt={false}`: Die Seite zeigt ihren Titel selbst groß an (z. B. Spieleseite) – am Desktop keine zweite Überschrift. */
-export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt = true, children }) {
+/**
+ * `titelImInhalt={false}`: Die Seite zeigt ihren Titel selbst groß an (z. B. Spieleseite) – am Desktop keine zweite Überschrift.
+ * `vollbild`: Seite mit eigenem Scrollbereich (z. B. der Feed) – feste Bildschirmhöhe, keine Fußzeile, die Seite selbst
+ * lässt sich nicht verschieben (sonst rutscht am iPhone der ganze Inhalt samt Feed weg). Impressum & Co. stehen unter „Mehr“.
+ */
+export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt = true, vollbild = false, children }) {
   const { benutzer, auth } = useSitzung();
+  useEffect(() => {
+    if (!vollbild) return undefined;
+    const html = document.documentElement;
+    const vorher = [html.style.overflow, html.style.overscrollBehavior];
+    html.style.overflow = 'hidden';
+    html.style.overscrollBehavior = 'none';
+    return () => { [html.style.overflow, html.style.overscrollBehavior] = vorher; };
+  }, [vollbild]);
   const desktop = NUR_DESKTOP.filter((e) => !e.sichtbar || e.sichtbar(auth));
   // Öffentliche Katalogseiten ohne Anmeldung: schlanker Rahmen ohne Navigation
   if (!benutzer) {
@@ -56,7 +78,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
     );
   }
   return (
-    <div className="min-h-dvh pb-24 md:pb-10">
+    <div className={vollbild ? 'h-dvh overflow-hidden' : 'min-h-dvh pb-24 md:pb-10'} data-vollbild={vollbild || undefined}>
       <header className="sticky top-0 z-30 border-b border-rand/60 bg-flaeche/85 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         {/* Etwas breiter als der Inhalt, damit die beschrifteten Menüpunkte am Desktop neben Logo und Symbolen Platz haben */}
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4">
@@ -70,7 +92,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
               <Symbol name="zurueck" className="size-6" />
             </button>
           ) : (
-            <a href="#/" className="flex shrink-0 items-center gap-2 font-bold" aria-label="Zur Sammlung">
+            <a href="#/" className="flex shrink-0 items-center gap-2 font-bold" aria-label={START ? 'Zur Startseite' : 'Zur Sammlung'}>
               <img src="/icons/icon.svg" alt="" className="size-8" />
               <span className="hidden sm:inline">{MARKE.name}</span>
             </a>
@@ -81,8 +103,11 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
           {aktionen}
           <Andockpunkt name="kopfleiste" />
           <Glocke />
+          <a href="#/konto" className="shrink-0 rounded-full p-1 hover:bg-karte" aria-label="Konto" title="Konto" data-testid="kopf-avatar">
+            <Avatar avatar={benutzer.avatar} name={benutzer.anzeigename} groesse="klein" />
+          </a>
           <nav className="ml-2 hidden shrink-0 items-center gap-1 md:flex xl:ml-4" aria-label="Hauptnavigation">
-            {[...NAVIGATION.slice(0, 2), ...desktop, ...NAVIGATION.slice(2)].map((eintrag) => (
+            {[...NAVIGATION.slice(0, DESKTOP_AB), ...desktop, ...NAVIGATION.slice(DESKTOP_AB)].map((eintrag) => (
               <a
                 key={eintrag.pfad}
                 href={`#${eintrag.pfad}`}
@@ -105,7 +130,7 @@ export default function Layout({ route, titel, zurueck, aktionen, titelImInhalt 
         {titel && titelImInhalt && <h1 className="mb-4 hidden text-2xl font-bold md:block">{titel}</h1>}
         {children}
       </main>
-      <Fusszeile />
+      {!vollbild && <Fusszeile />}
 
       <nav
         className="unten-sicher fixed inset-x-0 bottom-0 z-40 border-t border-rand/60 bg-flaeche/95 backdrop-blur-md md:hidden"

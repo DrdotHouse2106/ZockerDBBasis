@@ -2,6 +2,7 @@
 // nackte Datei – in der installierten App gäbe es von dort keinen Weg zurück –, sondern eine Ansicht über der Seite.
 // Schließen: ✕, Tippen daneben, Escape oder die Zurück-Geste. Mehrere Bilder derselben Liste: ‹ › oder Wischen.
 import { useEffect, useRef, useState } from 'react';
+import { istEigeneAdresse } from '../zugang.js';
 
 const IST_PDF = /\.pdf($|\?)/i;
 
@@ -10,7 +11,10 @@ function bildLink(ziel) {
   const a = ziel?.closest?.('a[href]');
   if (!a || a.hasAttribute('download') || a.dataset.bild === 'nein') return null;
   const url = new URL(a.href, window.location.href);
-  if (url.origin !== window.location.origin || url.searchParams.has('download')) return null;
+  // Fremde Adressen nur, wenn ausdrücklich als Bild markiert (data-bild, z. B. Screenshots von IGDB)
+  if (url.searchParams.has('download')) return null;
+  // Eigene Dateien: in der App liegen sie auf der Server-Adresse (sonst öffnete iOS den externen Browser – samt Datei-Schlüssel)
+  if (!istEigeneAdresse(url) && !(a.dataset.bild !== undefined && url.protocol === 'https:')) return null;
   const istBild = a.dataset.bild !== undefined || (a.target === '_blank' && a.querySelector('img'));
   return istBild ? a : null;
 }
@@ -26,7 +30,7 @@ export default function BildAnsicht() {
       if (!a) return;
       e.preventDefault();
       // Alle Bilder derselben Liste zum Blättern
-      const liste = a.closest('ul, [data-galerie], section') ?? a.parentElement;
+      const liste = a.closest('[data-galerie], ul, section') ?? a.parentElement;
       const links = [...liste.querySelectorAll('a[href]')].filter((x) => bildLink(x) === x);
       const bilder = links.map((x) => ({ url: x.href, alt: x.querySelector('img')?.alt ?? x.getAttribute('aria-label') ?? 'Bild' }));
       setAnsicht({ bilder, index: Math.max(0, links.indexOf(a)) });
@@ -81,7 +85,9 @@ export default function BildAnsicht() {
       <div className="relative flex min-h-0 flex-1 items-center justify-center p-2" onClick={(e) => { if (e.target === e.currentTarget) schliessen(); }}>
         {IST_PDF.test(bild.url)
           ? <iframe src={bild.url} title={bild.alt} className="size-full rounded bg-white" />
-          : <img src={bild.url} alt={bild.alt} className="max-h-full max-w-full object-contain" />}
+          // Helles Schachbrett hinter dem Bild: Bei freigestellten Fotos sieht man, was transparent ist (auch bei dunklen Motiven)
+          : <img src={bild.url} alt={bild.alt} className="max-h-full max-w-full object-contain"
+            style={{ backgroundImage: 'conic-gradient(#d4d4d8 25%, #f4f4f5 0 50%, #d4d4d8 0 75%, #f4f4f5 0)', backgroundSize: '20px 20px' }} />}
         {mehrere && (
           <>
             <button type="button" onClick={() => blaettern(-1)} className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-white/15 px-3 py-2 text-2xl text-white" aria-label="Vorheriges Bild">‹</button>

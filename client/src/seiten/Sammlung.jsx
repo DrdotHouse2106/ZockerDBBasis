@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ARTIKELTYPEN, REGIONEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, HERKUNFT, BESTAND, SPIELSTATUS } from '../../../shared/konstanten.js';
+import { ARTIKELTYPEN, MERCH_KATEGORIEN, REGIONEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, HERKUNFT, BESTAND, SPIELSTATUS } from '../../../shared/konstanten.js';
 import { SPRACH_FILTER } from '../../../shared/sprachen.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
@@ -7,13 +7,11 @@ import Layout from '../komponenten/Layout.jsx';
 import ArtikelKarte from '../komponenten/ArtikelKarte.jsx';
 import { SpendeFrage } from '../komponenten/Zockerdb.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
-import { spaeter } from '../spaeter.js';
 import { Andockpunkt } from '../erweiterungen.jsx';
 import { useSitzung } from '../sitzung.js';
 import { TourAngebot } from '../tour.jsx';
+import Nachzuordnung from '../komponenten/Nachzuordnung.jsx';
 import { lagerortText } from '../komponenten/ZusatzFelder.jsx';
-
-const DemnaechstVorschau = spaeter(() => import('./Kalender.jsx'), 'DemnaechstVorschau');
 
 const SORTIERUNGEN = [
   { value: 'neueste', label: 'Zuletzt hinzugefügt' },
@@ -23,18 +21,64 @@ const SORTIERUNGEN = [
   { value: 'kaufdatum', label: 'Kaufdatum' },
 ];
 
+// Gewählte Sortierung auf diesem Gerät merken – sonst springt sie beim nächsten Öffnen der Sammlung (ohne Parameter) zurück
+const SORTIERUNG_SCHLUESSEL = 'sammlung-sortierung';
+function gemerkteSortierung() {
+  try {
+    const wert = localStorage.getItem(SORTIERUNG_SCHLUESSEL);
+    return SORTIERUNGEN.some((s) => s.value === wert) ? wert : null;
+  } catch {
+    return null;
+  }
+}
+
+// Filter (Plattform, Region, Zustand …) auf diesem Gerät merken: Öffnet man die Sammlung ohne eigene Vorgaben (Menü),
+// gelten die zuletzt gewählten. Die Ansicht („Exemplare gruppieren“) gilt wie die Sortierung immer, auch bei Links mit Filtern.
+const FILTER_SCHLUESSEL = 'sammlung-filter';
+const ANSICHT_SCHLUESSEL = 'sammlung-einzeln';
+function gemerkt(schluessel) {
+  try { return localStorage.getItem(schluessel); } catch { return null; }
+}
+function merken(schluessel, wert) {
+  try { if (wert == null) localStorage.removeItem(schluessel); else localStorage.setItem(schluessel, wert); } catch { /* ohne Speicher nur für diesen Aufruf */ }
+}
+function gemerkteFilter() {
+  try {
+    const f = JSON.parse(gemerkt(FILTER_SCHLUESSEL) ?? '{}');
+    return f && typeof f === 'object' && !Array.isArray(f) ? Object.fromEntries(Object.entries(f).filter(([, w]) => typeof w === 'string')) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function Sammlung({ route }) {
-  const filter = route.parameter;
+  const ohneVorgaben = !Object.keys(route.parameter).length;
+  const basis = ohneVorgaben ? gemerkteFilter() : route.parameter;
+  const sortierung = route.parameter.sortierung ?? gemerkteSortierung() ?? undefined;
+  const einzeln = route.parameter.einzeln ?? (gemerkt(ANSICHT_SCHLUESSEL) === '1' ? '1' : undefined);
+  const filter = Object.fromEntries(Object.entries({ ...basis, sortierung, einzeln }).filter(([, w]) => w !== undefined && w !== ''));
   const [artikel, setArtikel] = useState(null);
+  const [neuLaden, setNeuLaden] = useState(0);
+  // Gemerkte Filter stehen nicht in der Adresse: Entfernt man den letzten, bleibt sie „#/sammlung“ – ohne Seitenwechsel, also selbst
+  // neu zeichnen (sonst blieb z. B. „Leere Hüllen“ scheinbar hängen)
+  const [, neuZeichnen] = useState(0);
   const [fehler, setFehler] = useState(null);
   const [plattformen, setPlattformen] = useState([]);
   const [suchtext, setSuchtext] = useState(filter.q ?? '');
-  const [filterOffen, setFilterOffen] = useState(Boolean(filter.region || filter.zustand || filter.vollstaendigkeit || filter.herkunft || filter.ohne_preis || filter.zustand_fehlt || filter.spielstatus || filter.sprache));
+  const [filterOffen, setFilterOffen] = useState(Boolean(filter.region || filter.zustand || filter.vollstaendigkeit || filter.herkunft || filter.ohne_preis || filter.zustand_fehlt || filter.ohne_katalog || filter.spielstatus || filter.sprache));
   const gruppiert = filter.einzeln !== '1';
   const { benutzer } = useSitzung();
   const lagerortFilter = lagerortText(filter);
 
-  const setzeFilter = (aenderung) => navigiere('/', { ...filter, ...aenderung });
+  const setzeFilter = (aenderung) => {
+    const neu = Object.fromEntries(Object.entries({ ...filter, ...aenderung }).filter(([, w]) => w !== undefined && w !== ''));
+    // Filter ohne Suchtext, Sortierung und Ansicht merken (die haben eigene Speicherplätze)
+    const { q: _q, sortierung: _s, einzeln: _e, ...zuMerken } = neu;
+    merken(FILTER_SCHLUESSEL, Object.keys(zuMerken).length ? JSON.stringify(zuMerken) : null);
+    if ('einzeln' in aenderung) merken(ANSICHT_SCHLUESSEL, aenderung.einzeln === '1' ? '1' : null);
+    navigiere('/sammlung', neu);
+    neuZeichnen((n) => n + 1);
+  };
 
   // Suche mit kurzer Verzögerung übernehmen, damit nicht jede Taste eine Anfrage auslöst.
   useEffect(() => {
@@ -45,11 +89,14 @@ export default function Sammlung({ route }) {
 
   useEffect(() => {
     const abbruch = new AbortController();
-    api.artikelListe(filter, abbruch.signal)
-      .then((liste) => { setArtikel(liste); setFehler(null); })
+    let vomServer = false;
+    // App: gespeicherte Sammlung sofort zeigen, der Stand des Servers ersetzt sie, sobald er da ist
+    const zwischenstand = (liste) => { if (!vomServer) setArtikel(liste); };
+    api.artikelListe(filter, abbruch.signal, { zwischenstand })
+      .then((liste) => { vomServer = true; setArtikel(liste); setFehler(null); })
       .catch((e) => { if (e.name !== 'AbortError') setFehler(e.message); });
     return () => abbruch.abort();
-  }, [JSON.stringify(filter)]);
+  }, [JSON.stringify(filter), neuLaden]);
 
   const [anzahlen, setAnzahlen] = useState({});
   useEffect(() => {
@@ -57,7 +104,7 @@ export default function Sammlung({ route }) {
     api.artikelAnzahl().then(setAnzahlen).catch(() => {});
   }, []);
 
-  const aktiveFilter = ['region', 'zustand', 'vollstaendigkeit', 'herkunft', 'ohne_preis', 'zustand_fehlt', 'spielstatus', 'sprache'].filter((f) => filter[f]).length;
+  const aktiveFilter = ['region', 'zustand', 'vollstaendigkeit', 'herkunft', 'ohne_preis', 'zustand_fehlt', 'ohne_katalog', 'spielstatus', 'sprache'].filter((f) => filter[f]).length;
   const weg = ['weg', 'verkauft', 'abgegeben', 'alle'].includes(filter.bestand);
   const digital = filter.bestand === 'digital';
   const verpackung = filter.bestand === 'verpackung';
@@ -75,14 +122,14 @@ export default function Sammlung({ route }) {
       gruppen.get(schluessel).exemplare += 1;
     }
   }
-  const hatFilter = Boolean(filter.typ || filter.q || filter.plattform_id || aktiveFilter || weg || digital || verpackung || filter.verliehen || lagerortFilter || filter.ohne_lagerort);
+  const hatFilter = Boolean(filter.serie_id || filter.typ || filter.q || filter.plattform_id || aktiveFilter || weg || digital || verpackung || filter.verliehen || lagerortFilter || filter.ohne_lagerort);
 
   return (
     <Layout route={route} titel="Meine Sammlung">
       <div className="space-y-3">
         <TourAngebot tour="erste-schritte" titel="Neu hier? Wir zeigen dir alles." />
         <SpendeFrage />
-        <DemnaechstVorschau />
+        {filter.ohne_katalog === '1' && <Nachzuordnung zurListe onFertig={() => setNeuLaden((n) => n + 1)} />}
         <Andockpunkt name="sammlung.oben" />
         <div className="flex gap-2">
           <label className="relative flex-1" data-tour="sammlung-suche">
@@ -123,10 +170,17 @@ export default function Sammlung({ route }) {
               key={t.value}
               type="button"
               className={filter.typ === t.value ? 'chip-aktiv' : 'chip'}
-              onClick={() => setzeFilter({ typ: filter.typ === t.value ? undefined : t.value })}
+              title={t.beschreibung}
+              onClick={() => setzeFilter({ typ: filter.typ === t.value ? undefined : t.value, merch_kategorie: undefined })}
             >
               <Symbol name={t.value} className="size-4" />
               {t.mehrzahl}
+            </button>
+          ))}
+          {filter.typ === 'merch' && MERCH_KATEGORIEN.map((k) => (
+            <button key={k.value} type="button" className={filter.merch_kategorie === k.value ? 'chip-aktiv' : 'chip'} title={k.beschreibung}
+              onClick={() => setzeFilter({ merch_kategorie: filter.merch_kategorie === k.value ? undefined : k.value })}>
+              {k.label}
             </button>
           ))}
           <button type="button" className={weg ? 'chip-aktiv' : 'chip'} onClick={() => setzeFilter({ bestand: weg ? undefined : 'weg' })}
@@ -149,6 +203,12 @@ export default function Sammlung({ route }) {
           )}
           {benutzer?.funktionen?.lagerort && <a href="#/lagerorte" className="chip">📍 Lagerorte</a>}
         </div>
+        {filter.serie_id && (
+          <p className="flex items-center justify-between gap-2 rounded-xl bg-karte-hover p-3 text-sm" data-testid="serien-filter">
+            <a className="underline" href={`#/serien/${filter.serie_id}`}>Nur Figuren einer Serie – zur Serienseite</a>
+            <button type="button" className="underline" onClick={() => setzeFilter({ serie_id: undefined })}>Filter entfernen</button>
+          </p>
+        )}
         {(lagerortFilter || filter.ohne_lagerort) && (
           <p className="flex items-center justify-between gap-2 rounded-xl bg-karte-hover p-3 text-sm">
             <span>📍 {lagerortFilter || 'Ohne Lagerort'}</span>
@@ -214,14 +274,22 @@ export default function Sammlung({ route }) {
               <input type="checkbox" className="size-4 accent-akzent" checked={filter.zustand_fehlt === '1'} onChange={(e) => setzeFilter({ zustand_fehlt: e.target.checked ? '1' : undefined })} />
               Nur ohne Zustandsbewertung
             </label>
+            <label className="flex items-center gap-2 self-end pb-2.5 text-sm" title="Exemplare, die keinem Eintrag aus dem Katalog zugeordnet sind (oder nur einem eigenen, privaten Eintrag)">
+              <input type="checkbox" className="size-4 accent-akzent" checked={filter.ohne_katalog === '1'} onChange={(e) => setzeFilter({ ohne_katalog: e.target.checked ? '1' : undefined })} />
+              Nur ohne Katalogeintrag
+            </label>
             <label>
               <span className="beschriftung">Sortierung</span>
-              <select className="eingabe" value={filter.sortierung ?? 'neueste'} onChange={(e) => setzeFilter({ sortierung: e.target.value })}>
+              <select className="eingabe" value={filter.sortierung ?? 'neueste'} data-testid="sammlung-sortierung"
+                onChange={(e) => {
+                  try { localStorage.setItem(SORTIERUNG_SCHLUESSEL, e.target.value); } catch { /* ohne Speicher nur für diesen Aufruf */ }
+                  setzeFilter({ sortierung: e.target.value });
+                }}>
                 {SORTIERUNGEN.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </label>
             {hatFilter && (
-              <button type="button" className="knopf-sekundaer sm:col-span-2 lg:col-span-5" onClick={() => { setSuchtext(''); navigiere('/'); }}>
+              <button type="button" className="knopf-sekundaer sm:col-span-2 lg:col-span-5" onClick={() => { setSuchtext(''); merken(FILTER_SCHLUESSEL, null); navigiere('/sammlung'); }}>
                 Alle Filter zurücksetzen
               </button>
             )}
@@ -272,7 +340,7 @@ export default function Sammlung({ route }) {
 
         {/* Unter der Sammlung: Zugang zu den digitalen Spielen (getrennt, zählen nicht zur Sammlung) */}
         {!filter.bestand && anzahlen.digital > 0 && artikel && (
-          <a href="#/?bestand=digital" className="karte flex items-center justify-between gap-3 p-4 hover:bg-karte-hover">
+          <a href="#/sammlung?bestand=digital" className="karte flex items-center justify-between gap-3 p-4 hover:bg-karte-hover">
             <span>
               <span className="mr-2 rounded bg-sky-600 px-2 py-0.5 text-xs font-bold tracking-widest text-white uppercase">Digital</span>
               <strong>{anzahlen.digital} digitale Spiele</strong>

@@ -36,3 +36,25 @@ export async function bereiteDateiVor(datei) {
   }
   return new File([inhalt], datei.name, { type: datei.type });
 }
+
+/**
+ * Foto vor dem Hochladen verkleinern (längste Kante höchstens `kante` Pixel, JPEG, ohne Metadaten wie GPS) – spart bei
+ * Handyfotos (oft 3–8 MB) viel Zeit im Mobilfunk. Klappt das Umrechnen nicht, wird die Datei wie bisher vorbereitet.
+ */
+export async function verkleinereBild(datei, { kante = 2000, qualitaet = 0.85 } = {}) {
+  let bild;
+  try {
+    bild = await createImageBitmap(datei, { imageOrientation: 'from-image' });
+  } catch {
+    return bereiteDateiVor(datei);
+  }
+  const faktor = Math.min(1, kante / Math.max(bild.width, bild.height));
+  const leinwand = document.createElement('canvas');
+  leinwand.width = Math.round(bild.width * faktor);
+  leinwand.height = Math.round(bild.height * faktor);
+  leinwand.getContext('2d').drawImage(bild, 0, 0, leinwand.width, leinwand.height);
+  bild.close?.();
+  const blob = await new Promise((ok) => leinwand.toBlob(ok, 'image/jpeg', qualitaet));
+  if (!blob) return bereiteDateiVor(datei);
+  return new File([blob], `${datei.name.replace(/\.[^.]+$/, '') || 'foto'}.jpg`, { type: 'image/jpeg' });
+}

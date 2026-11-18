@@ -170,11 +170,18 @@ function TourSchritt({ schritt, k, nummer, gesamt, onWeiter, onZurueck, onBeende
     if (!zielName) { setGesucht(false); return undefined; }
     let rahmen;
     let gescrollt = false;
+    let nachgeholt = 0;
     const start = performance.now();
     const messen = () => {
       const el = findeZiel(zielName);
       if (el) {
-        if (!gescrollt) {
+        // Springt die Seite nach dem Laden noch einmal nach oben (Seitenwechsel), liegt das Ziel außerhalb – dann erneut hinscrollen
+        const weg = gescrollt && nachgeholt < 5 && performance.now() - start < 4000 && (() => {
+          const r = el.getBoundingClientRect();
+          return r.bottom < 0 || r.top > fensterHoehe();
+        })();
+        if (weg) nachgeholt += 1;
+        if (!gescrollt || weg) {
           gescrollt = true;
           const r = el.getBoundingClientRect();
           // Seitlich verborgen (z. B. ein Reiter in einer wischbaren Leiste): die Leiste auf das Element zentrieren

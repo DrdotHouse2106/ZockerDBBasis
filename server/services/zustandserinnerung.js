@@ -34,7 +34,7 @@ export function erstelleZustandserinnerung(db, { benachrichtigungen }) {
           art: 'sammlung',
           titel: n === 1 ? '1 Exemplar ohne Zustandsbewertung' : `${n} Exemplare ohne Zustandsbewertung`,
           text: `Mit Zustand ${mitOvp ? '(Disc/Modul bzw. Gerät und Hülle/OVP) ' : ''}wird der Wert deiner Sammlung genauer. Die Bewertungshilfe im Formular erklärt die Stufen.`,
-          link: '#/?einzeln=1&zustand_fehlt=1',
+          link: '#/sammlung?einzeln=1&zustand_fehlt=1',
         });
         gesendet += 1;
       }

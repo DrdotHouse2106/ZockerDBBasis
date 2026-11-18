@@ -16,10 +16,10 @@ const datum = (iso) => new Date(`${iso}T00:00:00Z`);
 const heute = () => new Date().toISOString().slice(0, 10);
 const plusTage = (iso, n) => new Date(datum(iso).getTime() + n * 86400000).toISOString().slice(0, 10);
 
-/** Termin als Kachel – auch für die Vorschau auf der Sammlungsseite. */
-export function TerminKachel({ t, onGeaendert, klein = false }) {
+/** Termin als Kachel. */
+export function TerminKachel({ t, onGeaendert }) {
   return (
-    <div className={`karte flex flex-col overflow-hidden ${klein ? 'w-32 shrink-0' : ''}`}>
+    <div className="karte flex flex-col overflow-hidden">
       <a href={`#/katalog/${t.katalog.id}`} className="hover:opacity-90">
         <Cover url={t.katalog.cover_url} typ={t.katalog.typ} alt={t.katalog.titel} className="aspect-[3/4] w-full" />
       </a>
@@ -28,7 +28,7 @@ export function TerminKachel({ t, onGeaendert, klein = false }) {
         <a href={`#/katalog/${t.katalog.id}`} className="line-clamp-2 text-sm font-semibold hover:underline">{t.katalog.titel}</a>
         <p className="text-xs text-leise">{[...(t.plattformen ?? [t.plattform_kurz || t.plattform]), t.region && t.region !== 'Europa' ? t.region : null].filter(Boolean).join(' · ')}</p>
         {t.im_besitz && <p className="text-xs text-erfolg">In deiner Sammlung</p>}
-        {!klein && <div className="mt-auto pt-1"><Andockpunkt name="kalender.termin" termin={t} onGeaendert={onGeaendert} /></div>}
+        <div className="mt-auto pt-1"><Andockpunkt name="kalender.termin" termin={t} onGeaendert={onGeaendert} /></div>
       </div>
     </div>
   );
@@ -129,34 +129,5 @@ export default function Kalender({ route }) {
         )}
       </div>
     </Layout>
-  );
-}
-
-/** Kompakte Vorschau für die Sammlungsseite – erscheint nur, wenn es Termine gibt. */
-export function DemnaechstVorschau() {
-  const [daten, setDaten] = useState(null);
-  const [zu, setZu] = useState(() => { try { return localStorage.getItem('demnaechst-zu') === '1'; } catch { return false; } });
-  useEffect(() => {
-    // Kuratiert: die 20 gefragtesten Titel der nächsten 60 Tage, nach Datum
-    api.kalender({ von: heute(), bis: plusTage(heute(), 60), auswahl: 'beliebt', anzahl: 20, grenze: 200 })
-      .then((d) => setDaten({ ...d, termine: zusammenfassen(d.termine ?? []).slice(0, 20) })).catch(() => {});
-  }, []);
-  if (!daten?.termine?.length) return null;
-  const umschalten = () => {
-    setZu(!zu);
-    try { localStorage.setItem('demnaechst-zu', zu ? '0' : '1'); } catch { /* egal */ }
-  };
-  return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <button type="button" className="font-semibold" onClick={umschalten} aria-expanded={!zu}>{zu ? '▸' : '▾'} Erscheint demnächst</button>
-        <a href="#/kalender" className="text-sm text-akzent-hell hover:underline">Kalender →</a>
-      </div>
-      {!zu && (
-        <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
-          {daten.termine.map((t) => <TerminKachel key={`${t.katalog.id}-${t.datum}`} t={t} klein />)}
-        </div>
-      )}
-    </section>
   );
 }

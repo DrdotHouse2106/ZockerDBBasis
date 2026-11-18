@@ -3,11 +3,12 @@ import { KontoFehler } from '../services/konten.js';
 import { mailHtml } from '../services/mail.js';
 import { MARKE } from '../../shared/marke.js';
 import { erstelleDrossel } from '../services/drossel.js';
+import { avatarVon } from '../../shared/konstanten.js';
 
 // Nur über die .env änderbar – zur Information in der Oberfläche
 const NUR_ENV = ['APP_SECRET', 'DATABASE_PATH', 'UPLOAD_DIR', 'PORT', 'HOST', 'TRUST_PROXY', 'COOKIE_SECURE', 'SESSION_DAYS', 'REGISTRATIONS_PER_HOUR'];
 
-export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualisierung, mail, benachrichtigungen, igdb, einstellungen, konfiguration, erweiterungen }) {
+export function adminRouter({ db, konten, dateien, kontoLoeschung, speicher, sicherung, aktualisierung, mail, benachrichtigungen, igdb, einstellungen, konfiguration, erweiterungen, freistellen }) {
   const router = Router();
   const bestaetigungsDrossel = erstelleDrossel({ maxVersuche: 5 });
   const anzahlAdmins = () => db.prepare("SELECT COUNT(*) AS n FROM benutzer WHERE rolle = 'admin' AND gesperrt = 0").get().n;
@@ -16,6 +17,25 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
     if (!b) throw new KontoFehler('Benutzer nicht gefunden.', 404);
     return b;
   };
+  /**
+   * Eingriffe in das Konto eines anderen Administrators (Passwort setzen, 2FA zurücksetzen) nur mit eigenem Passwort
+   * und – falls aktiv – 2FA-Code: Eine übernommene Admin-Sitzung soll nicht alle anderen Administratoren übernehmen können.
+   */
+  async function bestaetigeAdminEingriff(req, b) {
+    if (b.rolle !== 'admin') return;
+    const drosselSchluessel = `admin-eingriff:${req.benutzer.id}`;
+    if (bestaetigungsDrossel.gesperrt(drosselSchluessel)) throw new KontoFehler('Zu viele Fehlversuche. Bitte warte 15 Minuten.', 429);
+    const { passwort, code } = req.body ?? {};
+    if (!passwort) throw new KontoFehler('Eingriff in ein Administrator-Konto: Bitte mit deinem Passwort bestätigen.', 403, 'bestaetigung_noetig');
+    const ich = konten.holeBenutzer(req.benutzer.id);
+    const passwortOk = await konten.pruefeZugangsdaten(ich.benutzername, passwort);
+    const zweiterFaktorOk = !ich.totp_aktiv || (code && konten.pruefeZweitenFaktor(ich, { code: String(code) }));
+    if (!passwortOk || !zweiterFaktorOk) {
+      bestaetigungsDrossel.fehlschlag(drosselSchluessel);
+      throw new KontoFehler(!passwortOk ? 'Das Passwort ist falsch.' : 'Der 2FA-Code ist falsch oder fehlt.', 403, 'bestaetigung_noetig');
+    }
+    bestaetigungsDrossel.zuruecksetzen(drosselSchluessel);
+  }
 
   // Übersicht für das Admin-Dashboard
   router.get('/uebersicht', (_req, res) => {
@@ -48,12 +68,18 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
         oeffentlicherKatalog: konfiguration.oeffentlicherKatalog,
         medienTeilen: konfiguration.medienTeilenErlaubt,
         fotosTeilen: konfiguration.fotosTeilenErlaubt,
+        fotosFreistellen: konfiguration.fotosFreistellen,
       },
+      freistellen: freistellen.statistik(),
     };
     // Zusatzmodule ergänzen die Übersicht (z. B. Preisimport, KI-Vorprüfung, externe Sicherung)
     for (const fn of erweiterungen.alle('admin.uebersicht')) fn(ergebnis);
     res.json(ergebnis);
   });
+
+  // ── Fotos freistellen: Stand der Warteschlange, vorhandene Fotos nachträglich einreihen ─────────
+  router.get('/freistellen', (_req, res) => res.json(freistellen.statistik()));
+  router.post('/freistellen/nachholen', (_req, res) => res.json({ eingereiht: freistellen.nachholen(), ...freistellen.statistik() }));
 
   // ── Update per Knopf (Watchtower) ──────────────────────────
   router.get('/aktualisierung', async (req, res) => {
@@ -140,10 +166,10 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
   router.get('/benutzer', (_req, res) => {
     res.json(db.prepare(`
       SELECT b.id, b.benutzername, b.anzeigename, b.email, b.rolle, b.gesperrt, b.totp_aktiv, b.sammlung_oeffentlich,
-             b.erstellt_am, b.letzte_anmeldung, COUNT(a.id) AS eintraege
+             b.freistellen_helfer, b.freistellen_hilft, b.avatar_symbol, b.avatar_farbe, b.avatar_datei, b.erstellt_am, b.letzte_anmeldung, COUNT(a.id) AS eintraege
       FROM benutzer b LEFT JOIN artikel a ON a.benutzer_id = b.id AND a.bestand = 'besitz'
       GROUP BY b.id ORDER BY b.erstellt_am`).all().map((b) => ({
-        ...b, speicher: speicher.info(b.id),
+        ...b, avatar: avatarVon(b), avatar_symbol: undefined, avatar_farbe: undefined, avatar_datei: undefined, speicher: speicher.info(b.id),
         // Zusatzmodule (z. B. Händlerstatus und gebuchte Pakete)
         ...erweiterungen.sammle('admin.benutzer', b.id),
       })));
@@ -206,11 +232,13 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
     res.status(204).end();
   });
 
-  router.put('/benutzer/:id', (req, res) => {
+  router.put('/benutzer/:id', async (req, res) => {
     const b = ziel(req);
     const { rolle, gesperrt, speicher_limit_mb: limitMb } = req.body ?? {};
     const verliertAdmin = b.rolle === 'admin' && !b.gesperrt && ((rolle && rolle !== 'admin') || gesperrt);
     if (verliertAdmin && anzahlAdmins() <= 1) throw new KontoFehler('Es muss mindestens ein aktiver Administrator bleiben.', 409);
+    // Einem anderen Administrator die Rolle nehmen oder ihn sperren: nur mit eigenem Passwort (und 2FA)
+    if (b.rolle === 'admin' && ((rolle !== undefined && rolle !== 'admin') || gesperrt)) await bestaetigeAdminEingriff(req, b);
     if (rolle !== undefined) {
       if (!['admin', 'moderator', 'nutzer'].includes(rolle)) throw new KontoFehler('Ungültige Rolle.');
       db.prepare('UPDATE benutzer SET rolle = ? WHERE id = ?').run(rolle, b.id);
@@ -235,11 +263,38 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
       db.prepare('UPDATE benutzer SET gesperrt = ? WHERE id = ?').run(gesperrt ? 1 : 0, b.id);
       if (gesperrt) konten.beendeAlleSitzungen(b.id);
     }
+    // Helfer-Gerät fürs Freistellen freischalten – das Häkchen setzt der Benutzer danach selbst im Konto
+    if (req.body?.freistellen_helfer !== undefined) {
+      db.prepare('UPDATE benutzer SET freistellen_helfer = ? WHERE id = ?').run(req.body.freistellen_helfer === true ? 1 : 0, b.id);
+      if (req.body.freistellen_helfer === true && b.freistellen_helfer !== 1) {
+        benachrichtigungen.sende(b.id, {
+          art: 'system', titel: 'Du darfst beim Freistellen helfen',
+          text: 'Setze unter Konto → Fotos beitragen das Häkchen „Mein Handy hilft beim Freistellen“ – am besten am Ladegerät. Die App holt sich dann Fotos aus der Warteschlange und entfernt den Hintergrund.',
+          link: '#/konto',
+        });
+      }
+    }
     res.json({ ok: true });
   });
 
-  router.post('/benutzer/:id/2fa-zuruecksetzen', (req, res) => {
+  // Unpassendes Avatar-Bild entfernen (Symbol und Farbe bleiben); der Benutzer wird benachrichtigt
+  router.delete('/benutzer/:id/avatar', (req, res) => {
     const b = ziel(req);
+    if (b.avatar_datei) {
+      db.prepare('UPDATE benutzer SET avatar_datei = NULL WHERE id = ?').run(b.id);
+      dateien.loesche(b.avatar_datei);
+      benachrichtigungen.sende(b.id, {
+        art: 'system', titel: 'Dein Avatar-Bild wurde entfernt',
+        text: 'Ein Administrator hat dein Profilbild entfernt, weil es nicht den Regeln entspricht. Symbol und Farbe bleiben; ein neues Bild kannst du im Konto hochladen.',
+        link: '#/konto',
+      });
+    }
+    res.json({ ok: true });
+  });
+
+  router.post('/benutzer/:id/2fa-zuruecksetzen', async (req, res) => {
+    const b = ziel(req);
+    await bestaetigeAdminEingriff(req, b);
     konten.deaktiviereTotp(b.id);
     konten.beendeAlleSitzungen(b.id);
     res.json({ ok: true });
@@ -247,6 +302,7 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
 
   router.post('/benutzer/:id/passwort', async (req, res) => {
     const b = ziel(req);
+    await bestaetigeAdminEingriff(req, b);
     await konten.aenderePasswort(b.id, req.body?.neuesPasswort);
     konten.beendeAlleSitzungen(b.id);
     res.json({ ok: true });
@@ -256,8 +312,10 @@ export function adminRouter({ db, konten, dateien, speicher, sicherung, aktualis
     const b = ziel(req);
     if (b.id === req.benutzer.id) throw new KontoFehler('Das eigene Konto bitte unter „Konto“ löschen.', 409);
     if (b.rolle === 'admin' && anzahlAdmins() <= 1) throw new KontoFehler('Der letzte Administrator kann nicht gelöscht werden.', 409);
+    await bestaetigeAdminEingriff(req, b);
     await erweiterungen.fuehreAus('konto.loeschen', b.id);
-    dateien.loescheBenutzerdaten(b.id);
+    // Ohne Einwilligung des Benutzers: seine Fotos werden mit gelöscht (Lücken werden gemeldet)
+    kontoLoeschung.loesche(b.id);
     res.status(204).end();
   });
 

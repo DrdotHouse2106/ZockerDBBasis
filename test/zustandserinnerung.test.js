@@ -21,7 +21,7 @@ test('Fehlende Zustandsbewertungen: wöchentliche Erinnerung und Filter', async 
     assert.equal(zustandserinnerung.erinnere({ jetzt }), 1);
     const meldung = (await anna.api('/api/benachrichtigungen')).json.eintraege.find((m) => /ohne Zustandsbewertung/.test(m.titel));
     assert.equal(meldung.titel, '2 Exemplare ohne Zustandsbewertung');
-    assert.equal(meldung.link, '#/?einzeln=1&zustand_fehlt=1');
+    assert.equal(meldung.link, '#/sammlung?einzeln=1&zustand_fehlt=1');
     // Innerhalb einer Woche nicht noch einmal – auch nicht, wenn neue dazukommen
     await neu({ titel: 'Noch eins' });
     assert.equal(zustandserinnerung.erinnere({ jetzt: jetzt + 60_000 }), 0);

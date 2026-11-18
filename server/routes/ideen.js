@@ -1,9 +1,14 @@
 // Ideen & Wünsche – siehe services/ideen.js.
+import os from 'node:os';
+import fs from 'node:fs';
 import { Router } from 'express';
+import multer from 'multer';
 import { IDEEN_BEREICHE, IDEEN_STATUS } from '../services/ideen.js';
 
-export function ideenRouter({ ideen, erweiterungen }) {
+export function ideenRouter({ ideen, erweiterungen, konfiguration }) {
   const router = Router();
+  // Anhänge: Zwischenablage im Temp-Ordner; gespeichert werden nur geprüfte Bilder (als WebP) bzw. kurze Textdateien
+  const upload = multer({ dest: os.tmpdir(), limits: { fileSize: (konfiguration?.maxUploadMb ?? 8) * 1024 * 1024, files: 4 } });
   router.get('/ideen', (req, res) => res.json({
     modus: ideen.modus(), bereiche: IDEEN_BEREICHE, status: IDEEN_STATUS, ideen: ideen.modus() ? ideen.alle(req.benutzer) : [],
     // Zusatzmodule: z. B. { github: true }, wenn Ideen als GitHub-Issue veröffentlicht werden
@@ -17,6 +22,13 @@ export function ideenRouter({ ideen, erweiterungen }) {
     res.json(ideen.entscheide(req.benutzer, req.params.id, req.body ?? {}));
   });
   router.patch('/ideen/:id', async (req, res) => res.json(await ideen.bearbeite(req.benutzer, req.params.id, req.body ?? {})));
+  router.post('/ideen/:id/anhaenge', upload.array('dateien', 4), async (req, res) => {
+    try {
+      res.status(201).json(await ideen.anhaengeHinzu(req.benutzer, req.params.id, req.files ?? []));
+    } finally {
+      for (const d of req.files ?? []) fs.rm(d.path, { force: true }, () => {});
+    }
+  });
   router.delete('/ideen/:id', (req, res) => {
     ideen.loesche(req.benutzer, req.params.id);
     res.status(204).end();

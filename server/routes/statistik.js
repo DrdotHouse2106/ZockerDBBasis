@@ -42,6 +42,9 @@ export function statistikRouter({ db }) {
       gesamt,
       nachTyp: gruppiert('typ'),
       nachPlattform: gruppiert('plattform').slice(0, 15),
+      // Merch nach Kategorie (Gegenstände ohne Plattform erscheinen bei „Nach Plattform“ unter „Ohne Plattform“)
+      nachMerchKategorie: db.prepare(`SELECT merch_kategorie AS wert, COALESCE(SUM(anzahl), 0) AS stueck, COALESCE(SUM(kaufpreis * anzahl), 0) AS kaufwert
+        FROM artikel WHERE benutzer_id = ? AND bestand = 'besitz' AND typ = 'merch' GROUP BY merch_kategorie ORDER BY stueck DESC`).all(req.benutzer.id),
       nachRegion: gruppiert('region'),
       nachZustand: gruppiert('zustand'),
       nachVollstaendigkeit: gruppiert('vollstaendigkeit'),

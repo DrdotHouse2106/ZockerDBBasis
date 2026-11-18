@@ -1,6 +1,6 @@
 // Globaler Katalog: Plattformen nach Hersteller, Suche und Liste – auch ohne Anmeldung.
 import { useEffect, useState } from 'react';
-import { ARTIKELTYPEN, KATALOG_REGIONEN } from '../../../shared/konstanten.js';
+import { ARTIKELTYPEN, JUGENDSCHUTZ, KATALOG_REGIONEN } from '../../../shared/konstanten.js';
 import { SPRACH_FILTER } from '../../../shared/sprachen.js';
 import { api } from '../api.js';
 import { navigiere } from '../router.js';
@@ -44,8 +44,8 @@ export default function Katalog({ route }) {
   useEffect(() => {
     if (!zeigeListe) return;
     setDaten(null);
-    api.katalogListe({ plattform: p.plattform, q: p.q, typ: p.typ, seite: p.seite, region, sprache: p.sprache }).then(setDaten).catch(() => setDaten({ eintraege: [], gesamt: 0, seite: 1, seiten: 1 }));
-  }, [p.plattform, p.q, p.typ, p.seite, region, p.sprache]);
+    api.katalogListe({ plattform: p.plattform, q: p.q, typ: p.typ, seite: p.seite, region, sprache: p.sprache, jugendschutz: p.jugendschutz }).then(setDaten).catch(() => setDaten({ eintraege: [], gesamt: 0, seite: 1, seiten: 1 }));
+  }, [p.plattform, p.q, p.typ, p.seite, region, p.sprache, p.jugendschutz]);
 
   return (
     <Layout route={route} titel={plattform ? `Katalog: ${plattform.name}` : 'Katalog'} zurueck={zeigeListe ? '/katalog' : undefined}>
@@ -75,11 +75,18 @@ export default function Katalog({ route }) {
               <option value="">Jede Sprache</option>
               {SPRACH_FILTER.map(([wert, name]) => <option key={wert} value={wert}>{name}</option>)}
             </select>
+            <select className="eingabe w-auto shrink-0 py-1 text-sm" value={p.jugendschutz ?? ''} aria-label="Jugendschutz"
+              onChange={(e) => navigiere('/katalog', { ...p, jugendschutz: e.target.value || undefined, seite: undefined })}
+              title="Indizierte, beschlagnahmte oder vom Index gestrichene Spiele (Deutschland)">
+              <option value="">Jugendschutz: alle Spiele</option>
+              <option value="alle">Indiziert, beschlagnahmt oder gestrichen</option>
+              {JUGENDSCHUTZ.map((j) => <option key={j.value} value={j.value}>{j.label}</option>)}
+            </select>
           </div>
         )}
 
         {!zeigeListe && benutzer && digitalAnzahl > 0 && (
-          <a href="#/?bestand=digital" className="knopf-sekundaer w-fit">
+          <a href="#/sammlung?bestand=digital" className="knopf-sekundaer w-fit">
             <span className="rounded bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-white uppercase">Digital</span>
             Meine digitalen Spiele ({anzahl(digitalAnzahl)})
           </a>
@@ -106,9 +113,10 @@ export default function Katalog({ route }) {
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                   {liste.map((x) => (
                     <a key={x.id} href={`#/katalog?plattform=${x.id}`} className="karte flex items-center gap-3 p-3 hover:border-akzent/60 hover:bg-karte-hover">
-                      <span className="flex h-10 min-w-12 items-center justify-center rounded-lg bg-akzent/15 px-2 text-sm font-bold text-akzent-hell">{x.kurz}</span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{x.name}</span>
+                      <span className="flex h-10 min-w-12 shrink-0 items-center justify-center rounded-lg bg-akzent/15 px-2 text-center text-sm leading-tight font-bold text-akzent-hell">{x.kurz}</span>
+                      <span className="min-w-0 flex-1">
+                        {/* Lange Namen („Nintendo Entertainment System“) vollständig umbrechen statt abschneiden */}
+                        <span className="block text-sm leading-tight font-semibold">{x.name}</span>
                         <span className="block text-xs text-leise">
                           {anzahl(x.katalog)} im Katalog{benutzer && x.meine ? ` · ${anzahl(x.meine)} bei dir` : ''}
                         </span>
@@ -125,6 +133,7 @@ export default function Katalog({ route }) {
         {zeigeListe && daten && (
           <>
             <p className="text-sm text-leise">{anzahl(daten.gesamt)} Einträge</p>
+            {daten.unscharf && <p className="text-sm text-leise" data-testid="katalog-unscharf">Keine genauen Treffer – ähnliche Titel:</p>}
             {daten.eintraege.length === 0 && <p className="karte p-4 text-sm text-leise">Nichts gefunden.</p>}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {daten.eintraege.map((e) => (

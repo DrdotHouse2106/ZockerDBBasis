@@ -111,3 +111,25 @@ test('Fotos werden verkleinert als WebP gespeichert, Scans bleiben in voller Auf
   assert.equal(scan.json.mime, 'image/jpeg');
   assert.deepEqual([scan.json.breite, scan.json.hoehe], [4000, 3000]);
 });
+
+test('Gefälschter Dateityp: SVG oder HTML als „image/png“ wird abgelehnt, ohne sharp zu erreichen', async () => {
+  const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>');
+  const vorher = server.db.prepare('SELECT COUNT(*) AS n FROM medien').get().n;
+  for (const [typ, name] of [['image/png', 'x.png'], ['image/jpeg', 'x.jpg'], ['image/webp', 'x.webp'], ['image/tiff', 'x.tif']]) {
+    const scan = await hochladen(anna, artikel.id, { puffer: svg, typ, name, felder: { art: 'cover_vorne' } });
+    assert.equal(scan.status, 400, `${typ}: ${scan.text}`);
+    const foto = await hochladen(anna, artikel.id, { puffer: svg, typ, name, felder: { art: 'foto_modul' } });
+    assert.equal(foto.status, 400, `${typ}: ${foto.text}`);
+  }
+  const html = Buffer.from('<!doctype html><script>alert(1)</script>');
+  assert.equal((await hochladen(anna, artikel.id, { puffer: html, typ: 'image/png', name: 'x.png', felder: { art: 'cover_vorne' } })).status, 400);
+  // Artikelfoto (eigener Upload-Weg) ebenso
+  const formular = new FormData();
+  formular.append('bild', new Blob([svg], { type: 'image/png' }), 'x.png');
+  assert.equal((await anna.api(`/api/artikel/${artikel.id}/bild`, { methode: 'POST', formular })).status, 400);
+  // Echte Bilder gehen weiterhin – auch mit falsch gemeldetem Typ
+  const png = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#123456' } }).png().toBuffer();
+  const echt = await hochladen(anna, artikel.id, { puffer: png, typ: 'image/jpeg', name: 'x.jpg', felder: { art: 'foto_modul' } });
+  assert.equal(echt.status, 201, echt.text);
+  assert.equal(server.db.prepare('SELECT COUNT(*) AS n FROM medien').get().n, vorher + 1, 'nichts Abgelehntes gespeichert');
+});

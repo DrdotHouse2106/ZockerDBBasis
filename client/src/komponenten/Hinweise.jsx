@@ -1,4 +1,5 @@
-// Kurze Einblendungen („Toasts“) für Erfolgs- und Fehlermeldungen.
+// Kurze Einblendungen („Toasts“) für Erfolgs- und Fehlermeldungen – optional mit einer Aktion wie „Rückgängig“:
+// zeigeHinweis(text, 'erfolg', { aktion: { text: 'Rückgängig', fn: async () => … } })
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Symbol from './Symbole.jsx';
 
@@ -7,11 +8,13 @@ const HinweisKontext = createContext(() => {});
 export function HinweisAnbieter({ children }) {
   const [hinweise, setHinweise] = useState([]);
 
-  const zeige = useCallback((text, art = 'erfolg') => {
+  const entferne = useCallback((id) => setHinweise((liste) => liste.filter((h) => h.id !== id)), []);
+  const zeige = useCallback((text, art = 'erfolg', { aktion = null } = {}) => {
     const id = Math.random().toString(36).slice(2);
-    setHinweise((liste) => [...liste, { id, text, art }]);
-    setTimeout(() => setHinweise((liste) => liste.filter((h) => h.id !== id)), art === 'fehler' ? 6000 : 3500);
-  }, []);
+    setHinweise((liste) => [...liste, { id, text, art, aktion }]);
+    // Mit Aktion länger stehen lassen, damit man sie noch erreicht
+    setTimeout(() => entferne(id), aktion ? 8000 : art === 'fehler' ? 6000 : 3500);
+  }, [entferne]);
 
   // Hinweise von außerhalb von React (z. B. native Bausteine der App): window-Ereignis „vss:hinweis“ { text, art }
   useEffect(() => {
@@ -32,6 +35,10 @@ export function HinweisAnbieter({ children }) {
           >
             <Symbol name={h.art === 'fehler' ? 'warnung' : 'haken'} className={`size-5 shrink-0 ${h.art === 'fehler' ? 'text-gefahr' : 'text-erfolg'}`} />
             <span>{h.text}</span>
+            {h.aktion && (
+              <button type="button" className="ml-1 shrink-0 font-semibold text-akzent-hell underline" data-testid="hinweis-aktion"
+                onClick={() => { entferne(h.id); h.aktion.fn(); }}>{h.aktion.text}</button>
+            )}
           </div>
         ))}
       </div>

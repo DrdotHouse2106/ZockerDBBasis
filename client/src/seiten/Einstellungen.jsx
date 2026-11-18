@@ -3,6 +3,7 @@ import { MARKE } from '../../../shared/marke.js';
 import { ARTIKELTYPEN, beschriftung } from '../../../shared/konstanten.js';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
 import { api } from '../api.js';
+import { apiUrl, istApp } from '../zugang.js';
 import Layout from '../komponenten/Layout.jsx';
 import { useSitzung } from '../sitzung.js';
 import Symbol from '../komponenten/Symbole.jsx';
@@ -15,9 +16,11 @@ export default function Einstellungen({ route }) {
   const { status, benutzer, auth, abmelden } = useSitzung();
   const [eigene, setEigene] = useState([]);
   const [importiert, setImportiert] = useState(null);
+  const [steamAktiv, setSteamAktiv] = useState(false);
 
   const ladeEigene = () => api.eigeneKatalogeintraege().then(setEigene).catch(() => {});
   useEffect(() => { ladeEigene(); }, []);
+  useEffect(() => { api.steamStatus().then((s) => setSteamAktiv(Boolean(s.aktiv))).catch(() => {}); }, []);
 
   async function importieren(e) {
     const datei = e.target.files?.[0];
@@ -53,12 +56,16 @@ export default function Einstellungen({ route }) {
             ['#/katalog', 'suche', 'Katalog', 'Alle Spiele, Konsolen & Zubehör nach Plattform'],
             ['#/kalender', 'kalender', 'Erscheint demnächst', 'Releasekalender für deine Systeme'],
             ['#/verliehen', 'community', 'Leihliste', 'Verliehen und ausgeliehen von anderen'],
+            ['#/serien', 'merch', 'Figurenserien', 'Monster in my Pocket, Funko Pop! … – was dir je Serie und Farbe noch fehlt'],
+            ...(auth?.freistellen ? [['#/freistellen-pruefen', 'kamera', 'Freistellungen prüfen',
+              auth.freistellen.zuPruefen ? `${auth.freistellen.zuPruefen} ${auth.freistellen.zuPruefen === 1 ? 'Foto wartet' : 'Fotos warten'} – Original und Ergebnis vergleichen`
+                : 'Fotos ohne Hintergrund vergleichen und übernehmen – gerade nichts offen']] : []),
             ...(benutzer?.funktionen?.lagerort ? [['#/lagerorte', 'dokument', 'Lagerorte', 'Wo steht was? Übersicht und Zuordnung']] : []),
             // Einträge von Zusatzmodulen
             ...(MODUL.menue ?? []).filter((m) => !m.sichtbar || m.sichtbar({ auth, benutzer, status })).map((m) => [m.href, m.symbol, m.titel, m.text]),
             ['#/statistik', 'statistik', 'Statistik', 'Verteilung nach Plattform, Region, Zustand'],
             ['#/konvolute', 'dokument', 'Konvolute', 'Pakete zu einem Gesamtpreis – automatisch verteilt'],
-            ...(status?.ideen ? [['#/ideen', 'info', 'Ideen & Wünsche', status.ideen === 'brett' ? 'Was fehlt dir? Vorschlagen und abstimmen' : 'Was fehlt dir? Idee an zockerdb.de schicken']] : []),
+            ...(status?.ideen ? [['#/ideen', 'info', 'Ideen & Fehler melden', status.ideen === 'brett' ? 'Was fehlt, was klemmt? Vorschlagen, melden, abstimmen' : 'Was fehlt, was klemmt? An zockerdb.de schicken']] : []),
             ...(benutzer?.rolle === 'admin' ? [['#/admin', 'benutzer', 'Administration', 'Übersicht, Benutzer, Einstellungen, Sicherungen']] : []),
           ].map(([href, symbol, titel, text]) => (
             <a key={href} href={href} className="flex items-center gap-3 p-4 hover:bg-karte-hover">
@@ -109,16 +116,17 @@ export default function Einstellungen({ route }) {
         <section className="karte space-y-3 p-4">
           <h2 className="font-semibold">Datensicherung</h2>
           <p className="text-sm text-leise">
-            Exportiere deine Sammlung als JSON (vollständige Sicherung, wieder importierbar) oder als CSV für Excel/LibreOffice.
+            Exportiere deine Sammlung als JSON (vollständige Sicherung, wieder importierbar) oder als CSV für Excel/LibreOffice – oder importiere Spiele aus einer Datei bzw. deiner Steam-Bibliothek.
           </p>
           <div className="flex flex-wrap gap-2">
-            <a className="knopf-sekundaer" href="/api/export.json" download><Symbol name="herunterladen" className="size-4" />JSON-Export</a>
-            <a className="knopf-sekundaer" href="/api/export.csv" download><Symbol name="herunterladen" className="size-4" />CSV-Export (Excel)</a>
+            <a className="knopf-sekundaer" href={apiUrl('/api/export.json')} download><Symbol name="herunterladen" className="size-4" />JSON-Export</a>
+            <a className="knopf-sekundaer" href={apiUrl('/api/export.csv')} download><Symbol name="herunterladen" className="size-4" />CSV-Export (Excel)</a>
             <label className="knopf-sekundaer cursor-pointer">
               <Symbol name="hochladen" className="size-4" />JSON importieren
               <input type="file" accept="application/json,.json" className="sr-only" onChange={importieren} />
             </label>
             <a className="knopf-sekundaer" href="#/import"><Symbol name="hochladen" className="size-4" />CSV importieren (CLZ, Excel)</a>
+            {steamAktiv && <a className="knopf-sekundaer" href="#/import?quelle=steam" data-tour="steam-import"><Symbol name="hochladen" className="size-4" />Steam-Bibliothek importieren</a>}
           </div>
           {importiert?.fehlerhaft?.length > 0 && (
             <div className="rounded-xl bg-warnung/10 p-3 text-sm">
@@ -168,17 +176,17 @@ export default function Einstellungen({ route }) {
           </span>
         </a>
 
-        <section className="karte space-y-2 p-4 text-sm">
+        {!istApp && <section className="karte space-y-2 p-4 text-sm">
           <h2 className="font-semibold">Als App installieren</h2>
           <p className="text-leise">
             <strong className="text-text">Android (Chrome):</strong> Menü ⋮ → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“.<br />
             <strong className="text-text">iPhone/iPad (Safari):</strong> Teilen-Symbol → „Zum Home-Bildschirm“.
           </p>
-        </section>
+        </section>}
 
         <section className="space-y-1 px-1 pb-4 text-xs text-leise">
-          <p>{MARKE.name} ist <a className="underline" href="https://github.com/DrdotHouse2106/ZockerDBBasis" target="_blank" rel="noreferrer">quelloffen auf GitHub</a> unter der PolyForm-Noncommercial-Lizenz – private und gemeinnützige Nutzung frei, kommerzielle Nutzung nur mit Erlaubnis.</p>
-          <Andockpunkt name="impressum.quellen" />
+          <p>Die Grundversion <a className="underline" href="https://github.com/DrdotHouse2106/ZockerDBBasis" target="_blank" rel="noreferrer">ZockerDB Basis</a> ist quelloffen auf GitHub (PolyForm-Noncommercial-Lizenz) – zum Selbsthosten für private und gemeinnützige Zwecke frei, kommerzielle Nutzung nur mit Erlaubnis.</p>
+          <Andockpunkt name="impressum.quellen" status={status} />
           <p>Spieldaten und Coverbilder werden von <a className="underline" href="https://www.igdb.com" target="_blank" rel="noreferrer">IGDB.com</a> bereitgestellt.</p>
         </section>
       </div>

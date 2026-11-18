@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { MARKE } from '../../../shared/marke.js';
 import { api, ApiFehler } from '../api.js';
 import { useSitzung } from '../sitzung.js';
+import { istApp } from '../zugang.js';
 import Symbol from '../komponenten/Symbole.jsx';
 import Fusszeile from '../komponenten/Fusszeile.jsx';
 import { captchaNachweis, CaptchaHinweis } from '../captcha.jsx';
@@ -88,7 +89,7 @@ export default function Anmelden() {
   const registrierungMoeglich = auth?.registrierungOffen || einladungGueltig;
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
+    <div className="seite-sicher flex min-h-dvh flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <img src="/icons/icon.svg" alt="" className="size-16" />
@@ -159,7 +160,8 @@ export default function Anmelden() {
                 </div>
               )}
               <Feld label="Benutzername" fehler={felder.benutzername}>
-                <input className="eingabe" value={werte.benutzername} onChange={setze('benutzername')} autoComplete="username" autoCapitalize="none" required autoFocus />
+                {/* In der App nicht automatisch fokussieren – sonst klappt die Tastatur beim Start auf und verdeckt die halbe Seite */}
+                <input className="eingabe" value={werte.benutzername} onChange={setze('benutzername')} autoComplete="username" autoCapitalize="none" required autoFocus={!istApp} />
               </Feld>
               {modus === 'registrieren' && auth?.ersteinrichtung && auth?.einrichtungscode && (
                 <Feld label="Einrichtungscode (steht im Server-Protokoll)" fehler={felder.einrichtungscode}>

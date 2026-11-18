@@ -12,7 +12,7 @@ after(async () => { await server.stoppe(); });
 
 test('Status und Metadaten sind auf Deutsch verfügbar', async () => {
   const { json } = await nutzer.api('/api/meta');
-  assert.deepEqual(json.ARTIKELTYPEN.map((t) => t.label), ['Spiel', 'Konsole', 'Zubehör']);
+  assert.deepEqual(json.ARTIKELTYPEN.map((t) => t.label), ['Spiel', 'Konsole', 'Zubehör', 'Merch']);
   assert.ok(json.ZUSTAENDE.some((z) => z.label === 'Neu/OVP'));
   const status = await nutzer.api('/api/status');
   assert.equal(status.json.igdbKonfiguriert, false);
@@ -92,4 +92,26 @@ test('JSON-Export lässt sich wieder importieren', async () => {
   const ergebnis = await nutzer.api('/api/import', { methode: 'POST', daten: exportDaten });
   assert.equal(ergebnis.json.importiert, vorher);
   assert.equal((await nutzer.api('/api/artikel')).json.length, vorher * 2);
+});
+
+test('Suche in der Sammlung: wortweise und fehlertolerant', async () => {
+  const c = await server.registriere('suchsammler');
+  const neu = async (titel, plattform, extra = {}) => (await c.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel, plattform, ...extra } })).json.id;
+  const ac = await neu("Assassin's Creed IV: Black Flag", 'PlayStation 3');
+  const zelda = await neu('The Legend of Zelda: Ocarina of Time', 'Nintendo 64');
+  const fifa = await neu('FIFA Soccer 12', 'PlayStation 3', { edition: 'Steelbook Edition' });
+  const treffer = async (q) => (await c.api(`/api/artikel?q=${encodeURIComponent(q)}`)).json.map((a) => a.id);
+  // Reihenfolge, Apostroph, römische Zahl
+  assert.deepEqual(await treffer('assassins black flag'), [ac]);
+  assert.deepEqual(await treffer('black flag 4'), [ac]);
+  assert.deepEqual(await treffer('zelda ocarina'), [zelda]);
+  // Wörter über mehrere Felder: Titel und Plattform bzw. Fassung
+  assert.deepEqual(await treffer('fifa ps3'), [fifa]);
+  assert.deepEqual(await treffer('fifa steelbook'), [fifa]);
+  // Tippfehler
+  assert.deepEqual(await treffer('Ocarnia'), [zelda]);
+  assert.deepEqual(await treffer('asasins creed'), [ac]);
+  assert.deepEqual(await treffer('xyzzyqq'), []);
+  // Filter gelten auch beim Rückfall
+  assert.deepEqual((await c.api('/api/artikel?typ=konsole&q=Ocarnia')).json, []);
 });

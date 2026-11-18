@@ -1,7 +1,7 @@
 // Geteilte Sammlung: /sammlung/:token – über einen geheimen Link auch ohne Konto sichtbar, nie in Suchmaschinen.
 // Kaufpreise, Seriennummern, Notizen, Barcodes und eigene Fotos bleiben privat.
 import { Router } from 'express';
-import { ARTIKELTYPEN, REGIONEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, beschriftung } from '../../shared/konstanten.js';
+import { ARTIKELTYPEN, REGIONEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, beschriftung, avatarVon } from '../../shared/konstanten.js';
 import { APP_START, appLink } from '../../shared/seo.js';
 import { MARKE } from '../../shared/marke.js';
 import { esc, CSS } from '../html.js';
@@ -40,7 +40,7 @@ ${inhalt}
 
 export function teilenRouter({ db, erweiterungen, konfiguration }) {
   const router = Router();
-  const perFreigabe = db.prepare('SELECT id, benutzername, COALESCE(anzeigename, benutzername) AS name, freigabe_wert FROM benutzer WHERE freigabe_token = ? AND gesperrt = 0');
+  const perFreigabe = db.prepare('SELECT id, benutzername, COALESCE(anzeigename, benutzername) AS name, freigabe_wert, avatar_symbol, avatar_farbe FROM benutzer WHERE freigabe_token = ? AND gesperrt = 0');
   const geteilteArtikel = db.prepare(`SELECT a.id, a.typ, a.titel, a.plattform, a.region, a.zustand, a.vollstaendigkeit, a.farbe, a.edition,
       a.anzahl, a.marktwert, a.katalog_id AS privat_katalog_id,
       CASE WHEN k.status = 'freigegeben' THEN k.id END AS katalog_id,
@@ -98,7 +98,10 @@ export function teilenRouter({ db, erweiterungen, konfiguration }) {
       const ziel = a.katalog_id ? linkZu(a) : null;
       return `<li>${ziel ? `<a href="${esc(ziel)}">${inhaltKachel}</a>` : `<div>${inhaltKachel}</div>`}</li>`;
     };
-    const inhalt = `<h1>Die Sammlung von ${esc(b.name)}</h1>
+    // Avatar ohne hochgeladenes Bild: Die Seite ist ohne Anmeldung erreichbar, Profilbilder sehen nur angemeldete Sammler
+    const avatar = avatarVon({ ...b, avatar_datei: null });
+    const avatarHtml = `<span aria-hidden="true" style="display:inline-grid;place-items:center;width:1.6em;height:1.6em;border-radius:50%;background:${esc(avatar.farbe)};color:#fff;font-size:.9em;vertical-align:middle;margin-right:.35em">${esc(avatar.symbol ?? String(b.name).slice(0, 1).toUpperCase())}</span>`;
+    const inhalt = `<h1>${avatarHtml}Die Sammlung von ${esc(b.name)}</h1>
 <div class="zahlen">
   <div class="zahl"><b>${zahl(stueck)}</b>Exemplare</div>
   ${ARTIKELTYPEN.filter((t) => jeTyp[t.value]).map((t) => `<div class="zahl"><b>${zahl(jeTyp[t.value])}</b>${esc(t.mehrzahl)}</div>`).join('')}

@@ -11,6 +11,9 @@ test('Suchwörter: Apostrophe, Satzzeichen, Mehrzahl, römische Zahlen', () => {
   assert.deepEqual(wortVarianten('iv'), { grenze: true, varianten: ['iv', '4'] });
   assert.deepEqual(wortVarianten('7'), { grenze: true, varianten: ['7', 'vii'] });
   assert.deepEqual(wortVarianten('mass'), { grenze: false, varianten: ['mass'] });
+  // Buchstaben und Ziffern zusammengeschrieben: auch getrennt
+  assert.deepEqual(wortVarianten('fc25'), { grenze: false, varianten: ['fc25', 'fc 25'] });
+  assert.deepEqual(wortVarianten('2k23'), { grenze: false, varianten: ['2k23', '2 k 23'] });
 });
 
 test('Lokale Suche findet trotz fehlendem Apostroph, anderer Reihenfolge und Ziffer statt römischer Zahl', async () => {
@@ -21,7 +24,7 @@ test('Lokale Suche findet trotz fehlendem Apostroph, anderer Reihenfolge und Zif
     for (const titel of ["Assassin's Creed IV: Black Flag", 'Final Fantasy VII', 'Mega Man X', 'Black & White']) {
       db.prepare("INSERT INTO katalog (quelle, externe_id, typ, titel, status) VALUES ('eigen', ?, 'spiel', ?, 'freigegeben')").run(titel, titel);
     }
-    const titel = async (q) => (await c.api(`/api/katalog/suche?q=${encodeURIComponent(q)}`)).json.lokal.map((e) => e.titel);
+    const titel = async (q) => (await c.api(`/api/katalog/suche?q=${encodeURIComponent(q)}&typ=spiel`)).json.lokal.map((e) => e.titel); // ohne die vorbelegten MIMP-Figuren (Merch)
     assert.deepEqual(await titel('assassins black flag'), ["Assassin's Creed IV: Black Flag"]);
     assert.deepEqual(await titel('black flag assassin 4'), ["Assassin's Creed IV: Black Flag"]);
     assert.deepEqual(await titel('final fantasy 7'), ['Final Fantasy VII']);
@@ -67,6 +70,30 @@ test('Suchwörter wie „Constructor“ führen nicht zum Serverfehler (Barcode 
     assert.equal(barcode.status, 200);
     assert.equal(barcode.json.suchbegriff, 'Constructor Plus');
     assert.equal((await u.api('/api/katalog/suche?q=constructor')).status, 200);
+  } finally {
+    await server.stoppe();
+  }
+});
+
+test('Suche nach Produktnummer vom Rücken (BLES-00909): über Varianten und eigene Exemplare', async () => {
+  const server = await starteTestServer();
+  try {
+    const { db } = server;
+    const anna = await server.registriere('anna');
+    const ben = await server.registriere('ben');
+    const neu = (titel) => db.prepare("INSERT INTO katalog (quelle, externe_id, typ, titel, status) VALUES ('eigen', ?, 'spiel', ?, 'freigegeben') RETURNING id").pluck().get(titel, titel);
+    const ac = neu("Assassin's Creed III");
+    const gt = neu('Gran Turismo 5');
+    const fifa = neu('FIFA 13');
+    db.prepare("INSERT INTO katalog_varianten (katalog_id, bezeichnung, modellnummer, status) VALUES (?, 'PAL', 'BLES-00909', 'freigegeben')").run(ac);
+    db.prepare("INSERT INTO katalog_varianten (katalog_id, bezeichnung, modellnummer, status) VALUES (?, 'PAL', 'BCES-00569', 'eingereicht')").run(gt);
+    await anna.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'FIFA 13', katalog_id: fifa, modellnummer: 'BLES 01699' } });
+    const titel = async (c, q) => (await c.api(`/api/katalog/suche?q=${encodeURIComponent(q)}&typ=spiel`)).json.lokal.map((e) => e.titel);
+
+    for (const q of ['BLES-00909', 'bles00909', 'Bles 00909']) assert.deepEqual(await titel(ben, q), ["Assassin's Creed III"], q);
+    assert.deepEqual(await titel(ben, 'BCES-00569'), [], 'nicht freigegebene Variante zählt für andere nicht');
+    assert.deepEqual(await titel(anna, 'BLES-01699'), ['FIFA 13'], 'eigenes Exemplar');
+    assert.deepEqual(await titel(ben, 'BLES-01699'), [], 'fremde Exemplare bleiben privat');
   } finally {
     await server.stoppe();
   }

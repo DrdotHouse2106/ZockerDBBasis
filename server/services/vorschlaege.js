@@ -5,7 +5,7 @@
 //   selbst gehostet geht der Vorschlag an zockerdb.de; nach der Aufnahme dort wird die Plattform hier angelegt.
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
-import sharp from 'sharp';
+import { verarbeiteBild } from './medien.js';
 import { istModerator } from '../../shared/konstanten.js';
 import { KontoFehler } from './konten.js';
 import { ValidierungsFehler } from './validierung.js';
@@ -36,9 +36,9 @@ export function pruefePlattformVorschlag(eingabe = {}) {
 export async function speichereBelegfoto(dateien, quelle) {
   const datei = `v-${crypto.randomUUID()}.webp`;
   try {
-    await sharp(quelle, { limitInputPixels: 100_000_000, failOn: 'error' }).rotate()
+    await verarbeiteBild(quelle, (b) => b.rotate()
       .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).webp({ quality: 80 })
-      .toFile(dateien.pfadVon(datei));
+      .toFile(dateien.pfadVon(datei)));
   } catch {
     dateien.loesche(datei);
     throw new KontoFehler('Das Bild konnte nicht gelesen werden. Bitte JPG, PNG oder WebP verwenden.', 400);
@@ -46,11 +46,12 @@ export async function speichereBelegfoto(dateien, quelle) {
   return { datei, groesse: (await fs.stat(dateien.pfadVon(datei))).size };
 }
 
-export function erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattformen, benachrichtigungen }) {
+export function erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattformen, benachrichtigungen, speicher }) {
   const q = {
-    fotos: db.prepare('SELECT * FROM vorschlag_fotos WHERE katalog_id = ? ORDER BY id'),
-    anzahl: db.prepare('SELECT COUNT(*) AS n FROM vorschlag_fotos WHERE katalog_id = ?'),
-    einfuegen: db.prepare('INSERT INTO vorschlag_fotos (katalog_id, benutzer_id, datei, groesse) VALUES (?, ?, ?, ?) RETURNING *'),
+    fotos: db.prepare('SELECT * FROM vorschlag_fotos WHERE katalog_id = ? AND variante_id IS NULL ORDER BY id'),
+    anzahl: db.prepare('SELECT COUNT(*) AS n FROM vorschlag_fotos WHERE katalog_id = ? AND variante_id IS NULL'),
+    variantenFotos: db.prepare('SELECT * FROM vorschlag_fotos WHERE variante_id = ? ORDER BY id'),
+    einfuegen: db.prepare('INSERT INTO vorschlag_fotos (katalog_id, variante_id, benutzer_id, datei, groesse) VALUES (?, ?, ?, ?, ?) RETURNING *'),
     foto: db.prepare('SELECT * FROM vorschlag_fotos WHERE id = ?'),
     perDatei: db.prepare('SELECT f.*, k.erstellt_von FROM vorschlag_fotos f LEFT JOIN katalog k ON k.id = f.katalog_id WHERE f.datei = ?'),
     vorschlag: db.prepare('SELECT * FROM plattform_vorschlaege WHERE id = ?'),
@@ -58,6 +59,22 @@ export function erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattf
 
   const fotoObjekt = (f) => ({ id: f.id, url: `/api/dateien/${f.datei}` });
   const fotos = (katalogId) => q.fotos.all(Number(katalogId)).map(fotoObjekt);
+  const variantenFotos = (varianteId) => q.variantenFotos.all(Number(varianteId)).map(fotoObjekt);
+
+  /** Foto verkleinert speichern und dem Speicherplatz des Benutzers anrechnen (Prüfung der Berechtigung macht der Aufrufer). */
+  async function belegSpeichern(benutzer, { katalogId, varianteId = null }, quelle) {
+    const anzahl = varianteId ? q.variantenFotos.all(Number(varianteId)).length : q.anzahl.get(Number(katalogId)).n;
+    if (anzahl >= MAX_BELEGFOTOS) throw new KontoFehler(`Höchstens ${MAX_BELEGFOTOS} Fotos je Vorschlag.`, 409);
+    const { datei, groesse } = await speichereBelegfoto(dateien, quelle);
+    // Belegfotos zählen zum Speicherplatz des Benutzers – sonst ließe sich die Grenze über private Vorschläge umgehen
+    try {
+      speicher?.pruefe(benutzer.id, groesse);
+    } catch (fehler) {
+      dateien.loesche(datei);
+      throw fehler;
+    }
+    q.einfuegen.run(Number(katalogId), varianteId ? Number(varianteId) : null, benutzer.id, datei, groesse);
+  }
 
   /** Eigener, noch nicht freigegebener Eintrag des Benutzers – nur dazu dürfen Fotos hochgeladen werden. */
   function eigenerVorschlag(benutzer, katalogId) {
@@ -69,9 +86,7 @@ export function erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattf
 
   async function fotoHinzu(benutzer, katalogId, quelle) {
     const e = eigenerVorschlag(benutzer, katalogId);
-    if (q.anzahl.get(e.id).n >= MAX_BELEGFOTOS) throw new KontoFehler(`Höchstens ${MAX_BELEGFOTOS} Fotos je Vorschlag.`, 409);
-    const { datei, groesse } = await speichereBelegfoto(dateien, quelle);
-    q.einfuegen.run(e.id, benutzer.id, datei, groesse);
+    await belegSpeichern(benutzer, { katalogId: e.id }, quelle);
     // Selbst gehostet und bereits an zockerdb.de gegangen: Foto gleich hinterherschicken
     await sendeAnZentrale(e.id).catch(() => null);
     return fotos(e.id);
@@ -83,6 +98,7 @@ export function erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattf
     if (!f || !(f.benutzer_id === benutzer.id || istModerator(benutzer))) throw new KontoFehler('Foto nicht gefunden.', 404);
     db.prepare('DELETE FROM vorschlag_fotos WHERE id = ?').run(f.id);
     dateien.loesche(f.datei);
+    if (f.variante_id) return variantenFotos(f.variante_id);
     return e ? fotos(e.id) : [];
   }
 
@@ -110,10 +126,13 @@ export function erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattf
   /** Fotos entschiedener oder gelöschter Vorschläge entfernen. */
   function aufraeumen() {
     const alt = db.prepare(`SELECT f.id, f.datei FROM vorschlag_fotos f LEFT JOIN katalog k ON k.id = f.katalog_id
-      WHERE k.id IS NULL
+      LEFT JOIN katalog_varianten v ON v.id = f.variante_id
+      WHERE (f.variante_id IS NULL AND (k.id IS NULL
          OR (k.status IN ('freigegeben', 'abgelehnt') AND COALESCE(k.geprueft_am, k.aktualisiert_am) < datetime('now', ?))
-         OR (k.zentral_status IN ('freigegeben', 'abgelehnt') AND f.erstellt_am < datetime('now', ?))`)
-      .all(`-${AUFBEWAHREN_TAGE} days`, `-${AUFBEWAHREN_TAGE} days`);
+         OR (k.zentral_status IN ('freigegeben', 'abgelehnt') AND f.erstellt_am < datetime('now', ?))))
+         -- Fotos zu Farbvorschlägen: Farbe gelöscht (z. B. abgelehnt) oder schon länger entschieden
+         OR (f.variante_id IS NOT NULL AND (v.id IS NULL OR (v.status IN ('freigegeben', 'abgelehnt') AND f.erstellt_am < datetime('now', ?))))`)
+      .all(`-${AUFBEWAHREN_TAGE} days`, `-${AUFBEWAHREN_TAGE} days`, `-${AUFBEWAHREN_TAGE} days`);
     for (const f of alt) {
       db.prepare('DELETE FROM vorschlag_fotos WHERE id = ?').run(f.id);
       dateien.loesche(f.datei);
@@ -253,8 +272,20 @@ export function erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattf
     ...pruefePlattformVorschlag(p), kurz: String(p.kurz ?? '').trim().slice(0, 20),
   });
 
+  /**
+   * Beim Löschen eines Kontos: Belegfotos des Benutzers (die Tabelle hat keinen Fremdschlüssel) – liefert die Dateinamen
+   * zum Löschen und entfernt die Zeilen; Fotos zu bereits eingereichten Vorschlägen bleiben anonym erhalten.
+   */
+  function benutzerDateien(benutzerId) {
+    const zeilen = db.prepare(`SELECT f.id, f.datei FROM vorschlag_fotos f LEFT JOIN katalog k ON k.id = f.katalog_id
+      WHERE f.benutzer_id = ? AND (k.id IS NULL OR k.status NOT IN ('eingereicht'))`).all(benutzerId);
+    db.prepare('DELETE FROM vorschlag_fotos WHERE id IN (SELECT value FROM json_each(?))').run(JSON.stringify(zeilen.map((z) => z.id)));
+    db.prepare('UPDATE vorschlag_fotos SET benutzer_id = NULL WHERE benutzer_id = ?').run(benutzerId);
+    return zeilen.map((z) => z.datei);
+  }
+
   return {
-    fotos, fotoHinzu, fotoEntfernen, darfSehen, sendeAnZentrale, aufraeumen,
+    fotos, variantenFotos, belegSpeichern, fotoHinzu, fotoEntfernen, darfSehen, sendeAnZentrale, aufraeumen, benutzerDateien,
     plattformVorschlagen, plattformVorschlagAendern, plattformVorschlagVonInstanzAendern, eigenePlattformVorschlaege, offenePlattformVorschlaege, entscheidePlattform, legePlattformAn, pruefePlattformVorschlaege,
   };
 }

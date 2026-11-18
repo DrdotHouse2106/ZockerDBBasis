@@ -2,6 +2,7 @@
 // Zugangsdaten: TWITCH_CLIENT_ID und TWITCH_CLIENT_SECRET in der .env-Datei.
 
 import { igdbSprachen } from '../../shared/sprachen.js';
+import { regionAusIgdb } from '../../shared/konstanten.js';
 
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 const API_URL = 'https://api.igdb.com/v4';
@@ -29,7 +30,8 @@ function jahr(unixSekunden) {
 export const SPIEL_FELDER = 'name, first_release_date, release_dates.date, release_dates.status.name, summary, cover.image_id, platforms.name, '
   + 'involved_companies.company.name, involved_companies.publisher, involved_companies.developer, '
   + 'alternative_names.name, alternative_names.comment, url, game_type.type, '
-  + 'language_supports.language.locale, language_supports.language_support_type.name';
+  + 'language_supports.language.locale, language_supports.language_support_type.name, '
+  + 'game_localizations.region.name, game_localizations.region.identifier, game_localizations.cover.image_id';
 
 /** IGDB-Spieltyp als Schlüssel: „Main Game“ → main_game, „DLC“ → dlc, „Bundle“ → bundle. */
 export const spieltypSchluessel = (text) => (text ? String(text).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || null : null);
@@ -78,7 +80,19 @@ export function spielZuEintrag(spiel) {
     beschreibung: spiel.summary ?? null,
     spieltyp: spieltypSchluessel(spiel.game_type?.type),
     sprachen: igdbSprachen(spiel.language_supports),
+    cover_regionen: coverRegionen(spiel.game_localizations),
   };
+}
+
+/** Cover der regionalen Fassungen (IGDB „game_localizations“) → [{ region: 'pal_eu', url }], je Region höchstens eines. */
+export function coverRegionen(lokalisierungen = []) {
+  const je = new Map();
+  for (const l of lokalisierungen ?? []) {
+    const region = regionAusIgdb(l?.region?.name, l?.region?.identifier);
+    const url = igdbBildUrl(l?.cover?.image_id);
+    if (region && url && !je.has(region)) je.set(region, url);
+  }
+  return [...je].map(([region, url]) => ({ region, url }));
 }
 
 export function erstelleIgdbDienst({ clientId, clientSecret }, db, { fetchFn = globalThis.fetch } = {}) {

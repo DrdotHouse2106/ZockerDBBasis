@@ -8,6 +8,7 @@ import { useSitzung } from '../sitzung.js';
 import Layout from '../komponenten/Layout.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
 import SpeicherAnzeige from '../komponenten/SpeicherAnzeige.jsx';
+import Avatar from '../komponenten/Avatar.jsx';
 import AdminEinstellungen from './AdminEinstellungen.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { MODUL, Andockpunkt } from '../erweiterungen.jsx';
@@ -15,6 +16,7 @@ import { MerkmalVorschlaege } from '../komponenten/Wartung.jsx';
 import { AdminZockerdb } from '../komponenten/Zockerdb.jsx';
 import AdminUpdate from '../komponenten/AdminUpdate.jsx';
 import { TourAngebot } from '../tour.jsx';
+import { FREISTELL_SYSTEME } from '../zugang.js';
 
 const REITER = [['uebersicht', 'Übersicht'], ['benutzer', 'Benutzer & Rollen'], ['einstellungen', 'Einstellungen'], ['rechtliches', 'Rechtliches'], ['sicherungen', 'Sicherungen']];
 const MODUL_REITER = MODUL.adminReiter ?? [];
@@ -47,6 +49,38 @@ export default function Admin({ route }) {
   );
 }
 
+/** Fotos freistellen: Warteschlange der Helfer-Geräte, vorhandene Fotos nachträglich einreihen. */
+function FreistellenStand() {
+  const zeigeHinweis = useHinweis();
+  const [stand, setStand] = useState(null);
+  const laden = () => api.adminFreistellen().then(setStand).catch(() => setStand(null));
+  useEffect(() => { laden(); }, []);
+  if (!stand) return null;
+  return (
+    <section className="karte space-y-2 p-4" data-testid="freistellen-stand">
+      <h2 className="font-semibold">Fotos freistellen</h2>
+      <p className="text-sm text-leise">
+        {anzahl(stand.offen)} offen · {anzahl(stand.inArbeit)} in Arbeit · {anzahl(stand.fertig)} erledigt · {anzahl(stand.zuPruefen)} warten auf die Entscheidung des Fotografen
+        {stand.fehler ? ` · ${anzahl(stand.fehler)} nicht freistellbar` : ''} · {anzahl(stand.helfer)} Helfer-Geräte
+      </p>
+      <p className="text-xs text-leise">
+        Helfer sind Handys mit eingebauter Freistellung (App{FREISTELL_SYSTEME ? `, ${FREISTELL_SYSTEME}` : ''}) – Admins und Moderatoren sowie unter „Benutzer“ freigeschaltete Konten,
+        jeweils mit Häkchen im eigenen Konto. Unterwegs liefern sie die Maske, der Server legt sie über das Foto; der Fotograf prüft das Ergebnis.
+      </p>
+      <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={async () => {
+        try {
+          const r = await api.adminFreistellenNachholen();
+          zeigeHinweis(r.eingereiht ? `${anzahl(r.eingereiht)} vorhandene Fotos eingereiht.` : 'Alle passenden Fotos sind schon eingereiht.');
+          setStand(r);
+        } catch (e) { zeigeHinweis(e.message, 'fehler'); }
+      }}>Vorhandene Fotos einreihen</button>
+      {stand.zuPruefen > 0 && (
+        <a href="#/freistellen-pruefen" className="knopf-primaer ml-2 inline-flex px-3 py-1.5" data-testid="admin-freistellen-pruefen">Freistellungen prüfen</a>
+      )}
+    </section>
+  );
+}
+
 function Kachel({ titel, wert, hinweis, href }) {
   const Tag = href ? 'a' : 'div';
   return (
@@ -62,6 +96,7 @@ function Uebersicht({ d }) {
   const dienste = [
     ['IGDB (Spieldaten)', d.dienste.igdb], ['Öffentlicher Katalog', d.dienste.oeffentlicherKatalog],
     ['Registrierung offen', d.dienste.registrierungOffen], ['2FA-Pflicht', d.dienste.zweiFaktorPflicht], ['Scans teilen erlaubt', d.dienste.medienTeilen], ['Fotos teilen erlaubt', d.dienste.fotosTeilen],
+    ['Fotos freistellen (Helfer-Geräte)', d.dienste.fotosFreistellen],
     // Dienste von Zusatzmodulen (Bezeichnungen in d.dienstNamen)
     ...Object.entries(d.dienstNamen ?? {}).map(([schluessel, label]) => [label, d.dienste[schluessel]]),
   ];
@@ -76,8 +111,10 @@ function Uebersicht({ d }) {
         <Kachel titel="Artikel in Sammlungen" wert={anzahl(d.artikel)} />
         <Kachel titel="Freigegebene Scans" wert={anzahl(d.medienFreigegeben)} />
         {d.speicher && <Kachel titel="Upload-Speicher gesamt" wert={dateigroesse(d.speicher.gesamt) || '0 KB'} />}
+        {d.freistellen?.aktiv && <Kachel titel="Fotos freistellen" wert={`${anzahl(d.freistellen.offen)} offen`} hinweis={`${anzahl(d.freistellen.zuPruefen)} zu prüfen · ${anzahl(d.freistellen.helfer)} Helfer-Geräte`} />}
         <Andockpunkt name="admin.uebersicht.kacheln" d={d} Kachel={Kachel} />
       </div>
+      {d.freistellen?.aktiv && <FreistellenStand />}
       <MerkmalVorschlaege />
       <Andockpunkt name="admin.uebersicht" d={d} />
       <AdminZockerdb />
@@ -109,6 +146,15 @@ function Benutzer() {
   const aktion = (fn, meldung) => async () => {
     try { await fn(); zeigeHinweis(meldung); laden(); } catch (e) { zeigeHinweis(e.message, 'fehler'); }
   };
+  // Eingriffe in ein anderes Administrator-Konto verlangen das eigene Passwort (und den 2FA-Code, falls aktiv); null = abgebrochen
+  const adminBestaetigung = (b) => {
+    if (b.rolle !== 'admin') return {};
+    const passwort = window.prompt(`${b.benutzername} ist Administrator. Bitte bestätige mit deinem eigenen Passwort:`);
+    if (!passwort) return null;
+    if (!benutzer?.totp_aktiv) return { passwort };
+    const code = window.prompt('Dein aktueller 2FA-Code:');
+    return code ? { passwort, code } : null;
+  };
   const gefiltert = (liste ?? []).filter((b) => (!rolle || b.rolle === rolle)
     && (!suche || `${b.benutzername} ${b.anzeigename ?? ''}`.toLowerCase().includes(suche.toLowerCase())));
 
@@ -130,12 +176,15 @@ function Benutzer() {
       {gefiltert.map((b) => (
         <section key={b.id} className="karte space-y-2 p-4">
           <div className="flex flex-wrap items-center gap-2">
+            <Avatar avatar={b.avatar} name={b.anzeigename || b.benutzername} groesse="klein" />
             <strong>{b.anzeigename || b.benutzername}</strong>
             <span className="text-sm text-leise">@{b.benutzername}</span>
             {b.rolle !== 'nutzer' && <span className="abzeichen text-akzent-hell">{ROLLEN.find((r) => r.value === b.rolle)?.label}</span>}
             {b.totp_aktiv ? <span className="abzeichen text-erfolg">2FA</span> : <span className="abzeichen">ohne 2FA</span>}
             {b.sammlung_oeffentlich ? <span className="abzeichen">öffentlich</span> : null}
             {b.gesperrt ? <span className="abzeichen text-gefahr">gesperrt</span> : null}
+            {b.freistellen_hilft ? <span className="abzeichen" title="Das Handy dieses Benutzers hilft beim Freistellen von Fotos">Freistell-Helfer</span>
+              : b.freistellen_helfer ? <span className="abzeichen text-leise" title="Freigeschaltet, Häkchen im Konto noch nicht gesetzt">Freistellen freigeschaltet</span> : null}
             <Andockpunkt name="admin.benutzer.abzeichen" b={b} />
           </div>
           <Andockpunkt name="admin.benutzer" b={b} laden={laden} />
@@ -161,25 +210,51 @@ function Benutzer() {
                   <Symbol name="schild" className="size-4" />Zum Moderator machen
                 </button>
               )}
+              {b.avatar?.url && (
+                <button type="button" className="knopf-sekundaer px-3 py-1.5" data-testid="avatar-entfernen" title="Unpassendes Profilbild entfernen – der Benutzer wird benachrichtigt"
+                  onClick={() => window.confirm(`Profilbild von ${b.benutzername} entfernen?`) && aktion(() => api.adminAvatarEntfernen(b.id), 'Profilbild entfernt – der Benutzer wurde benachrichtigt.')()}>
+                  Profilbild entfernen
+                </button>
+              )}
+              {b.rolle === 'nutzer' && (
+                <button type="button" className="knopf-sekundaer px-3 py-1.5" data-testid="freistellen-freischalten"
+                  title="Das Handy dieses Benutzers darf Fotos anderer aus der Warteschlange freistellen (nur geteilte Fotos); das Häkchen setzt er selbst im Konto"
+                  onClick={aktion(() => api.adminBenutzerAendern(b.id, { freistellen_helfer: !b.freistellen_helfer }),
+                    b.freistellen_helfer ? 'Freischaltung fürs Freistellen entzogen.' : `${b.benutzername} darf jetzt beim Freistellen helfen – er wurde benachrichtigt.`)}>
+                  {b.freistellen_helfer ? 'Freistellen: Freischaltung entziehen' : 'Darf beim Freistellen helfen'}
+                </button>
+              )}
               <label className="flex items-center gap-2 text-sm">
                 <span className="text-leise">Rolle:</span>
-                <select className="eingabe py-1.5" value={b.rolle} onChange={(e) => aktion(() => api.adminBenutzerAendern(b.id, { rolle: e.target.value }), 'Rolle geändert.')()}>
+                <select className="eingabe py-1.5" value={b.rolle} onChange={(e) => {
+                  const bestaetigung = e.target.value !== 'admin' ? adminBestaetigung(b) : {};
+                  if (bestaetigung) aktion(() => api.adminBenutzerAendern(b.id, { rolle: e.target.value, ...bestaetigung }), 'Rolle geändert.')();
+                }}>
                   {ROLLEN.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
               </label>
-              <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={aktion(
-                () => api.adminBenutzerAendern(b.id, { gesperrt: !b.gesperrt }), b.gesperrt ? 'Entsperrt.' : 'Gesperrt und abgemeldet.',
-              )}>{b.gesperrt ? 'Entsperren' : 'Sperren'}</button>
+              <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => {
+                const bestaetigung = !b.gesperrt ? adminBestaetigung(b) : {};
+                if (bestaetigung) aktion(() => api.adminBenutzerAendern(b.id, { gesperrt: !b.gesperrt, ...bestaetigung }), b.gesperrt ? 'Entsperrt.' : 'Gesperrt und abgemeldet.')();
+              }}>{b.gesperrt ? 'Entsperren' : 'Sperren'}</button>
               {b.totp_aktiv ? (
-                <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => window.confirm(`2FA für ${b.benutzername} zurücksetzen? Nur tun, wenn die Identität geprüft wurde.`)
-                  && aktion(() => api.admin2faZuruecksetzen(b.id), '2FA zurückgesetzt.')()}>2FA zurücksetzen</button>
+                <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => {
+                  if (!window.confirm(`2FA für ${b.benutzername} zurücksetzen? Nur tun, wenn die Identität geprüft wurde.`)) return;
+                  const bestaetigung = adminBestaetigung(b);
+                  if (bestaetigung) aktion(() => api.admin2faZuruecksetzen(b.id, bestaetigung), '2FA zurückgesetzt.')();
+                }}>2FA zurücksetzen</button>
               ) : null}
               <button type="button" className="knopf-sekundaer px-3 py-1.5" onClick={() => {
                 const pw = window.prompt(`Neues Passwort für ${b.benutzername} (mind. 10 Zeichen):`);
-                if (pw) aktion(() => api.adminPasswort(b.id, pw), 'Passwort gesetzt, alle Sitzungen beendet.')();
+                if (!pw) return;
+                const bestaetigung = adminBestaetigung(b);
+                if (bestaetigung) aktion(() => api.adminPasswort(b.id, pw, bestaetigung), 'Passwort gesetzt, alle Sitzungen beendet.')();
               }}>Passwort setzen</button>
-              <button type="button" className="knopf-gefahr px-3 py-1.5" onClick={() => window.confirm(`Konto ${b.benutzername} mit allen Daten endgültig löschen?`)
-                && aktion(() => api.adminBenutzerLoeschen(b.id), 'Konto gelöscht.')()}>Löschen</button>
+              <button type="button" className="knopf-gefahr px-3 py-1.5" onClick={() => {
+                if (!window.confirm(`Konto ${b.benutzername} mit allen Daten endgültig löschen?`)) return;
+                const bestaetigung = adminBestaetigung(b);
+                if (bestaetigung) aktion(() => api.adminBenutzerLoeschen(b.id, bestaetigung), 'Konto gelöscht.')();
+              }}>Löschen</button>
             </div>
           ) : <p className="text-xs text-leise">Das bist du.</p>}
         </section>

@@ -18,7 +18,16 @@ async function beispielAnlegen(k) {
   return { beispielId: a.id };
 }
 const mitBeispiel = (k) => !k.beispielFehler;
-const beispielSeite = (k) => (k.beispielId ? `/artikel/${k.beispielId}` : '/');
+const beispielSeite = (k) => (k.beispielId ? `/artikel/${k.beispielId}` : '/sammlung');
+
+/** Figurenserien-Tour: Monster in my Pocket (oder die erste Serie mit Unterserien) und eine Unterserie mit Farben als Beispiel. */
+async function serieFuerTour(k) {
+  if (k.tourHauptserie !== undefined) return null;
+  const liste = await api.serien();
+  const haupt = liste.find((x) => x.name === 'Monster in my Pocket') ?? liste.find((x) => x.kinder.length > 0) ?? null;
+  const unter = haupt?.kinder.find((x) => x.mit_farben) ?? haupt?.kinder[0] ?? null;
+  return { tourHauptserie: haupt?.id ?? null, tourSerie: unter?.id ?? null };
+}
 
 export const TOUREN = [
   {
@@ -27,22 +36,23 @@ export const TOUREN = [
     beschreibung: 'Sammlung durchsuchen, Spiele hinzufügen und scannen, Einträge pflegen, Katalog und Kalender – in etwa drei Minuten.',
     schritte: [
       {
-        id: 'willkommen', route: '/', titel: `Willkommen bei ${MARKE.name}! 👋`,
+        id: 'willkommen', route: '/sammlung', titel: `Willkommen bei ${MARKE.name}! 👋`,
         text: ['In ein paar Schritten zeigen wir dir, wie du deine Sammlung anlegst und pflegst. Die markierten Stellen zeigen dir, wo du tippen musst.',
           'Mit „Weiter“ geht es voran, mit ✕ oder Esc kannst du jederzeit aufhören.'],
       },
-      { id: 'suche', route: '/', ziel: 'sammlung-suche', titel: 'Deine Sammlung durchsuchen', text: 'Hier findest du alles wieder – nach Titel, Plattform, Farbe oder Edition.' },
+      { id: 'suche', route: '/sammlung', ziel: 'sammlung-suche', titel: 'Deine Sammlung durchsuchen', text: 'Hier findest du alles wieder – nach Titel, Plattform, Farbe oder Edition. Die Wörter dürfen in beliebiger Reihenfolge stehen, kleine Tippfehler verzeiht die Suche („Zelad Ocarnia“).' },
       {
-        id: 'typen', route: '/', ziel: 'sammlung-typen', titel: 'Schnell filtern',
-        text: 'Nur Spiele, Konsolen oder Zubehör zeigen – oder was du verkauft, verliehen oder digital (z. B. aus Steam) hast.',
+        id: 'typen', route: '/sammlung', ziel: 'sammlung-typen', titel: 'Schnell filtern',
+        text: 'Nur Spiele, Konsolen, Zubehör oder Merch zeigen – oder was du verkauft, verliehen oder digital (z. B. aus Steam) hast.',
       },
-      { id: 'filter', route: '/', ziel: 'sammlung-filter', titel: 'Mehr Filter und Sortierung', text: 'Region, Zustand, Vollständigkeit (CIB), Spielstatus, Sortierung nach Preis oder Datum …' },
-      { id: 'hinzufuegen', route: '/', ziel: 'nav-plus', klick: true, titel: 'Etwas hinzufügen', text: 'Über „Hinzufügen“ kommt Neues in deine Sammlung. Tippe drauf!' },
-      { id: 'art', route: '/neu', ziel: 'neu-typ', titel: 'Was möchtest du erfassen?', text: 'Wähle zuerst: Spiel, Konsole oder Zubehör.' },
+      { id: 'filter', route: '/sammlung', ziel: 'sammlung-filter', titel: 'Mehr Filter und Sortierung', text: 'Region, Zustand, Vollständigkeit (CIB), Spielstatus, „Nur ohne Katalogeintrag“ (Exemplare ohne Katalogtreffer, z. B. nach einem Import – „Automatisch zuordnen“ erledigt die eindeutigen, „Einzeln zuordnen“ zeigt Vorschläge für den Rest), Sortierung nach Preis oder Datum …' },
+      { id: 'hinzufuegen', route: '/sammlung', ziel: 'nav-plus', klick: true, titel: 'Etwas hinzufügen', text: 'Über „Hinzufügen“ kommt Neues in deine Sammlung. Tippe drauf!' },
+      { id: 'art', route: '/neu', ziel: 'neu-typ', titel: 'Was möchtest du erfassen?', text: ['Wähle zuerst: Spiel, Konsole, Zubehör oder Merch.', 'Merch sind Figuren, Funko Pops, Amiibo, Bücher, Soundtracks und andere Sammlerstücke – ohne Plattform, aber mit Kategorie und Verpackung (OVP ungeöffnet, geöffnet oder lose).'] },
       {
         id: 'titelsuche', route: '/neu', ziel: 'neu-suche', titel: 'Titel suchen',
-        text: ['Tippe den Namen ein – gesucht wird im Katalog und in der großen Spieldatenbank IGDB, mit Cover und Erscheinungsjahr.',
-          'Tippe auf einen Treffer, dann wählst du Plattform, Zustand, Region und Kaufpreis.'],
+        text: ['Tippe den Namen ein – gesucht wird im Katalog und in der großen Spieldatenbank IGDB, mit Cover und Erscheinungsjahr. Auch die Produktnummer vom Rücken (z. B. BLES-00909) geht, sobald sie bei einer Fassung hinterlegt ist.',
+          'Tippe auf einen Treffer, dann wählst du Plattform, Fassung (z. B. Platinum oder Essentials), Zustand, Region und Kaufpreis.',
+          'Unsicher bei der Region? „ⓘ Woran erkenne ich die Region?“ am Feld erklärt die Merkmale (USK-Logo = PAL-DE); aus einer Nintendo-Produktnummer wie „SNSP-MW-NOE“ wird sie vorgeschlagen.'],
       },
       {
         id: 'scannen', route: '/neu', ziel: 'neu-scan', titel: 'Am schnellsten: Barcode scannen 📷',
@@ -61,13 +71,13 @@ export const TOUREN = [
       { id: 'spielstatus', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'artikel-spielstatus', bedienbar: true, titel: 'Spielstatus', text: 'Ungespielt, am Spielen, durchgespielt oder abgebrochen – mit einem Tipp gesetzt. Probier es ruhig aus.' },
       {
         id: 'aktionen', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'artikel-aktionen', titel: 'Weitere Aktionen',
-        text: 'Ein weiteres Exemplar oder eine Variante anlegen, verleihen, als verkauft markieren, ein eigenes Foto hochladen oder löschen.',
+        text: 'Ein weiteres Exemplar oder eine Variante anlegen, einen anderen Katalogeintrag wählen, verleihen, als verkauft markieren, ein eigenes Foto hochladen (vorher zuschneiden – z. B. nur das deutsche Cover aus einem Foto der Hülle) oder löschen.',
       },
       { id: 'bearbeiten', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'artikel-bearbeiten', titel: 'Bearbeiten', text: 'Mit dem Stift änderst du alle Angaben – Zustand, Vollständigkeit, Kaufpreis, Notizen und mehr.' },
       { id: 'angaben', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'artikel-angaben', titel: 'Alle Angaben auf einen Blick', text: 'Zustand, Region, Kaufpreis, Barcode … Was du nicht ausfüllst, bleibt einfach weg.' },
       {
         id: 'fotos', sichtbar: mitBeispiel, route: beispielSeite, ziel: 'fotos', titel: 'Fotos: So sieht es aus 📷',
-        text: (k) => ['Fotografiere Modul oder Disc, die Verpackung vorne und hinten und alles zusammen – die Checkliste zeigt, was noch fehlt.',
+        text: (k) => ['Fotografiere Modul oder Disc, die Verpackung vorne und hinten und alles zusammen – die Checkliste zeigt, was noch fehlt. Jedes Foto gehört zur Plattform und Fassung deines Exemplars (PS4-Fotos zählen nicht für die PS5-Fassung, ein Platinum-Foto wird nicht zum Cover der Erstauflage).',
           k.status?.fotosTeilenErlaubt
             ? 'Teilst du deine Fotos, sehen andere Sammler, wie das Spiel wirklich aussieht. Das Moderationsteam prüft sie vorher.'
             : 'So ist deine Sammlung auch fürs Archiv oder die Versicherung dokumentiert.'],
@@ -78,17 +88,25 @@ export const TOUREN = [
       },
       {
         id: 'katalog', route: '/katalog', ziel: 'katalog-suche', titel: 'Der Katalog',
-        text: 'Stöbere in allen Spielen, Konsolen und Zubehör nach Plattform – auch in dem, was du (noch) nicht besitzt.',
+        text: ['Stöbere in allen Spielen, Konsolen und Zubehör nach Plattform – auch in dem, was du (noch) nicht besitzt.',
+          'Mit dem Filter „Jugendschutz“ findest du indizierte, beschlagnahmte und vom Index gestrichene Spiele – auf der Spieleseite steht das als Hinweis mit Jahr.',
+          'Cover nach Region: Gibt es ein Spiel mit unterschiedlichen Covern (z. B. PAL-DE, PAL-EU, NTSC-U, NTSC-J), schaltest du unter dem Cover der Spieleseite um. Deine Exemplare zeigen automatisch das Cover ihrer Region bzw. Ausgabe – ein eigenes Foto oder eigenes Cover geht immer vor.'],
+      },
+      {
+        id: 'lieferumfang', route: '/katalog', titel: 'Sonderausgaben: Lieferumfang',
+        text: ['Bei einer Ausgabe (z. B. „Special Edition“) steht auf der Spieleseite der Lieferumfang – etwa „Steelbook, Artbook, Schuber, 2 Discs, DLC-Code“. Fehlt er, kannst du ihn vorschlagen, auf Wunsch mit einem Foto der Beilagen; das Moderationsteam bestätigt.',
+          'Wählst du beim Hinzufügen diese Ausgabe, zeigt die Beilagen-Checkliste genau diese Punkte. „Vollständig (CIB)“ gilt dann nur, wenn alles dabei ist – sonst steht dort z. B. „Unvollständig – Artbook fehlt“.',
+          'Fehlt deine Ausgabe im Katalog, trag sie am Exemplar unter „Edition / Variante“ ein und hak „als Variante dieses Spiels anlegen“ an – nur für dich oder zur Aufnahme eingereicht.'],
       },
       {
         id: 'kalender', route: '/kalender', ziel: 'kalender-auswahl', titel: 'Erscheint demnächst',
         text: '„Highlights“ zeigt die gefragtesten neuen Spiele für deine Systeme, „Alle Titel“ den ganzen Kalender.',
       },
-      { id: 'glocke', route: '/', ziel: 'glocke', titel: 'Benachrichtigungen', text: 'Hier erfährst du, was es Neues gibt – z. B. Antworten auf deine Vorschläge.' },
-      { id: 'mehr', route: '/', ziel: 'nav-einstellungen', klick: true, titel: 'Alles Weitere unter „Mehr“', text: 'Tippe auf „Mehr“.' },
+      { id: 'glocke', route: '/sammlung', ziel: 'glocke', titel: 'Benachrichtigungen', text: 'Hier erfährst du, was es Neues gibt – z. B. Antworten auf deine Vorschläge.' },
+      { id: 'mehr', route: '/sammlung', ziel: 'nav-einstellungen', klick: true, titel: 'Alles Weitere unter „Mehr“', text: 'Tippe auf „Mehr“.' },
       {
         id: 'mehr-liste', route: '/einstellungen', ziel: 'mehr-liste', titel: 'Mehr',
-        text: 'Konto & Sicherheit (Zwei-Faktor-Anmeldung), Leihliste, Statistik, Konvolute, Import aus CLZ oder Excel, Datensicherung …',
+        text: 'Konto & Sicherheit (Avatar mit Symbol, Farbe oder eigenem Bild, Zwei-Faktor-Anmeldung), Leihliste, Figurenserien (z. B. Monster in my Pocket – mit eigener Tour), Freistellungen prüfen (Fotos ohne Hintergrund vergleichen und übernehmen), Statistik, Konvolute, Import aus CLZ Games (noch experimentell – Ergebnis prüfen; mit Umzugsanleitung und Link zu den Spielen ohne Katalogtreffer), Excel oder der Steam-Bibliothek, Datensicherung, Ideen & Fehler melden … Dein Avatar oben rechts führt direkt zum Konto.',
       },
       { id: 'touren', route: '/einstellungen', ziel: 'mehr-touren', titel: 'Hilfe & Touren', text: 'Hier kannst du jede Tour jederzeit erneut starten.' },
       {
@@ -101,15 +119,68 @@ export const TOUREN = [
     ],
   },
   {
+    id: 'figurenserien',
+    titel: 'Figurenserien',
+    beschreibung: 'Serien wie Monster in my Pocket oder Funko Pop!: sehen, was dir fehlt, Figuren abhaken, Farben und fehlende Figuren ergänzen.',
+    schritte: [
+      {
+        id: 'uebersicht', vorher: serieFuerTour, route: '/serien', ziel: 'serien-liste', titel: 'Deine Figurenserien 🧸',
+        text: ['Jede Serie mit ihren Unterserien und deinem Fortschritt – etwa „32 von 48 Figuren · 95 von 210 Farben“.',
+          'Mit ☆ folgst du einer Serie: Sie steht dann oben bei „Meine Serien“ – genau wie Serien, aus denen du schon Figuren hast. Alle anderen findest du eingeklappt unter „Weitere Serien“.',
+          'Gezählt wird nur, was es wirklich gab: nie erschienene Nummern und Farben, in denen eine Figur nicht herauskam, zählen nicht mit.'],
+      },
+      {
+        id: 'unterserien', sichtbar: (k) => Boolean(k.tourHauptserie), route: (k) => `/serien/${k.tourHauptserie}`, ziel: 'serie-unterserien', titel: 'Unterserien',
+        text: 'Eine Serie besteht aus Unterserien (z. B. Serie 1 bis 7 und Monster Wrestlers), jede mit Nummernbereich, Hersteller und Jahr.',
+      },
+      {
+        id: 'kopf', sichtbar: (k) => Boolean(k.tourSerie), route: (k) => `/serien/${k.tourSerie}`, ziel: 'serie-kopf', titel: 'Eine Unterserie',
+        text: ['Oben siehst du Nummernbereich, nie erschienene Nummern und deinen Fortschritt.',
+          '„In meiner Sammlung“ zeigt deine Figuren dieser Serie in der Sammlungsliste – dort kannst du auch nach Serie filtern.',
+          'Gibt es ein Spiel zur Serie (z. B. Monster in My Pocket auf dem NES), steht es unter „Zum Spiel“ – und auf der Spieleseite umgekehrt die Figurenserie.',
+          'Fotos der Figuren: Gibt es Fotos einzelner Farben, schaltest du unter dem Bild um. Besitzt du eine Figur, trägst du über 📷 ein eigenes Foto bei („Foto: Figur“, mit Farbe) – es wird nach der Prüfung auch das Bild deines Exemplars in dieser Farbe.'],
+      },
+      {
+        id: 'modus', sichtbar: (k) => Boolean(k.tourSerie), route: (k) => `/serien/${k.tourSerie}`, ziel: 'serien-modus', titel: 'Ansehen, Sammeln, Pflegen',
+        text: ['Die Seite startet in „Ansehen“: Antippen ändert nichts – so landet beim Scrollen nichts aus Versehen in deiner Sammlung.',
+          'Schalte „Sammeln“ ein, um Figuren abzuhaken: Ein Tipp auf einen Farbpunkt (bzw. „+ In die Sammlung“ bei Serien ohne Farben) übernimmt die Figur. Hast du dich vertippt, hilft „Rückgängig“ im Hinweis. Mit „Farben pflegen / vorschlagen“ markierst du fehlende oder falsche Farben – nochmal tippen nimmt eine Markierung zurück, erst „Speichern“ übernimmt sie.'],
+      },
+      {
+        id: 'punkte', sichtbar: (k) => Boolean(k.tourSerie), route: (k) => `/serien/${k.tourSerie}`, ziel: 'figuren-filter', titel: 'Farbpunkte und Filter',
+        text: ['Jede Figur ist eine Karte mit Punkten in den Farben, in denen es sie gab: gefüllter Punkt mit ✓ = hast du, heller Ring = fehlt dir, ? = vorgeschlagen.',
+          'Filtere nach „Fehlt mir“ oder „Habe ich“ und nach einer Farbe – z. B. „Was fehlt mir in Neongrün?“. Die Farbchips sind zugleich die Legende.'],
+      },
+      {
+        id: 'anlegen', sichtbar: (k) => Boolean(k.tourSerie), route: (k) => `/serien/${k.tourSerie}`, ziel: 'figur-anlegen', titel: 'Fehlt eine Figur?',
+        text: ['Gestrichelte Karten sind Nummern, die noch niemand erfasst hat – mit „+ anlegen“ trägst du die Figur ein. Figuren ohne Nummer ergänzt du unten mit „+ Figur ohne Nummer im Bereich“.',
+          'Ergänzungen in einer freigegebenen Serie zählen sofort für dich – für alle erst, wenn sie geprüft sind.'],
+      },
+      {
+        id: 'eigene', route: '/serien', ziel: 'serie-neu', titel: 'Eigene Serie anlegen',
+        text: ['Deine Serie fehlt? Lege sie an – sie ist zuerst nur für dich sichtbar. Unter „Angaben bearbeiten“ ergänzt du Unterserien, Nummernbereich und ob es die Figuren in verschiedenen Farben gibt (bei Funko Pop! z. B. nicht).',
+          'Mit „Zur Freigabe einreichen“ kann die Serie nach der Prüfung für alle sichtbar werden.'],
+      },
+      { id: 'ende', ende: true, titel: 'Viel Spaß beim Sammeln! 🎉', text: 'Die Tour findest du jederzeit unter „Mehr → Hilfe & Touren“.' },
+    ],
+  },
+  {
     id: 'administration',
     titel: 'Administration',
     beschreibung: 'Benutzer und Rollen, Einstellungen, Rechtstexte und Sicherungen – für Administratoren.',
     fuer: ({ benutzer }) => benutzer?.rolle === 'admin',
     schritte: [
-      { id: 'uebersicht', route: '/admin', ziel: 'admin-reiter', titel: 'Die Administration', text: 'Alle Bereiche als Reiter. Die Übersicht zeigt Kennzahlen, Speicher und anstehende Updates.' },
+      { id: 'uebersicht', route: '/admin', ziel: 'admin-reiter', titel: 'Die Administration', text: 'Alle Bereiche als Reiter. Die Übersicht zeigt Kennzahlen, Speicher, anstehende Updates und die Warteschlange „Fotos freistellen“ (Helfer-Handys entfernen den Hintergrund von Figuren- und Gerätefotos).' },
+      {
+        id: 'freistellen-pruefen', route: '/freistellen-pruefen', ziel: 'freistellen-pruefen', titel: 'Freistellungen prüfen',
+        text: 'Alle freigestellten Fotos, die auf eine Entscheidung warten, auf einer Seite: links das Original, rechts ohne Hintergrund. „Übernehmen“ zeigt die freigestellte Version, „Original behalten“ verwirft sie. Du siehst deine eigenen und die geteilten Fotos anderer – ist alles erledigt, steht hier „Alles erledigt“.',
+      },
+      {
+        id: 'freistellen-uebernommen', route: '/freistellen-pruefen?ansicht=uebernommen', ziel: 'freistellen-uebernommen', titel: 'Freistellung zurücknehmen',
+        text: 'Unter „Übernommen“ stehen alle Fotos, die gerade ohne Hintergrund gezeigt werden. Auswählen (oder „Alle auswählen“, z. B. nur Merch) und „Original wiederherstellen“ – dann erscheint wieder das Foto mit Hintergrund.',
+      },
       {
         id: 'benutzer', route: '/admin?reiter=benutzer', ziel: 'admin-reiter-benutzer', titel: 'Benutzer & Rollen',
-        text: ['Konten anlegen, Einladungslinks erstellen, sperren oder löschen und Rollen vergeben: Moderatoren prüfen Einreichungen und Meldungen, Administratoren dürfen alles.',
+        text: ['Konten anlegen, Einladungslinks erstellen, sperren oder löschen und Rollen vergeben: Moderatoren prüfen Einreichungen und Meldungen, Administratoren dürfen alles. „Darf beim Freistellen helfen“ schaltet das Handy eines Benutzers als Helfer-Gerät frei.',
           'Wer eine neue Rolle bekommt, wird benachrichtigt – Moderatoren bekommen ihre eigene Tour angeboten.'],
       },
       {

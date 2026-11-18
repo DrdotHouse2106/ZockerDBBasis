@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { meineSysteme } from '../services/plattformen.js';
 import { hoechsteNachfrage } from '../../shared/kalender.js';
+import { erstelleDrossel } from '../services/drossel.js';
 
 const TAG = /^\d{4}-\d{2}-\d{2}$/;
 const REGION_TERMINE = {
@@ -31,6 +32,8 @@ export function kalenderRouter({ db, plattformen, zentrale, katalog, erweiterung
   const router = Router();
   const standardSysteme = db.prepare('SELECT id FROM plattformen WHERE standard = 1').pluck();
   const zentralCache = new Map(); // "von|bis" → { zeit, liste }
+  // Jeder neue Zeitraum ist ein Abruf bei zockerdb.de mit bis zu 5.000 Katalog-Schreibvorgängen: je Benutzer 30 je Minute
+  const drossel = erstelleDrossel({ maxVersuche: 30, fensterMs: 60 * 1000 });
 
   async function vonZentrale(von, bis) {
     const schluessel = `${von}|${bis}`;
@@ -64,6 +67,8 @@ export function kalenderRouter({ db, plattformen, zentrale, katalog, erweiterung
   }
 
   router.get('/kalender', async (req, res) => {
+    if (drossel.gesperrt(req.benutzer.id)) return res.status(429).json({ fehler: 'Zu viele Anfragen. Bitte einen Moment warten.' });
+    drossel.fehlschlag(req.benutzer.id);
     const { von, bis } = zeitraum(req.query);
     let ergebnis;
     try {

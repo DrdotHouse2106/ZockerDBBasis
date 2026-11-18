@@ -190,6 +190,10 @@ export default function AdminEinstellungen() {
           <form className="karte w-full max-w-sm space-y-3 p-4" onSubmit={(ev) => { ev.preventDefault(); speichern(bestaetigung); }}>
             <h2 className="text-lg font-semibold">Änderung bestätigen</h2>
             <p className="text-sm text-leise">Diese Änderung betrifft Schlüssel oder sicherheitsrelevante Einstellungen.</p>
+            {/* Benutzername für den Passwortmanager: Ohne dieses Feld legt das automatische Ausfüllen (z. B. iPhone) den
+                Namen in ein Textfeld der Einstellungen. Unsichtbar, nur lesbar, wird nicht mitgeschickt. */}
+            <input type="text" name="username" autoComplete="username" value={benutzer?.benutzername ?? ''} readOnly
+              tabIndex={-1} aria-hidden="true" className="sr-only" data-testid="bestaetigung-benutzername" />
             <label className="block"><span className="beschriftung">Dein Passwort</span>
               <input className="eingabe" type="password" autoComplete="current-password" autoFocus value={bestaetigung.passwort}
                 onChange={(ev) => setBestaetigung({ ...bestaetigung, passwort: ev.target.value })} /></label>
@@ -257,7 +261,7 @@ function Feld({ e, wert, alleWerte, fehler, zuruecksetzenVorgemerkt, entfernenVo
     );
   } else {
     eingabe = (
-      <input id={id} className="eingabe" value={aktuell} onChange={(ev) => onWert(ev.target.value)} placeholder={e.platzhalter ?? (e.standard !== undefined ? `Standard: ${Number.isNaN(Number(e.standard)) ? e.standard : Number(e.standard).toLocaleString('de-DE')}` : '')}
+      <input id={id} className="eingabe" autoComplete="off" value={aktuell} onChange={(ev) => onWert(ev.target.value)} placeholder={e.platzhalter ?? (e.standard !== undefined ? `Standard: ${Number.isNaN(Number(e.standard)) ? e.standard : Number(e.standard).toLocaleString('de-DE')}` : '')}
         inputMode={e.typ === 'zahl' ? 'numeric' : e.typ === 'dezimal' ? 'decimal' : e.typ === 'url' ? 'url' : undefined} />
     );
   }
@@ -311,7 +315,7 @@ function TestMail() {
       e.preventDefault();
       try { const r = await api.adminTestMail(an); zeigeHinweis(`Test-E-Mail an ${r.an} verschickt.`); } catch (err) { zeigeHinweis(err.message, 'fehler'); }
     }}>
-      <input type="email" className="eingabe min-w-0 flex-1" placeholder="Empfänger (leer = deine Kontoadresse)" value={an} onChange={(e) => setAn(e.target.value)} />
+      <input type="email" autoComplete="off" className="eingabe min-w-0 flex-1" placeholder="Empfänger (leer = deine Kontoadresse)" value={an} onChange={(e) => setAn(e.target.value)} />
       <button type="submit" className="knopf-sekundaer">Test-E-Mail senden</button>
       <p className="w-full text-xs text-leise">Erst speichern, dann testen.</p>
     </form>
@@ -370,7 +374,7 @@ function ListenEingabe({ id, wert, platzhalter, standard, onWert }) {
         </ul>
       ) : <p className="text-xs text-leise">{standard ? `Keine Einträge – es gilt der Standard: ${standard}` : 'Keine Einträge – alle HTTPS-Seiten sind erlaubt.'}</p>}
       <div className="flex gap-2">
-        <input id={id} className="eingabe flex-1" value={neu} placeholder={platzhalter ?? ''}
+        <input id={id} className="eingabe flex-1" autoComplete="off" value={neu} placeholder={platzhalter ?? ''}
           onChange={(ev) => setNeu(ev.target.value)} onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); hinzu(); } }} />
         <button type="button" className="knopf-sekundaer" onClick={hinzu} disabled={!neu.trim()}>Hinzufügen</button>
       </div>

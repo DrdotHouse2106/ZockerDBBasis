@@ -7,7 +7,7 @@ import {
   erzeugeTotpGeheimnis, pruefeTotp, erzeugeWiederherstellungscodes, normalisiereWiederherstellungscode,
 } from './sicherheit.js';
 import { ValidierungsFehler } from './validierung.js';
-import { FUNKTIONEN, leseAusgeblendeteFelder } from '../../shared/konstanten.js';
+import { FUNKTIONEN, leseAusgeblendeteFelder, avatarVon } from '../../shared/konstanten.js';
 
 export const COOKIE_NAME = 'vss_sitzung';
 const ZWEI_FAKTOR_FRIST_MS = 5 * 60 * 1000;
@@ -41,6 +41,7 @@ export function oeffentlichesProfil(b) {
     id: b.id,
     benutzername: b.benutzername,
     anzeigename: b.anzeigename || b.benutzername,
+    avatar: avatarVon(b),
     rolle: b.rolle,
     totp_aktiv: Boolean(b.totp_aktiv),
     sammlung_oeffentlich: Boolean(b.sammlung_oeffentlich),
@@ -104,7 +105,14 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
     const hash = await hashePasswort(passwort);
     return db.transaction(() => {
       const erster = istErsteinrichtung();
-      const benutzer = q.anlegen.get(name, String(anzeigename ?? '').trim().slice(0, 60) || null, hash, erster ? 'admin' : 'nutzer');
+      let benutzer;
+      try {
+        benutzer = q.anlegen.get(name, String(anzeigename ?? '').trim().slice(0, 60) || null, hash, erster ? 'admin' : 'nutzer');
+      } catch (fehler) {
+        // Zwei gleichzeitige Registrierungen mit demselben Namen: die zweite scheitert am UNIQUE-Index
+        if (fehler.code === 'SQLITE_CONSTRAINT_UNIQUE') throw new ValidierungsFehler({ benutzername: 'Dieser Benutzername ist bereits vergeben.' });
+        throw fehler;
+      }
       if (erster) {
         // Daten aus einer Installation ohne Benutzerkonten (Version 1) dem ersten Konto zuordnen.
         db.prepare('UPDATE artikel SET benutzer_id = ? WHERE benutzer_id IS NULL').run(benutzer.id);
@@ -127,14 +135,17 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
    */
   const dateiSchluessel = (tokenHash) => crypto.createHmac('sha256', String(schluessel)).update(`dateien:${tokenHash}`).digest('base64url');
 
-  /** `art`: 'web' (Cookie) oder 'app' (Token im Authorization-Kopf). */
+  /**
+   * `art`: 'web' (Cookie), 'app' (Token im Authorization-Kopf) oder 'freistellen' (Helfer-Token der App für das Freistellen im
+   * Hintergrund – darf nur die Freistellen-Endpunkte, siehe HELFER_PFADE in middleware/auth.js).
+   */
   function erstelleSitzung(benutzerId, { stufe = 'voll', geraet, art = 'web' } = {}) {
     const token = zufallsToken();
     const dauer = stufe === 'voll' ? sitzungDauerMs : ZWEI_FAKTOR_FRIST_MS;
     const tokenHash = sha256(token);
     const mitDateischluessel = art === 'app' && stufe === 'voll';
     q.sitzungAnlegen.run(tokenHash, benutzerId, stufe, Date.now() + dauer, geraet?.slice(0, 200) ?? null,
-      art === 'app' ? 'app' : 'web', mitDateischluessel ? sha256(dateiSchluessel(tokenHash)) : null);
+      ['app', 'freistellen'].includes(art) ? art : 'web', mitDateischluessel ? sha256(dateiSchluessel(tokenHash)) : null);
     if (stufe === 'voll') q.angemeldet.run(benutzerId);
     return { token, maxAlterMs: dauer };
   }
@@ -176,6 +187,7 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
   const beendeSitzung = (token) => token && q.sitzungLoeschen.run(sha256(token));
   const beendeAlleSitzungen = (benutzerId) => q.alleSitzungenLoeschen.run(benutzerId);
   const beendeAndereSitzungen = (benutzerId, tokenHash) => q.andereSitzungenLoeschen.run(benutzerId, tokenHash);
+  const beendeSitzungenDerArt = (benutzerId, art) => db.prepare('DELETE FROM sitzungen WHERE benutzer_id = ? AND art = ?').run(benutzerId, art).changes;
   const raeumeAuf = () => q.abgelaufeneLoeschen.run(Date.now()).changes;
 
   // ── Einladungen: Konto für Bekannte, auch wenn die Registrierung geschlossen ist ──
@@ -194,7 +206,11 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
     WHERE NOT (e.benutzt_am IS NOT NULL AND b.id IS NULL) ORDER BY e.id DESC LIMIT 100`).all();
   const gueltigeEinladung = (token) => (token ? db.prepare(`SELECT * FROM einladungen WHERE token_hash = ?
     AND benutzt_am IS NULL AND laeuft_ab > datetime('now')`).get(sha256(String(token))) ?? null : null);
-  const loeseEinladungEin = (id, benutzerId) => db.prepare("UPDATE einladungen SET benutzt_am = datetime('now'), benutzer_id = ? WHERE id = ? AND benutzt_am IS NULL")
+  // Einlösen in zwei Schritten: erst reservieren (atomar, nur wenn noch unbenutzt), nach dem Anlegen des Kontos zuordnen;
+  // scheitert das Anlegen, wird die Reservierung wieder freigegeben
+  const reserviereEinladung = (id) => db.prepare("UPDATE einladungen SET benutzt_am = datetime('now') WHERE id = ? AND benutzt_am IS NULL").run(id).changes > 0;
+  const gibEinladungFrei = (id) => db.prepare('UPDATE einladungen SET benutzt_am = NULL WHERE id = ? AND benutzer_id IS NULL').run(id);
+  const loeseEinladungEin = (id, benutzerId) => db.prepare("UPDATE einladungen SET benutzt_am = COALESCE(benutzt_am, datetime('now')), benutzer_id = ? WHERE id = ? AND benutzer_id IS NULL")
     .run(benutzerId, id).changes > 0;
   const loescheEinladung = (id) => db.prepare('DELETE FROM einladungen WHERE id = ?').run(Number(id)).changes > 0;
 
@@ -264,7 +280,7 @@ export function erstelleKontenDienst(db, { schluessel, sitzungTage, appName = MA
   return {
     istErsteinrichtung, registriere, pruefeZugangsdaten, erstelleSitzung, leseSitzung, beendeSitzung,
     dateiSchluessel, leseDateischluessel, sitzungenVon, beendeSitzungPerId,
-    beendeAlleSitzungen, beendeAndereSitzungen, raeumeAuf, erstelleEinladung, einladungen, gueltigeEinladung, loeseEinladungEin, loescheEinladung, starteTotpEinrichtung, bestaetigeTotpEinrichtung,
+    beendeAlleSitzungen, beendeAndereSitzungen, beendeSitzungenDerArt, raeumeAuf, erstelleEinladung, einladungen, gueltigeEinladung, reserviereEinladung, gibEinladungFrei, loeseEinladungEin, loescheEinladung, starteTotpEinrichtung, bestaetigeTotpEinrichtung,
     pruefeZweitenFaktor, deaktiviereTotp, neueWiederherstellungscodes, anzahlWiederherstellungscodes,
     aenderePasswort, holeBenutzer: (id) => q.perId.get(id),
   };

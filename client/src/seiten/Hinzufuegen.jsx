@@ -9,11 +9,18 @@ import BarcodeScanner from '../komponenten/BarcodeScanner.jsx';
 import Cover from '../komponenten/Cover.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
 import StatusAbzeichen from '../komponenten/StatusAbzeichen.jsx';
-import { MODUL } from '../erweiterungen.jsx';
+import { MODUL, Andockpunkt } from '../erweiterungen.jsx';
 import { gueltigerBarcode } from '../../../shared/barcode.js';
 import TitelVorschlag from '../komponenten/TitelVorschlag.jsx';
 import PlattformVorschlag from '../komponenten/PlattformVorschlag.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
+import { istApp } from '../zugang.js';
+
+/** Sieht die Eingabe wie eine Produkt- oder Modellnummer aus (z. B. „BLES-00909“, „SLES 52345“)? Wie im Server ohne Trennzeichen. */
+const wieProduktnummer = (text) => {
+  const n = String(text ?? '').toUpperCase().replace(/[\s.\-_/]/g, '');
+  return /^[A-Z0-9]{5,20}$/.test(n) && /[A-Z]{2}/.test(n) && /\d{3}/.test(n);
+};
 
 export default function Hinzufuegen({ route }) {
   const p = route.parameter;
@@ -101,11 +108,18 @@ export default function Hinzufuegen({ route }) {
     }).catch((e) => setBarcodeFehler(e.message));
   }, [p.barcode]);
 
-  const waehle = (eintrag) => navigiere('/neu/formular', {
-    katalog: eintrag.id, typ: eintrag.typ, barcode: p.barcode, konvolut: p.konvolut,
-    // Plattform aus dem Barcode (z. B. „PS3“) übernehmen
-    plattform_id: p.barcode && barcodeErgebnis?.plattform_id ? barcodeErgebnis.plattform_id : undefined,
-  });
+  const waehle = (eintrag) => {
+    // Gibt es schon ein eigenes Exemplar mit diesem Barcode zum selben Spiel: dessen Ausgabe (Variante, Fassung, Region) vorauswählen
+    const vorher = p.barcode ? barcodeErgebnis?.vorhandeneArtikel?.find((a) => a.katalog_id === eintrag.id) : null;
+    navigiere('/neu/formular', {
+      katalog: eintrag.id, typ: eintrag.typ, barcode: p.barcode, konvolut: p.konvolut,
+      // Plattform aus dem Barcode (z. B. „PS3“) übernehmen
+      plattform_id: vorher?.plattform_id ?? (p.barcode && barcodeErgebnis?.plattform_id ? barcodeErgebnis.plattform_id : undefined),
+      variante: vorher?.variante_id ?? undefined,
+      edition: !vorher?.variante_id && vorher?.edition ? vorher.edition : undefined,
+      region: vorher?.region || undefined,
+    });
+  };
   const eigenerEintrag = () => navigiere('/neu/formular', {
     typ, barcode: p.barcode, titel: suchtext.trim() || barcodeErgebnis?.suchbegriff, konvolut: p.konvolut,
   });
@@ -119,10 +133,18 @@ export default function Hinzufuegen({ route }) {
       {ergebnis?.fehler && <p className="rounded-xl bg-gefahr/10 p-3 text-sm text-gefahr" role="alert">{ergebnis.fehler}</p>}
       {ergebnis && (
         <>
-          {ergebnis.lokal.length > 0 && <Trefferliste titel="Aus deinem Katalog" eintraege={ergebnis.lokal} onWaehle={waehle} />}
+          {ergebnis.lokal.length > 0 && <Trefferliste titel={MODUL.katalogTrefferTitel ?? 'Aus deinem Katalog'} eintraege={ergebnis.lokal} onWaehle={waehle} />}
           {ergebnis.online.length > 0 && <Trefferliste titel="Online gefunden (IGDB)" eintraege={ergebnis.online} onWaehle={waehle} />}
           {!sucht && !ergebnis.lokal.length && !ergebnis.online.length && !ergebnis.fehler && (
-            <p className="text-sm text-leise">Keine Treffer für „{suchtext.trim()}“.</p>
+            <p className="text-sm text-leise">
+              Keine Treffer für „{suchtext.trim()}“.
+              {wieProduktnummer(suchtext) && (
+                <span className="block pt-1" data-testid="nummer-hinweis">
+                  Produktnummern vom Rücken (z. B. BLES-00909) findet die Suche, sobald sie bei einer Variante oder an einem deiner Exemplare als
+                  Modellnummer hinterlegt sind. Such diesmal nach dem Titel und trag die Nummer beim Erfassen unter „Modellnummer“ ein – dann findet sie beim nächsten Mal jeder.
+                </span>
+              )}
+            </p>
           )}
           {!sucht && ergebnis.mehrOnline && (
             <button type="button" className="knopf-sekundaer self-start" onClick={weitereLaden} disabled={laedtMehr}>
@@ -144,7 +166,14 @@ export default function Hinzufuegen({ route }) {
             <a href={`#/konvolut/${konvolut.id}`} className="underline">Fertig – zum Konvolut</a>
           </p>
         )}
-        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Artikeltyp" data-tour="neu-typ">
+        {/* Mit Zusatzmodul (eigene Startseite) hat das Scannen keinen eigenen Tab mehr – dafür dieser große Knopf */}
+        {MODUL.startseite && (
+          <button type="button" onClick={() => setzeParameter({ scan: '1' })} className="knopf-primaer w-full py-3 text-base" data-tour="neu-scan">
+            <Symbol name="scan" className="size-5" />Barcode scannen
+          </button>
+        )}
+        <Andockpunkt name="neu.scan" />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Artikeltyp" data-tour="neu-typ">
           {ARTIKELTYPEN.map((t) => (
             <button
               key={t.value}
@@ -152,6 +181,7 @@ export default function Hinzufuegen({ route }) {
               role="radio"
               aria-checked={typ === t.value}
               onClick={() => setzeParameter({ typ: t.value })}
+              title={t.beschreibung}
               className={`${typ === t.value ? 'chip-aktiv' : 'chip'} justify-center rounded-xl py-2.5`}
             >
               <Symbol name={t.value} className="size-4" />
@@ -168,19 +198,29 @@ export default function Hinzufuegen({ route }) {
               type="search"
               value={suchtext}
               onChange={(e) => setSuchtext(e.target.value)}
-              placeholder={typ === 'spiel' ? 'Spieltitel oder EAN suchen …' : typ === 'konsole' ? 'Konsole suchen, z. B. „PlayStation“' : 'Zubehör suchen …'}
+              placeholder={typ === 'spiel' ? 'Titel, EAN oder Produktnummer suchen …' : typ === 'konsole' ? 'Konsole suchen, z. B. „PlayStation“' : typ === 'merch' ? 'Merch suchen, z. B. „Funko Pop Link“' : 'Zubehör suchen …'}
               className="eingabe pl-10"
-              // In der Tour nicht: die iOS-Tastatur verdeckt sonst die Erklärung (und verstellt beim Seitenwechsel die Ansicht)
-              autoFocus={p.scan !== '1' && !tourAktiv}
+              // In der Tour nicht: die iOS-Tastatur verdeckt sonst die Erklärung (und verstellt beim Seitenwechsel die Ansicht).
+              // In der App nicht: die Tastatur soll nicht sofort das halbe Bild verdecken.
+              autoFocus={p.scan !== '1' && !tourAktiv && !istApp}
             />
           </label>
-          <button type="button" onClick={() => setzeParameter({ scan: '1' })} className="knopf-primaer px-3" aria-label="Barcode scannen" data-tour="neu-scan">
-            <Symbol name="scan" />
-            <span className="hidden sm:inline">Scannen</span>
-          </button>
+          {!MODUL.startseite && (
+            <button type="button" onClick={() => setzeParameter({ scan: '1' })} className="knopf-primaer px-3" aria-label="Barcode scannen" data-tour="neu-scan">
+              <Symbol name="scan" />
+              <span className="hidden sm:inline">Scannen</span>
+            </button>
+          )}
         </div>}
 
-        {!status?.igdbKonfiguriert && typ !== 'zubehoer' && (
+        {typ === 'merch' && (
+          <p className="flex gap-2 rounded-xl border border-rand p-3 text-sm text-leise" data-testid="hinweis-serien">
+            <Symbol name="info" className="size-5 shrink-0" />
+            <span>Sammelfiguren aus einer Serie (z. B. Monster in my Pocket, Funko Pop!) erfasst du am schnellsten unter{' '}
+              <a href="#/serien" className="underline">Figurenserien</a> – mit Nummer, Name und Farbe, ohne den ganzen Seriennamen in den Titel zu schreiben.</span>
+          </p>
+        )}
+        {!status?.igdbKonfiguriert && typ !== 'zubehoer' && typ !== 'merch' && (
           <p className="flex gap-2 rounded-xl border border-rand p-3 text-sm text-leise">
             <Symbol name="info" className="size-5 shrink-0" />
             Die Online-Suche (IGDB) ist nicht eingerichtet. Es werden nur eigene Katalogeinträge durchsucht.
@@ -212,7 +252,7 @@ export default function Hinzufuegen({ route }) {
               <button type="button" className="knopf-primaer" onClick={async () => {
                 await api.artikelAnlegen({ typ: 'spiel', titel: `Gescannt (offline): ${p.barcode}`, barcode: p.barcode }, { beschreibung: `Barcode ${p.barcode} gescannt` });
                 zeigeHinweis('Offline gemerkt – der Eintrag wird angelegt, sobald du wieder online bist. Titel und Details kannst du danach ergänzen.');
-                navigiere('/');
+                navigiere('/sammlung');
               }}>Barcode offline merken</button>
             )}
             {barcodeErgebnis && (
@@ -254,7 +294,7 @@ export default function Hinzufuegen({ route }) {
                         onChange={(e) => setSuchtext(e.target.value)}
                         placeholder="Spiel suchen und zuordnen …"
                         className="eingabe border-akzent pl-10 ring-1 ring-akzent/40"
-                        autoFocus={!barcodeErgebnis.treffer.length && !tourAktiv}
+                        autoFocus={!barcodeErgebnis.treffer.length && !tourAktiv && !istApp}
                       />
                     </label>
                     {suchtext.trim().length < 2 && barcodeErgebnis.treffer.length > 0 && (

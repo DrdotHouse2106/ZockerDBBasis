@@ -2,9 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { PLATTFORM_STAMMDATEN } from '../shared/konstanten.js';
+import { datenpaketeEinspielen } from './stammdaten/datenpakete.js';
+import { DATENPAKETE } from './stammdaten/pakete/index.js';
 import { ordnePlattformZu, ladePlattformIndex } from './services/plattformen.js';
 import { RECHTLICHE_VORLAGEN } from './rechtliche-vorlagen.js';
 import { MODULE } from './module.js';
+import { normSql } from './services/suchwoerter.js';
+import { bekannteSpieleVerknuepfen } from './services/serienspiele.js';
 
 // Migrationen werden der Reihe nach ausgeführt. Neue Änderungen am Schema
 // immer als neuen Eintrag unten anhängen – bestehende nie verändern.
@@ -731,9 +735,377 @@ const MIGRATIONEN = [
   ALTER TABLE sitzungen ADD COLUMN dateischluessel_hash TEXT;
   CREATE UNIQUE INDEX idx_sitzungen_dateischluessel ON sitzungen (dateischluessel_hash);
   `,
+  // 52: Ideen & Fehlermeldungen: woher gemeldet (App iOS/Android, Homescreen-App, Browser + Gerät)
+  `
+  ALTER TABLE ideen ADD COLUMN umgebung TEXT;
+  `,
+  // Lieferumfang je Ausgabe (Variante): welche Beilagen zu einer Sonderausgabe gehören (JSON { artbook: 1, zweite_disc: 1 … }),
+  // dazu Vorschläge von Sammlern (optional mit Foto, das nach der Entscheidung gelöscht wird) und der KI-Fotoprüfung
+  `
+  ALTER TABLE katalog_varianten ADD COLUMN lieferumfang TEXT;
+  CREATE TABLE lieferumfang_vorschlaege (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    variante_id  INTEGER NOT NULL REFERENCES katalog_varianten (id) ON DELETE CASCADE,
+    benutzer_id  INTEGER NOT NULL REFERENCES benutzer (id) ON DELETE CASCADE,
+    lieferumfang TEXT    NOT NULL,                         -- JSON wie katalog_varianten.lieferumfang
+    begruendung  TEXT,
+    foto         TEXT,                                     -- Beleg, nur bis zur Entscheidung
+    quelle       TEXT    NOT NULL DEFAULT 'sammler',       -- sammler, ki
+    status       TEXT    NOT NULL DEFAULT 'offen',         -- offen, uebernommen, abgelehnt
+    erstellt_am  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX idx_lieferumfang_vorschlaege ON lieferumfang_vorschlaege (status, variante_id);
+  `,
+  // Merch (vierter Artikeltyp): Kategorie und – optional – das Spiel, zu dem der Gegenstand gehört („gehört zu Zelda“). Der Spiel-Katalogeintrag
+  // steht bewusst in einer eigenen Spalte: katalog_id bleibt der eigene Eintrag des Gegenstands, damit er nicht als Besitz des Spiels zählt.
+  `
+  ALTER TABLE artikel ADD COLUMN merch_kategorie TEXT;
+  ALTER TABLE artikel ADD COLUMN spiel_katalog_id INTEGER REFERENCES katalog (id) ON DELETE SET NULL;
+  CREATE INDEX idx_artikel_spiel_katalog ON artikel (spiel_katalog_id);
+  `,
+  // Frühere Titel eines Katalogeintrags (JSON-Liste): Wird ein Eintrag umbenannt, bleibt der alte Titel in der Suche auffindbar
+  `
+  ALTER TABLE katalog ADD COLUMN weitere_titel TEXT;
+  `,
+  // CSV-Import und Suche gleichen auch über den Originaltitel ab – ohne Index wäre das bei großem Katalog eine volle Suche je Zeile
+  `
+  CREATE INDEX IF NOT EXISTS idx_katalog_titel_original ON katalog (titel_original COLLATE NOCASE);
+  `,  // Figurenserien für Merch (z. B. Monster in my Pocket, Funko Pop!): Serie → Unterserie (Nummernbereich, Hersteller, Jahr, Farbpalette) →
+  // Figur (Katalogeintrag mit serie_id und Nummer) → Farbe (Ausgabe der Figur; die Spalte „selten“ wird nicht mehr genutzt)
+  `
+  CREATE TABLE serien (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT    NOT NULL,
+    ueber_id         INTEGER REFERENCES serien (id) ON DELETE CASCADE,
+    merch_kategorie  TEXT,
+    hersteller       TEXT,
+    jahr             INTEGER,
+    nummer_praefix   TEXT,
+    nummer_von       INTEGER,
+    nummer_bis       INTEGER,
+    nicht_erschienen TEXT,
+    hinweis          TEXT,
+    farben           TEXT,
+    sortierung       INTEGER NOT NULL DEFAULT 0,
+    status           TEXT    NOT NULL DEFAULT 'privat',
+    erstellt_von     INTEGER REFERENCES benutzer (id) ON DELETE SET NULL,
+    erstellt_am      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX idx_serien_ueber ON serien (ueber_id, sortierung);
+  ALTER TABLE katalog ADD COLUMN serie_id INTEGER REFERENCES serien (id) ON DELETE SET NULL;
+  ALTER TABLE katalog ADD COLUMN serien_nummer TEXT;
+  CREATE INDEX idx_katalog_serie ON katalog (serie_id);
+  ALTER TABLE katalog_varianten ADD COLUMN selten INTEGER NOT NULL DEFAULT 0;
+  INSERT INTO serien (name, merch_kategorie, hersteller, jahr, hinweis, sortierung, status)
+    VALUES ('Monster in my Pocket', 'figur', 'Matchbox', 1990, 'Kleine Monsterfiguren in vielen Farben; ab 1996 von Vivid Imaginations', 0, 'freigegeben');
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Serie 1', id, 'figur', 'Matchbox', 1990, '#', 1, 48, NULL, NULL, '[{"name":"Hellolive","hex":"#9aa83a"},{"name":"Rot","hex":"#d0281a"},{"name":"Gelb","hex":"#f3d21b"},{"name":"Dunkellila","hex":"#6a4c9c"},{"name":"Neongrün","hex":"#5fe03a"},{"name":"Hellrot","hex":"#f0553a"},{"name":"Neongelb (Chartreuse)","hex":"#e6f01e"},{"name":"Helllila (Thistle)","hex":"#c86fa6"}]', 1, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Serie 1 – Secret Monster', id, 'figur', 'Matchbox', NULL, NULL, NULL, NULL, NULL, 'Geheime Monster zur Serie 1', NULL, 2, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Serie 2', id, 'figur', 'Matchbox', NULL, '#', 49, 72, NULL, NULL, NULL, 3, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Serie 3', id, 'figur', 'Matchbox', NULL, '#', 73, 96, '82-96', '#73–81 nur als Beigaben (Premiums), #82–96 nie erschienen', NULL, 4, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Serie 4 – Super Scary', id, 'figur', 'Matchbox', NULL, '#', 97, 120, NULL, NULL, NULL, 5, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Serie 5 – Super Creepies', id, 'figur', 'Matchbox', 1992, '#', 121, 144, NULL, NULL, NULL, 6, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Serie 6 – Dinosaurs', id, 'figur', 'Matchbox', 1993, '#', 145, 168, NULL, NULL, NULL, 7, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Serie 6b – Secret Skeleton Dinosaurs', id, 'figur', 'Matchbox', 1994, '#', 145, 168, NULL, 'Gleiche Nummern wie Serie 6', NULL, 8, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Serie 7 – Space Aliens', id, 'figur', 'Matchbox', 1994, '#', 169, 184, NULL, NULL, NULL, 9, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Monster Wrestlers in my Pocket', id, 'figur', 'Matchbox', 1995, 'W', 1, 42, NULL, 'W1–W9 als Cereal-Beigaben in Großbritannien, W10–W42 im Handel in Großbritannien', NULL, 10, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Monster Sport Stars in my Pocket', id, 'figur', 'Vivid Imaginations', 1996, NULL, NULL, NULL, NULL, 'Cereal-Beigaben in Großbritannien', NULL, 11, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Monster Ninja Warriors in my Pocket', id, 'figur', 'Vivid Imaginations', 1996, NULL, NULL, NULL, NULL, 'Im Handel in Großbritannien und Skandinavien', NULL, 12, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  INSERT INTO serien (name, ueber_id, merch_kategorie, hersteller, jahr, nummer_praefix, nummer_von, nummer_bis, nicht_erschienen, hinweis, farben, sortierung, status)
+    SELECT 'Späte Dinosaurier', id, 'figur', 'Vivid Imaginations', NULL, NULL, NULL, NULL, NULL, 'In Großbritannien erschienen, bisher wenig bekannt', NULL, 13, 'freigegeben' FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL;
+  `,
+  // Farbvarianten nur für Serien, bei denen es sie gibt (z. B. Monster in my Pocket – nicht bei Funko Pop!)
+  `
+  ALTER TABLE serien ADD COLUMN mit_farben INTEGER NOT NULL DEFAULT 0;
+  UPDATE serien SET mit_farben = 1 WHERE name = 'Monster in my Pocket' OR ueber_id IN (SELECT id FROM serien WHERE name = 'Monster in my Pocket');
+  `,
+  // Belegfotos auch für vorgeschlagene Farben einer Figur (ohne Foto prüft die Moderation nicht)
+  `
+  ALTER TABLE vorschlag_fotos ADD COLUMN variante_id INTEGER;
+  CREATE INDEX idx_vorschlag_fotos_variante ON vorschlag_fotos (variante_id);
+  `,
+  // „Meine Serien“: Hauptserien, denen ein Sammler folgt (dazu kommen automatisch Serien mit eigenen Figuren)
+  `
+  CREATE TABLE serien_folgen (
+    benutzer_id INTEGER NOT NULL REFERENCES benutzer (id) ON DELETE CASCADE,
+    serie_id    INTEGER NOT NULL REFERENCES serien (id) ON DELETE CASCADE,
+    erstellt_am TEXT    NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (benutzer_id, serie_id)
+  );
+  `,
+  // Nachträgliche Katalog-Zuordnung (z. B. nach einem CSV-Import): wann zuletzt vergeblich versucht bzw. zugeordnet
+  `
+  ALTER TABLE artikel ADD COLUMN katalog_abgleich_am TEXT;
+  `,
+  // Früher: Monster-in-my-Pocket-Figuren (eingespielt; heute gibt es dafür Datenpakete, siehe stammdaten/pakete)
+  () => {},
+  // Datenpakete: welche eingespielt sind (Name und Prüfsumme des Inhalts)
+  `
+  CREATE TABLE datenpakete (
+    name           TEXT PRIMARY KEY,
+    pruefsumme     TEXT NOT NULL,
+    eingespielt_am TEXT NOT NULL
+  );
+  `,
+  // Suchtext: Titel, Originaltitel und frühere Titel vorab normalisiert (wie normSql) – die Suche vergleicht nur noch diese
+  // eine Spalte, statt für jede Zeile die Ersetzungen neu zu rechnen (bei großem Katalog sekundenlang je Suche).
+  // Ändert sich normSql, braucht es eine neue Migration, die die Spalte und die Trigger neu anlegt.
+  (db) => {
+    const ausdruck = (z) => `${normSql(`${z}titel`)} || '|' || ${normSql(`${z}titel_original`)} || '|' || ${normSql(`${z}weitere_titel`)}`;
+    db.exec(`
+      ALTER TABLE katalog ADD COLUMN suchtext TEXT;
+      UPDATE katalog SET suchtext = ${ausdruck('')};
+      CREATE TRIGGER katalog_suchtext_neu AFTER INSERT ON katalog BEGIN
+        UPDATE katalog SET suchtext = ${ausdruck('NEW.')} WHERE id = NEW.id;
+      END;
+      CREATE TRIGGER katalog_suchtext_aendern AFTER UPDATE OF titel, titel_original, weitere_titel ON katalog BEGIN
+        UPDATE katalog SET suchtext = ${ausdruck('NEW.')} WHERE id = NEW.id;
+      END;
+    `);
+  },
+  // Eigene Katalogbeiträge eines Nutzers (Erfolge, Datenauskunft) – ohne Index ein Durchlauf durch den ganzen Katalog
+  `
+  CREATE INDEX IF NOT EXISTS idx_katalog_erstellt_von ON katalog (erstellt_von) WHERE erstellt_von IS NOT NULL;
+  `,
+  // Figurenserie ↔ Spiel (z. B. Monster in My Pocket ↔ das NES-Spiel von 1992): je Serie beliebig viele Spiele
+  `
+  CREATE TABLE serien_spiele (
+    serie_id   INTEGER NOT NULL REFERENCES serien (id) ON DELETE CASCADE,
+    katalog_id INTEGER NOT NULL REFERENCES katalog (id) ON DELETE CASCADE,
+    PRIMARY KEY (serie_id, katalog_id)
+  );
+  CREATE INDEX idx_serien_spiele_katalog ON serien_spiele (katalog_id);
+  `,
+  // Anhänge zu Ideen (z. B. „Import-Vorlage anfragen“: Screenshots des Export-Dialogs, kurze Beispieldatei).
+  // Nur für Einreicher und Administration sichtbar; werden gelöscht, sobald die Idee entschieden ist.
+  `
+  CREATE TABLE ideen_anhaenge (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    idee_id     INTEGER NOT NULL REFERENCES ideen (id) ON DELETE CASCADE,
+    benutzer_id INTEGER REFERENCES benutzer (id) ON DELETE CASCADE,
+    datei       TEXT    NOT NULL UNIQUE,
+    art         TEXT    NOT NULL,          -- bild, text
+    name        TEXT,
+    groesse     INTEGER NOT NULL DEFAULT 0,
+    erstellt_am TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX idx_ideen_anhaenge_idee ON ideen_anhaenge (idee_id);
+  `,
+  // Jugendschutz (Deutschland): indiziert, beschlagnahmt oder vom Index gestrichen – mit Jahren, gepflegt von der Moderation
+  `
+  ALTER TABLE katalog ADD COLUMN jugendschutz TEXT;
+  ALTER TABLE katalog ADD COLUMN jugendschutz_seit INTEGER;
+  ALTER TABLE katalog ADD COLUMN jugendschutz_bis INTEGER;
+  CREATE INDEX idx_katalog_jugendschutz ON katalog (jugendschutz) WHERE jugendschutz IS NOT NULL;
+  `,
+  // Importe merken, damit sie sich rückgängig machen lassen (z. B. wenn vieles falsch zugeordnet wurde)
+  `
+  CREATE TABLE importe (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    benutzer_id     INTEGER NOT NULL REFERENCES benutzer (id) ON DELETE CASCADE,
+    quelle          TEXT    NOT NULL DEFAULT 'csv',
+    datei           TEXT,
+    anzahl          INTEGER NOT NULL DEFAULT 0,
+    erstellt_am     TEXT    NOT NULL DEFAULT (datetime('now')),
+    rueckgaengig_am TEXT
+  );
+  CREATE INDEX idx_importe_benutzer ON importe (benutzer_id, id);
+  ALTER TABLE artikel ADD COLUMN import_id INTEGER REFERENCES importe (id) ON DELETE SET NULL;
+  CREATE INDEX idx_artikel_import ON artikel (import_id) WHERE import_id IS NOT NULL;
+  `,
+  // Cover je Region: PAL-EU, NTSC-U, NTSC-J … (z. B. aus den regionalen Fassungen bei IGDB). Das Katalog-Cover bleibt der Rückfall.
+  `
+  CREATE TABLE katalog_cover (
+    katalog_id INTEGER NOT NULL REFERENCES katalog (id) ON DELETE CASCADE,
+    region     TEXT    NOT NULL,              -- Wert aus REGIONEN, z. B. pal_eu
+    url        TEXT    NOT NULL,
+    quelle     TEXT    NOT NULL DEFAULT 'igdb',
+    PRIMARY KEY (katalog_id, region, quelle)
+  );
+  `,
+  // Monster in my Pocket: „Serie 1 – Secret Monster“ war nur ein Hinweis auf Nr. 12 (Jotun Troll) der ersten Serie, keine eigene Unterserie.
+  // Die doppelte Figur wird mit Nr. 12 der Serie 1 zusammengeführt (Exemplare wandern mit), die Unterserie entfällt, der Hinweis bleibt an Serie 1.
+  (db) => {
+    const mimp = db.prepare("SELECT id FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL").pluck().get();
+    const geheim = mimp ? db.prepare("SELECT id FROM serien WHERE ueber_id = ? AND name LIKE 'Serie 1 % Secret Monster'").pluck().get(mimp) : null;
+    if (!geheim) return;
+    const serie1 = db.prepare("SELECT id, hinweis FROM serien WHERE ueber_id = ? AND name = 'Serie 1'").get(mimp);
+    const ziel = serie1 ? db.prepare("SELECT id FROM katalog WHERE serie_id = ? AND serien_nummer = '12'").pluck().get(serie1.id) : null;
+    const tabelleDa = (name) => Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
+    for (const figur of db.prepare('SELECT id FROM katalog WHERE serie_id = ?').pluck().all(geheim)) {
+      if (!ziel) { db.prepare('UPDATE katalog SET serie_id = NULL WHERE id = ?').run(figur); continue; }
+      db.prepare('UPDATE artikel SET katalog_id = ? WHERE katalog_id = ?').run(ziel, figur);
+      if (tabelleDa('wunschliste')) db.prepare('UPDATE OR IGNORE wunschliste SET katalog_id = ? WHERE katalog_id = ?').run(ziel, figur);
+      db.prepare('DELETE FROM katalog WHERE id = ? AND NOT EXISTS (SELECT 1 FROM artikel WHERE katalog_id = ?)').run(figur, figur);
+    }
+    db.prepare('UPDATE katalog SET serie_id = NULL WHERE serie_id = ?').run(geheim);
+    db.prepare('DELETE FROM serien WHERE id = ?').run(geheim);
+    if (serie1 && !serie1.hinweis) db.prepare('UPDATE serien SET hinweis = ? WHERE id = ?').run('Nr. 12 Jotun Troll war das „Secret Monster“ der ersten Serie.', serie1.id);
+  },
+  // Monster in my Pocket: „Serie 6b – Secret Skeleton Dinosaurs“ war nur eine eigene Seite für die Raritäten der Serie 6 (dieselben Nummern
+  // 145–168 als Skelett-Ausführung). Die Skelett-Farben werden Farben der Figuren in Serie 6 („Skelett Gelb“ …), Exemplare, Fotos und
+  // Wunschlisten wandern mit, die Unterserie entfällt.
+  // Dazu: amiibo-Karten sind Sammelkarten (neue Merch-Kategorie „karte“) – bei ihnen wird nach Vorder- und Rückseite gefragt, nicht nach der Figur.
+  (db) => {
+    db.prepare(`UPDATE serien SET merch_kategorie = 'karte' WHERE merch_kategorie = 'spielfigur' AND (name LIKE '%Card%' OR name LIKE '%(Karten)%')
+      AND ueber_id IN (SELECT id FROM serien WHERE name = 'amiibo' AND ueber_id IS NULL)`).run();
+    db.prepare(`UPDATE artikel SET merch_kategorie = 'karte' WHERE COALESCE(merch_kategorie, 'spielfigur') = 'spielfigur' AND typ = 'merch'
+      AND katalog_id IN (SELECT k.id FROM katalog k JOIN serien s ON s.id = k.serie_id WHERE s.merch_kategorie = 'karte')`).run();
+    const mimp = db.prepare("SELECT id FROM serien WHERE name = 'Monster in my Pocket' AND ueber_id IS NULL").pluck().get();
+    const quelle = mimp ? db.prepare("SELECT * FROM serien WHERE ueber_id = ? AND name LIKE 'Serie 6b%'").get(mimp) : null;
+    const ziel = mimp ? db.prepare("SELECT * FROM serien WHERE ueber_id = ? AND name LIKE 'Serie 6 %' AND name NOT LIKE 'Serie 6b%'").get(mimp) : null;
+    if (!quelle || !ziel) return;
+    const tabelleDa = (name) => Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
+    const skelett = (name) => `Skelett ${name}`;
+    const farbenLesen = (json) => { try { const f = JSON.parse(json || '[]'); return Array.isArray(f) ? f : []; } catch { return []; } };
+    // Palette der Serie 6 um die Skelett-Farben ergänzen
+    const palette = farbenLesen(ziel.farben);
+    for (const f of farbenLesen(quelle.farben)) if (f?.name && !palette.some((p) => p.name === skelett(f.name))) palette.push({ name: skelett(f.name), hex: f.hex ?? null });
+    db.prepare('UPDATE serien SET farben = ?, mit_farben = 1 WHERE id = ?').run(palette.length ? JSON.stringify(palette) : null, ziel.id);
+    const zielFigur = db.prepare('SELECT id FROM katalog WHERE serie_id = ? AND serien_nummer = ?').pluck();
+    const variante = db.prepare('SELECT id FROM katalog_varianten WHERE katalog_id = ? AND (farbe = ? OR bezeichnung = ?)').pluck();
+    const neueVariante = db.prepare('INSERT INTO katalog_varianten (katalog_id, bezeichnung, farbe, status, erstellt_von) VALUES (?, ?, ?, ?, ?) RETURNING id').pluck();
+    for (const f of db.prepare('SELECT id, serien_nummer FROM katalog WHERE serie_id = ?').all(quelle.id)) {
+      const zielId = f.serien_nummer ? zielFigur.get(ziel.id, f.serien_nummer) : null;
+      if (!zielId) { db.prepare('UPDATE katalog SET serie_id = ? WHERE id = ?').run(ziel.id, f.id); continue; } // keine Entsprechung: Figur zieht um
+      for (const v of db.prepare('SELECT * FROM katalog_varianten WHERE katalog_id = ?').all(f.id)) {
+        const name = skelett(v.farbe || v.bezeichnung);
+        const neu = variante.get(zielId, name, name) ?? neueVariante.get(zielId, name, name, v.status, v.erstellt_von);
+        db.prepare('UPDATE artikel SET katalog_id = ?, variante_id = ? WHERE katalog_id = ? AND variante_id = ?').run(zielId, neu, f.id, v.id);
+        db.prepare('UPDATE medien SET katalog_id = ?, variante_id = ? WHERE katalog_id = ? AND variante_id = ?').run(zielId, neu, f.id, v.id);
+      }
+      db.prepare('UPDATE artikel SET katalog_id = ? WHERE katalog_id = ?').run(zielId, f.id);
+      db.prepare('UPDATE medien SET katalog_id = ? WHERE katalog_id = ?').run(zielId, f.id);
+      if (tabelleDa('wunschliste')) db.prepare('UPDATE OR IGNORE wunschliste SET katalog_id = ? WHERE katalog_id = ?').run(zielId, f.id);
+      db.prepare('DELETE FROM katalog WHERE id = ? AND NOT EXISTS (SELECT 1 FROM artikel WHERE katalog_id = ?)').run(f.id, f.id);
+    }
+    db.prepare('UPDATE katalog SET serie_id = NULL WHERE serie_id = ?').run(quelle.id);
+    db.prepare('DELETE FROM serien WHERE id = ?').run(quelle.id);
+    if (!ziel.hinweis) db.prepare('UPDATE serien SET hinweis = ? WHERE id = ?').run('Die „Secret Skeleton Dinosaurs“ (Raritäten) sind als Skelett-Farben bei den Figuren erfasst.', ziel.id);
+  },
+  // Plattform am Foto: Ein Spiel ist ein Katalogeintrag für alle Plattformen – PS4-Fotos sollen beim PS5-Exemplar nicht als
+  // vorhanden gelten. Bestehende Fotos: Hat der Hochladende das Spiel nur auf einer Plattform, bekommt das Foto diese (sonst bleibt es offen).
+  // Als Funktion wiederholbar (Tests lassen die letzten Migrationen erneut laufen).
+  (db) => {
+    const spalten = db.prepare('PRAGMA table_info(medien)').all().map((sp) => sp.name);
+    if (!spalten.includes('plattform_id')) db.exec('ALTER TABLE medien ADD COLUMN plattform_id INTEGER REFERENCES plattformen (id) ON DELETE SET NULL');
+    db.exec(`UPDATE medien SET plattform_id = (
+        SELECT MIN(a.plattform_id) FROM artikel a WHERE a.benutzer_id = medien.benutzer_id AND a.katalog_id = medien.katalog_id AND a.plattform_id IS NOT NULL)
+      WHERE plattform_id IS NULL AND benutzer_id IS NOT NULL AND art LIKE 'foto\\_%' ESCAPE '\\'
+        AND (SELECT COUNT(DISTINCT a.plattform_id) FROM artikel a WHERE a.benutzer_id = medien.benutzer_id AND a.katalog_id = medien.katalog_id
+          AND a.plattform_id IS NOT NULL) = 1`);
+  },
+  // Fassung am Foto (z. B. „Platinum“): wird beim Hochladen vom Exemplar übernommen, damit ein Platinum-Cover nicht beim
+  // Erstauflage-Exemplar erscheint. Bestehende Spielfotos: Hat der Hochladende den Eintrag nur in einer Fassung (und die ist
+  // keine Erstauflage), bekommt das Foto diese. Als Funktion wiederholbar.
+  (db) => {
+    const spalten = db.prepare('PRAGMA table_info(medien)').all().map((sp) => sp.name);
+    if (!spalten.includes('edition')) db.exec('ALTER TABLE medien ADD COLUMN edition TEXT');
+    const exemplare = `FROM artikel a WHERE a.benutzer_id = medien.benutzer_id AND a.katalog_id = medien.katalog_id AND a.typ IN ('spiel', 'konsole')
+        AND (medien.plattform_id IS NULL OR a.plattform_id IS NULL OR a.plattform_id = medien.plattform_id)`;
+    db.exec(`UPDATE medien SET edition = (SELECT MIN(NULLIF(TRIM(a.edition), '')) ${exemplare})
+      WHERE edition IS NULL AND benutzer_id IS NOT NULL AND art LIKE 'foto\\_%' ESCAPE '\\'
+        AND (SELECT COUNT(DISTINCT COALESCE(NULLIF(TRIM(a.edition), ''), '')) ${exemplare}) = 1`);
+  },
+  // Hatte das Original eines Fotos Kameradaten (Hersteller/Modell)? 1 = ja, 0 = nein, NULL = unbekannt (vor diesem Update).
+  // Nur der Hinweis wird gespeichert, die Metadaten selbst werden weiterhin entfernt. Als Funktion wiederholbar.
+  (db) => {
+    const spalten = db.prepare('PRAGMA table_info(medien)').all().map((sp) => sp.name);
+    if (!spalten.includes('kamera_daten')) db.exec('ALTER TABLE medien ADD COLUMN kamera_daten INTEGER');
+  },
+  // Fotos freistellen (Warteschlange, Spalten an benutzer und medien) – siehe freistellenMigrieren
+  (db) => freistellenMigrieren(db),
+  // Freistellen: Tageslimit je Helfer-Gerät und wer einen Auftrag erledigt hat – siehe freistellenLimitMigrieren
+  (db) => freistellenLimitMigrieren(db),
+  // Nachholen: Beide Freistell-Migrationen standen kurz mitten in der Liste. Bestehende Datenbanken haben sie dadurch
+  // übersprungen (und stattdessen die letzten beiden Migrationen erneut ausgeführt) – ihr Stand ist schon um zwei weiter.
+  // Wiederholbar, auf Datenbanken mit allen Spalten ohne Wirkung.
+  (db) => freistellenLimitMigrieren(db),
+  // Freistellen auf Wunsch: Discs und Verpackungen von Disc-Spielen kommen nicht mehr automatisch in die Warteschlange
+  // (Fehlerquote zu hoch), nur wenn der Fotograf es anfordert – manuell = 1. Wiederholbar.
+  (db) => {
+    freistellenLimitMigrieren(db);
+    if (!spaltenVon(db, 'freistell_auftraege').includes('manuell')) db.exec('ALTER TABLE freistell_auftraege ADD COLUMN manuell INTEGER NOT NULL DEFAULT 0');
+  },
+  // Avatar: gewähltes Symbol und Farbe (aus festen Listen) oder eigenes Bild (verkleinert, ohne Metadaten). Wiederholbar.
+  (db) => {
+    const spalten = spaltenVon(db, 'benutzer');
+    for (const sp of ['avatar_symbol', 'avatar_farbe', 'avatar_datei']) if (!spalten.includes(sp)) db.exec(`ALTER TABLE benutzer ADD COLUMN ${sp} TEXT`);
+  },
+  // Exemplar am Foto: Am eigenen Exemplar erscheinen nur dessen Fotos. Bestehende Fotos: Hat der Fotograf genau ein Exemplar
+  // dieses Eintrags, gehört das Foto dazu (sonst bleibt es offen). Wiederholbar.
+  (db) => {
+    if (!spaltenVon(db, 'medien').includes('artikel_id')) db.exec('ALTER TABLE medien ADD COLUMN artikel_id INTEGER REFERENCES artikel (id) ON DELETE SET NULL');
+    db.exec(`UPDATE medien SET artikel_id = (SELECT MIN(a.id) FROM artikel a WHERE a.benutzer_id = medien.benutzer_id AND a.katalog_id = medien.katalog_id)
+      WHERE artikel_id IS NULL AND benutzer_id IS NOT NULL
+        AND (SELECT COUNT(*) FROM artikel a WHERE a.benutzer_id = medien.benutzer_id AND a.katalog_id = medien.katalog_id) = 1`);
+  },
+  // Region am Foto (PAL-DE, PAL-UK …): Cover und Hüllen unterscheiden sich je Land. Bestehende Fotos übernehmen die Region ihres
+  // Exemplars, sonst die ihrer Variante. Wiederholbar.
+  (db) => {
+    if (!spaltenVon(db, 'medien').includes('region')) db.exec('ALTER TABLE medien ADD COLUMN region TEXT');
+    db.exec(`UPDATE medien SET region = COALESCE((SELECT a.region FROM artikel a WHERE a.id = medien.artikel_id),
+        (SELECT v.region FROM katalog_varianten v WHERE v.id = medien.variante_id))
+      WHERE region IS NULL`);
+  },
 ];
 
-export function oeffneDatenbank(dateipfad) {
+const spaltenVon = (db, tabelle) => db.prepare(`PRAGMA table_info(${tabelle})`).all().map((sp) => sp.name);
+
+/**
+ * Fotos freistellen: Helfer-Geräte (Handys mit eingebauter Freistellung) rechnen die Maske, der Server legt sie über das Foto.
+ * benutzer.freistellen_helfer = vom Administrator freigeschaltet, freistellen_hilft = Häkchen des Benutzers (Admins/Moderatoren
+ * brauchen keine Freischaltung). medien.frei_datei = freigestellte Version (WebP mit Transparenz), frei_status = fertig (zu prüfen),
+ * angenommen, abgelehnt. Die Warteschlange hält je Foto höchstens einen Auftrag. Wiederholbar (prüft Spalten und Tabelle).
+ */
+function freistellenMigrieren(db) {
+  const benutzer = spaltenVon(db, 'benutzer');
+  if (!benutzer.includes('freistellen_helfer')) db.exec('ALTER TABLE benutzer ADD COLUMN freistellen_helfer INTEGER NOT NULL DEFAULT 0');
+  if (!benutzer.includes('freistellen_hilft')) db.exec('ALTER TABLE benutzer ADD COLUMN freistellen_hilft INTEGER NOT NULL DEFAULT 0');
+  const medien = spaltenVon(db, 'medien');
+  if (!medien.includes('frei_datei')) db.exec('ALTER TABLE medien ADD COLUMN frei_datei TEXT');
+  if (!medien.includes('frei_status')) db.exec('ALTER TABLE medien ADD COLUMN frei_status TEXT');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS freistell_auftraege (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      medien_id      INTEGER NOT NULL UNIQUE REFERENCES medien (id) ON DELETE CASCADE,
+      status         TEXT    NOT NULL DEFAULT 'offen',   -- offen, in_arbeit, fertig, fehler
+      reserviert_von INTEGER REFERENCES benutzer (id) ON DELETE SET NULL,
+      reserviert_bis INTEGER,                            -- Zeitstempel (ms), bis wann der Helfer das Ergebnis liefern muss
+      versuche       INTEGER NOT NULL DEFAULT 0,
+      erstellt_am    TEXT    NOT NULL DEFAULT (datetime('now')),
+      erledigt_am    TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_freistell_auftraege_status ON freistell_auftraege (status, reserviert_bis);
+  `);
+}
+
+/** Freistellen: Tageslimit je Helfer-Gerät (0 = unbegrenzt) und wer einen Auftrag erledigt hat. Wiederholbar, setzt die Warteschlange voraus. */
+function freistellenLimitMigrieren(db) {
+  freistellenMigrieren(db);
+  if (!spaltenVon(db, 'benutzer').includes('freistellen_limit')) db.exec('ALTER TABLE benutzer ADD COLUMN freistellen_limit INTEGER NOT NULL DEFAULT 50');
+  if (!spaltenVon(db, 'freistell_auftraege').includes('erledigt_von')) {
+    db.exec('ALTER TABLE freistell_auftraege ADD COLUMN erledigt_von INTEGER REFERENCES benutzer (id) ON DELETE SET NULL');
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_freistell_auftraege_erledigt ON freistell_auftraege (erledigt_von, erledigt_am)');
+}
+
+/**
+ * Datenbank öffnen, migrieren und Datenpakete einspielen. Datenbanken im Speicher (Tests) bleiben ohne Datenpakete,
+ * damit Suchen und Zählungen in Tests nicht von Hunderten Figuren abhängen; der Paket-Test spielt sie selbst ein.
+ */
+export function oeffneDatenbank(dateipfad, { datenpakete = dateipfad !== ':memory:' } = {}) {
   if (dateipfad !== ':memory:') {
     fs.mkdirSync(path.dirname(dateipfad), { recursive: true });
   }
@@ -754,6 +1126,11 @@ export function oeffneDatenbank(dateipfad) {
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   migriere(db);
+  if (datenpakete) datenpaketeEinspielen(db, DATENPAKETE);
+  bekannteSpieleVerknuepfen(db);
+  // Statistiken für den Abfrageplaner auffrischen, wo nötig (empfohlen beim Öffnen; begrenzt, damit der Start schnell bleibt) –
+  // ohne sie wählt SQLite bei großem Katalog mitunter einen Weg über alle Einträge
+  db.pragma('optimize=0x10002');
   return db;
 }
 

@@ -34,7 +34,13 @@ document.addEventListener('visibilitychange', () => {
 // verlassenes unsichtbares Feld lässt iOS die Tastatur „schließen“ und die Ansicht wiederherstellen.
 let haengtSeit = 0;
 let zuletztRepariert = 0;
+// Tippt man ein natives <select>, öffnet sich dessen Auswahlliste als eigene iOS-Ansicht losgelöst vom DOM – dabei
+// schrumpft die visualViewport wie bei einer Tastatur, aber `document.activeElement` zeigt das <select> manchmal erst
+// nach dem Schließen zuverlässig an. Ohne diese Ausnahme hielt die Reparatur das für eine hängende Tastatur-Ansicht und
+// nahm dem <select> mitten in der Auswahl den Fokus weg – die gerade angetippte Option wurde dann nicht übernommen.
+let letzterSelectTipp = 0;
 function tastaturHaengt() {
+  if (Date.now() - letzterSelectTipp < 2000) return false;
   const vv = window.visualViewport;
   return Boolean(vv && !eingabeAktiv() && vv.scale <= 1.01 && window.innerHeight - vv.height > 100);
 }
@@ -64,12 +70,16 @@ setInterval(() => {
   // Erst nach kurzer Zeit eingreifen (Tastatur schließt gerade) und höchstens alle 3 Sekunden
   if (Date.now() - haengtSeit >= 700 && Date.now() - zuletztRepariert > 3000) tastaturReparieren();
 }, 400);
-// Hängt die Ansicht noch, repariert die nächste Berührung (außer auf Eingabefeldern, dort öffnet sich die Tastatur ohnehin)
-document.addEventListener('touchend', (e) => {
-  if (!tastaturHaengt() || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName ?? '')) return;
+// Hängt die Ansicht noch, repariert den nächsten Klick (außer auf Eingabefeldern, dort öffnet sich die Tastatur ohnehin).
+// Bewusst `click` statt `touchend`: Der eigene Fokuswechsel läuft damit erst, nachdem der eigentliche Klick-Handler des
+// angetippten Elements (z. B. ein Eintrag in einer Vorschlagsliste) schon gefeuert hat – auf `touchend` stahl der
+// synchrone Fokuswechsel iOS sonst mitten in der Berührungsgeste den Klick, bevor er sein Ziel erreichte.
+document.addEventListener('click', (e) => {
+  if (e.target?.tagName === 'SELECT') { letzterSelectTipp = Date.now(); return; }
+  if (!tastaturHaengt() || /^(INPUT|TEXTAREA)$/.test(e.target?.tagName ?? '')) return;
   if (Date.now() - zuletztRepariert < 1000) return;
   tastaturReparieren(true);
-}, { passive: true });
+});
 
 // Messanzeige zur Fehlersuche (Fußleiste auf dem iPhone): einschalten unter Administration → Update oder mit
 // „?ansicht=messen“ in der Adresse, ausschalten dort bzw. mit „?ansicht=aus“. Zeigt die Maße, die der Browser meldet – sonst bleibt alles unverändert.

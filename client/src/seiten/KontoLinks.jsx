@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { MARKE } from '../../../shared/marke.js';
 import { api } from '../api.js';
 import { useSitzung } from '../sitzung.js';
+import { istApp } from '../zugang.js';
 import Fusszeile from '../komponenten/Fusszeile.jsx';
 import { captchaNachweis, CaptchaHinweis } from '../captcha.jsx';
 
 function Rahmen({ titel, children }) {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
+    <div className="seite-sicher flex min-h-dvh flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
         <a href="#/" className="flex flex-col items-center gap-2 text-center">
           <img src="/icons/icon.svg" alt="" className="size-14" />
@@ -56,7 +57,7 @@ export function PasswortVergessen() {
           <p className="text-sm text-leise">Gib deinen Benutzernamen oder deine E-Mail-Adresse ein. Wir schicken dir einen Link, mit dem du ein neues Passwort festlegen kannst.</p>
           <label className="block">
             <span className="beschriftung">Benutzername oder E-Mail-Adresse</span>
-            <input className="eingabe" value={kennung} onChange={(e) => setKennung(e.target.value)} autoComplete="username" autoCapitalize="none" required autoFocus />
+            <input className="eingabe" value={kennung} onChange={(e) => setKennung(e.target.value)} autoComplete="username" autoCapitalize="none" required autoFocus={!istApp} />
           </label>
           <CaptchaHinweis info={auth?.captcha} zustimmung={zustimmung} setZustimmung={setZustimmung} />
           {status && <p className="rounded-xl bg-gefahr/10 p-3 text-sm text-gefahr" role="alert">{status.text}</p>}
@@ -100,7 +101,7 @@ export function PasswortNeu({ token }) {
         <form onSubmit={absenden} className="space-y-4">
           <label className="block">
             <span className="beschriftung">Neues Passwort (mindestens 10 Zeichen)</span>
-            <input type="password" className="eingabe" value={pw.a} onChange={(e) => setPw({ ...pw, a: e.target.value })} autoComplete="new-password" required autoFocus />
+            <input type="password" className="eingabe" value={pw.a} onChange={(e) => setPw({ ...pw, a: e.target.value })} autoComplete="new-password" required autoFocus={!istApp} />
           </label>
           <label className="block">
             <span className="beschriftung">Passwort wiederholen</span>

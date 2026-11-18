@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { exemplarCoverSql } from '../services/cover.js';
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import multer from 'multer';
@@ -7,6 +8,7 @@ import { speichereEinheitlich } from '../services/medien.js';
 import { sprachBedingung, normSprachen } from '../../shared/sprachen.js';
 import { regionUmfang, bestandFuerVollstaendigkeit } from '../../shared/konstanten.js';
 import { zustandFehltSql } from '../services/zustandserinnerung.js';
+import { suchWoerter, woerterBedingung, unscharfePassung } from '../services/suchwoerter.js';
 
 const SORTIERUNGEN = {
   neueste: 'a.erstellt_am DESC, a.id DESC',
@@ -25,15 +27,19 @@ const FELDER = [
   'plattform_id', 'variante_id', 'herkunft', 'konvolut_id', 'bestand', 'abgang_am', 'verkaufspreis', 'digital_quelle', 'spielstatus', 'durchgespielt_am', 'spielzeit_minuten',
   'lagerort_ort', 'lagerort_regal', 'lagerort_fach', 'beilagen', 'seriennummer_ovp', 'privat', 'zustand_ovp',
   'neupreis', 'erstkauf_datum', 'erstkauf_quelle', 'kauf_quelle', 'beilagen_notiz', 'drucknummer', 'zustand_inlay', 'inlay_maengel',
+  'merch_kategorie', 'spiel_katalog_id',
 ];
 
 export function artikelZuObjekt(zeile) {
   if (!zeile) return null;
   let beilagen = null;
   try { beilagen = zeile.beilagen ? JSON.parse(zeile.beilagen) : null; } catch { /* ungültig – leer lassen */ }
+  let varianteLieferumfang = null;
+  try { varianteLieferumfang = zeile.variante_lieferumfang ? JSON.parse(zeile.variante_lieferumfang) : null; } catch { /* leer */ }
   return {
     ...zeile,
     beilagen,
+    ...('variante_lieferumfang' in zeile ? { variante_lieferumfang: varianteLieferumfang } : {}),
     ...('katalog_sprachen' in zeile ? { katalog_sprachen: normSprachen(zeile.katalog_sprachen) } : {}),
     bild_url: zeile.bild_datei ? `/api/dateien/${zeile.bild_datei}` : zeile.cover_url || zeile.katalog_cover_url || null,
   };
@@ -52,11 +58,17 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
   });
   const einzeldatei = (feld) => (req, res, next) => upload().single(feld)(req, res, next);
 
+  // Spalten der wortweisen Suche in der Sammlung
+  const SUCH_SPALTEN = ['a.titel', 'k.titel', 'a.plattform', 'p.kurz', 'a.edition', 'a.farbe', 'sk.titel', 'ser.name', 'ser_ue.name', 'v.bezeichnung',
+    'a.lagerort_ort', 'a.lagerort_regal', 'a.lagerort_fach'];
   const basisAbfrage = `
-    SELECT a.*, k.cover_url AS katalog_cover_url, k.erscheinungsjahr, k.sprachen AS katalog_sprachen, k.quelle AS katalog_quelle, k.status AS katalog_status,
-           p.kurz AS plattform_kurz, p.hersteller AS plattform_hersteller, v.bezeichnung AS variante_bezeichnung, kv.name AS konvolut_name,
-           vl.id AS verleih_id, vl.an_name AS verliehen_an, vl.seit AS verliehen_seit, vl.rueckgabe_geplant, vl.bestaetigung AS verleih_bestaetigung
+    SELECT a.*, ${exemplarCoverSql('a', 'k')} AS katalog_cover_url, k.erscheinungsjahr, k.sprachen AS katalog_sprachen, k.quelle AS katalog_quelle, k.status AS katalog_status,
+           k.titel AS katalog_titel, p.kurz AS plattform_kurz, p.hersteller AS plattform_hersteller, sk.titel AS spiel_titel, v.bezeichnung AS variante_bezeichnung, v.lieferumfang AS variante_lieferumfang, kv.name AS konvolut_name,
+           vl.id AS verleih_id, vl.an_name AS verliehen_an, vl.seit AS verliehen_seit, vl.rueckgabe_geplant, vl.bestaetigung AS verleih_bestaetigung,
+           k.serie_id, k.serien_nummer, ser.name AS serie_name, ser.nummer_praefix AS serie_praefix, COALESCE(ser.merch_kategorie, ser_ue.merch_kategorie) AS serie_merch_kategorie, ser_ue.name AS serie_ueber_name
     FROM artikel a LEFT JOIN katalog k ON k.id = a.katalog_id LEFT JOIN plattformen p ON p.id = a.plattform_id
+    LEFT JOIN serien ser ON ser.id = k.serie_id LEFT JOIN serien ser_ue ON ser_ue.id = ser.ueber_id
+    LEFT JOIN katalog sk ON sk.id = a.spiel_katalog_id
     LEFT JOIN katalog_varianten v ON v.id = a.variante_id LEFT JOIN konvolute kv ON kv.id = a.konvolut_id
     LEFT JOIN verleihungen vl ON vl.artikel_id = a.id AND vl.zurueck_am IS NULL`;
   const perId = db.prepare(`${basisAbfrage} WHERE a.id = ? AND a.benutzer_id = ?`);
@@ -77,6 +89,13 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     if (katalogId && !katalog.holeSichtbar(katalogId, req.benutzer)) {
       throw new ValidierungsFehler({ katalog_id: 'Der verknüpfte Katalogeintrag existiert nicht.' });
     }
+  }
+
+  // Merch „gehört zu“: Katalogeintrag eines Spiels, der für den Benutzer sichtbar ist
+  function pruefeSpielKatalog(id, req) {
+    if (!id) return;
+    const e = katalog.holeSichtbar(id, req.benutzer);
+    if (!e || e.typ !== 'spiel') throw new ValidierungsFehler({ spiel_katalog_id: 'Bitte ein Spiel aus dem Katalog wählen.' });
   }
 
   // Plattform: feste Auswahl (plattform_id) oder Freitext, der den Stammdaten zugeordnet wird.
@@ -113,7 +132,19 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
       parameter.bestand = ['besitz', 'verkauft', 'abgegeben', 'digital', 'verpackung'].includes(bestand) ? bestand : 'besitz';
     }
     const { typ, q, plattform, region, zustand, vollstaendigkeit, herkunft } = req.query;
+    if (typeof req.query.merch_kategorie === 'string' && req.query.merch_kategorie) {
+      bedingungen.push('a.merch_kategorie = @merch_kategorie');
+      parameter.merch_kategorie = req.query.merch_kategorie;
+    }
     if (req.query.ohne_preis === '1') bedingungen.push('a.kaufpreis IS NULL');
+    // Figurenserie (auch eine Hauptserie mit allen Unterserien)
+    const serieId = Number(req.query.serie_id);
+    if (Number.isInteger(serieId) && serieId > 0) {
+      bedingungen.push('k.serie_id IN (SELECT id FROM serien WHERE id = @serie_id OR ueber_id = @serie_id)');
+      parameter.serie_id = serieId;
+    }
+    // Ohne Katalogeintrag: nicht verknüpft oder nur mit dem eigenen, privaten Eintrag (dem keiner aus dem Katalog zugeordnet wurde)
+    if (req.query.ohne_katalog === '1') bedingungen.push("(a.katalog_id IS NULL OR (k.quelle = 'eigen' AND k.status = 'privat'))");
     if (req.query.verliehen === '1') bedingungen.push('vl.id IS NOT NULL');
     const konvolutId = Number(req.query.konvolut_id);
     if (Number.isInteger(konvolutId) && konvolutId > 0) {
@@ -152,14 +183,35 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     // Sprache laut IGDB am verknüpften Katalogeintrag (z. B. „de_audio“)
     const sprache = sprachBedingung(req.query.sprache, 'k.sprachen');
     if (sprache) bedingungen.push(sprache);
+    // Suche: wie im Katalog wortweise (Reihenfolge, Apostrophe, Satzzeichen, römische Zahlen egal), dazu der ganze Begriff in
+    // Nummern, Barcode und Notizen; findet das nichts, Tippfehler zulassen (Rückfall unten)
+    let woerter = [];
+    let ohneSuche = null;
     if (typeof q === 'string' && q.trim()) {
+      woerter = suchWoerter(q);
+      ohneSuche = [...bedingungen];
+      const { sql: woerterSql, parameter: woerterParameter } = woerter.length
+        ? woerterBedingung(woerter, SUCH_SPALTEN, 'sw') : { sql: '0', parameter: {} };
+      Object.assign(parameter, woerterParameter);
       parameter.q = `%${q.trim().replace(/[\\%_]/g, (z) => `\\${z}`)}%`;
+      // Nummern (Modell-, Druck-, Seriennummer) auch ohne Bindestrich/Leerzeichen: „CUSA24706“ findet „CUSA-24706“
+      const nummer = q.toUpperCase().replace(/[-\s/]/g, '').replace(/[\\%_]/g, (z) => `\\${z}`);
+      parameter.qn = nummer.length >= 4 ? `%${nummer}%` : '\u0000';
+      const normiert = (f) => `upper(replace(replace(replace(COALESCE(a.${f}, ''), '-', ''), ' ', ''), '/', '')) LIKE @qn ESCAPE '\\'`;
       bedingungen.push(`(${['titel', 'plattform', 'edition', 'farbe', 'modellnummer', 'drucknummer', 'seriennummer', 'seriennummer_ovp', 'notizen', 'barcode', 'lagerort_ort', 'lagerort_regal', 'lagerort_fach']
-        .map((f) => `a.${f} LIKE @q ESCAPE '\\'`).join(' OR ')})`);
+        .map((f) => `a.${f} LIKE @q ESCAPE '\\'`).join(' OR ')} OR sk.titel LIKE @q ESCAPE '\\' OR ser.name LIKE @q ESCAPE '\\' OR ser_ue.name LIKE @q ESCAPE '\\' OR ${['modellnummer', 'drucknummer', 'seriennummer', 'seriennummer_ovp'].map(normiert).join(' OR ')}
+        OR (${woerterSql}))`);
     }
     const sortierung = SORTIERUNGEN[req.query.sortierung] ?? SORTIERUNGEN.neueste;
     const where = `WHERE ${bedingungen.join(' AND ')}`;
-    const zeilen = db.prepare(`${basisAbfrage} ${where} ORDER BY ${sortierung}`).all(parameter);
+    let zeilen = db.prepare(`${basisAbfrage} ${where} ORDER BY ${sortierung}`).all(parameter);
+    // Nichts gefunden: Tippfehler zulassen („Zelad“, „Assasins Creed“) – Titel, Spiel, Serie und Fassung unscharf vergleichen
+    if (!zeilen.length && woerter.some((w) => w.length >= 5)) {
+      const kandidaten = db.prepare(`${basisAbfrage} WHERE ${ohneSuche.join(' AND ')} ORDER BY ${sortierung}`).all(parameter);
+      zeilen = kandidaten
+        .map((z) => ({ z, d: unscharfePassung([z.titel, z.katalog_titel, z.spiel_titel, z.serie_name, z.serie_ueber_name, z.edition, z.plattform].filter(Boolean).join(' '), woerter) }))
+        .filter((x) => x.d !== null).sort((a, b) => a.d - b.d).map((x) => x.z);
+    }
     res.json(zeilen.map(artikelZuObjekt));
   });
 
@@ -218,6 +270,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
   router.post('/', (req, res) => {
     const daten = pruefeArtikel(req.body);
     pruefeKatalog(daten.katalog_id, req);
+    pruefeSpielKatalog(daten.spiel_katalog_id, req);
     pruefeKonvolut(daten, req);
     loesePlattform(daten);
     pruefeVariante(daten.variante_id, daten.katalog_id, req);
@@ -271,6 +324,7 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
       if (bestand !== vorhanden.bestand) daten.bestand = bestand;
     }
     if (daten.katalog_id) pruefeKatalog(daten.katalog_id, req);
+    pruefeSpielKatalog(daten.spiel_katalog_id, req);
     pruefeKonvolut(daten, req);
     // Selbst eingetragener Preis ist fest; leerer Preis im Konvolut = wieder Anteil am Gesamtpreis
     if (Object.hasOwn(daten, 'kaufpreis')) daten.kaufpreis_anteilig = daten.kaufpreis == null && (daten.konvolut_id ?? vorhanden.konvolut_id) ? 1 : 0;
@@ -279,6 +333,10 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     const felder = Object.keys(daten);
     if (felder.length) {
       db.transaction(() => {
+        // Anderer Katalogeintrag: die eigene Barcode-Zuordnung zum alten Eintrag entfällt (sonst führt der nächste Scan wieder dorthin)
+        if (daten.katalog_id && vorhanden.katalog_id && daten.katalog_id !== vorhanden.katalog_id && vorhanden.barcode) {
+          katalog.entferneBarcodeZuordnung(vorhanden.barcode, vorhanden.katalog_id, req.benutzer.id);
+        }
         db.prepare(
           `UPDATE artikel SET ${felder.map((f) => `${f} = @${f}`).join(', ')}, aktualisiert_am = datetime('now') WHERE id = @id`,
         ).run({ ...daten, id: vorhanden.id });
@@ -289,6 +347,32 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     }
     for (const k of new Set([vorhanden.konvolut_id, daten.konvolut_id].filter(Boolean))) konvolute.aufteilen(k);
     res.json(artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)));
+  });
+
+  /**
+   * „Anderen Katalogeintrag wählen“ am eigenen Exemplar: setzt katalog_id (die Ausgabe wird zurückgesetzt), ersetzt die eigene Barcode-
+   * Zuordnung und löscht den bisherigen eigenen privaten Eintrag, wenn ihn nichts mehr braucht.
+   */
+  router.post('/:id/katalog', (req, res) => {
+    const vorhanden = holeOder404(req, res);
+    if (!vorhanden) return;
+    const neu = Number(req.body?.katalog_id);
+    if (!Number.isInteger(neu) || neu <= 0) throw new ValidierungsFehler({ katalog_id: 'Bitte einen Katalogeintrag wählen.' });
+    pruefeKatalog(neu, req);
+    const alt = vorhanden.katalog_id;
+    let geloescht = false;
+    if (neu !== alt) {
+      db.transaction(() => {
+        db.prepare("UPDATE artikel SET katalog_id = ?, variante_id = NULL, aktualisiert_am = datetime('now') WHERE id = ?").run(neu, vorhanden.id);
+        if (vorhanden.barcode) {
+          if (alt) katalog.entferneBarcodeZuordnung(vorhanden.barcode, alt, req.benutzer.id);
+          katalog.verknuepfeBarcode(vorhanden.barcode, neu, req.benutzer.id, vorhanden.plattform_id);
+        }
+        if (alt) geloescht = katalog.loescheUngenutztenEigenen(alt, req.benutzer.id);
+      })();
+      erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
+    }
+    res.json({ artikel: artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)), eigener_eintrag_geloescht: geloescht });
   });
 
   /**
@@ -306,7 +390,8 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
   function abgang(vorhanden, eingabe) {
     const bestand = ['verkauft', 'abgegeben'].includes(eingabe.bestand) ? eingabe.bestand : null;
     if (!bestand) throw new ValidierungsFehler({ bestand: 'Bitte „verkauft“ oder „verschenkt/getauscht“ wählen.' });
-    if (vorhanden.bestand !== 'besitz') throw new ValidierungsFehler({ bestand: 'Dieses Exemplar ist nicht mehr im Besitz.' });
+    // Auch eine leere Hülle („Nur OVP“) kann verkauft oder weitergegeben werden
+    if (!['besitz', 'verpackung'].includes(vorhanden.bestand)) throw new ValidierungsFehler({ bestand: 'Dieses Exemplar ist nicht mehr im Besitz.' });
     if (vorhanden.verleih_id) throw new ValidierungsFehler({ bestand: 'Dieses Exemplar ist gerade verliehen – bitte zuerst als zurückbekommen markieren.' });
     const anzahl = eingabe.anzahl == null || eingabe.anzahl === '' ? vorhanden.anzahl : Number(eingabe.anzahl);
     if (!Number.isInteger(anzahl) || anzahl < 1 || anzahl > vorhanden.anzahl) throw new ValidierungsFehler({ anzahl: `Bitte 1 bis ${vorhanden.anzahl} angeben.` });
@@ -363,7 +448,9 @@ export function artikelRouter({ db, katalog, konfiguration, dateien, plattformen
     const vorhanden = holeOder404(req, res);
     if (!vorhanden) return;
     if (vorhanden.bestand === 'digital') throw new ValidierungsFehler({ bestand: 'Digitale Spiele gehören nicht zur Sammlung physischer Exemplare.' });
-    db.prepare("UPDATE artikel SET bestand = 'besitz', abgang_am = NULL, verkaufspreis = NULL, aktualisiert_am = datetime('now') WHERE id = ?").run(vorhanden.id);
+    // Leere Hülle („Nur OVP“) kommt als leere Hülle zurück, alles andere in die Sammlung
+    db.prepare(`UPDATE artikel SET bestand = CASE WHEN vollstaendigkeit = 'nur_ovp' THEN 'verpackung' ELSE 'besitz' END, abgang_am = NULL, verkaufspreis = NULL,
+      aktualisiert_am = datetime('now') WHERE id = ?`).run(vorhanden.id);
     erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
     res.json(artikelZuObjekt(perId.get(vorhanden.id, req.benutzer.id)));
   });

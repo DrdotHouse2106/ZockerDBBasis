@@ -59,3 +59,41 @@ test('Moderatoren bearbeiten auch IGDB-Einträge – Importe überschreiben das 
   await nina.api('/api/katalog/suche?q=IGDB Spiel'); // erneuter Import
   assert.equal((await nina.api(`/api/katalog/${treffer.id}`)).json.beschreibung, 'Deutsche Beschreibung');
 });
+
+test('Eingriff in ein anderes Administrator-Konto nur mit eigenem Passwort', async () => {
+  const liste = (await admin.api('/api/admin/benutzer')).json;
+  const ninaId = liste.find((b) => b.benutzername === 'nina').id;
+  // Normale Benutzer: wie bisher ohne Bestätigung
+  assert.equal((await post(admin, `/api/admin/benutzer/${ninaId}/passwort`, { neuesPasswort: 'ganz-neues-passwort-1' })).status, 200);
+  // Nina wird Administratorin – ab jetzt braucht ein Eingriff die Bestätigung
+  await admin.api(`/api/admin/benutzer/${ninaId}`, { methode: 'PUT', daten: { rolle: 'admin' } });
+  let r = await post(admin, `/api/admin/benutzer/${ninaId}/passwort`, { neuesPasswort: 'noch-ein-passwort-2' });
+  assert.equal(r.status, 403);
+  assert.equal(r.json.code, 'bestaetigung_noetig');
+  r = await post(admin, `/api/admin/benutzer/${ninaId}/passwort`, { neuesPasswort: 'noch-ein-passwort-2', passwort: 'falsch' });
+  assert.equal(r.status, 403);
+  assert.equal((await post(admin, `/api/admin/benutzer/${ninaId}/2fa-zuruecksetzen`, {})).status, 403);
+  r = await post(admin, `/api/admin/benutzer/${ninaId}/passwort`, { neuesPasswort: 'noch-ein-passwort-2', passwort: 'sehr-geheimes-passwort' });
+  assert.equal(r.status, 200, r.text);
+  assert.equal((await post(admin, `/api/admin/benutzer/${ninaId}/2fa-zuruecksetzen`, { passwort: 'sehr-geheimes-passwort' })).status, 200);
+  await admin.api(`/api/admin/benutzer/${ninaId}`, { methode: 'PUT', daten: { rolle: 'nutzer' } });
+});
+
+test('Rolle entziehen, sperren und löschen eines Administrators nur mit eigenem Passwort', async () => {
+  const liste = (await admin.api('/api/admin/benutzer')).json;
+  const ninaId = liste.find((b) => b.benutzername === 'nina').id;
+  await admin.api(`/api/admin/benutzer/${ninaId}`, { methode: 'PUT', daten: { rolle: 'admin' } });
+  // Ohne Passwort: abgelehnt, nichts geändert
+  let r = await admin.api(`/api/admin/benutzer/${ninaId}`, { methode: 'PUT', daten: { rolle: 'nutzer' } });
+  assert.equal(r.status, 403);
+  assert.equal(r.json.code, 'bestaetigung_noetig');
+  assert.equal((await admin.api(`/api/admin/benutzer/${ninaId}`, { methode: 'PUT', daten: { gesperrt: true } })).status, 403);
+  assert.equal((await admin.api(`/api/admin/benutzer/${ninaId}`, { methode: 'DELETE' })).status, 403);
+  assert.equal((await admin.api('/api/admin/benutzer')).json.find((b) => b.id === ninaId).rolle, 'admin');
+  // Speicherlimit oder Beförderung brauchen keine Bestätigung
+  assert.equal((await admin.api(`/api/admin/benutzer/${ninaId}`, { methode: 'PUT', daten: { speicher_limit_mb: 10 } })).status, 200);
+  // Mit Passwort geht es
+  r = await admin.api(`/api/admin/benutzer/${ninaId}`, { methode: 'PUT', daten: { rolle: 'nutzer', passwort: 'sehr-geheimes-passwort' } });
+  assert.equal(r.status, 200, r.text);
+  assert.equal((await admin.api('/api/admin/benutzer')).json.find((b) => b.id === ninaId).rolle, 'nutzer');
+});

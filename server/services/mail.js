@@ -51,8 +51,30 @@ export function betreiberAusImpressum(markdown) {
   return alle.join(' · ').slice(0, 400);
 }
 
-/** Einfache, gut lesbare HTML-Mail mit optionalem Knopf (Tabellenaufbau, damit auch Outlook die Größen einhält). */
-export function mailHtml({ titel, absaetze = [], knopf, fuss }) {
+// Bilder in Mails nur von https-Adressen (z. B. Cover) – keine Daten-URLs, kein http
+const sichereBildUrl = (url) => (typeof url === 'string' && /^https:\/\/[^\s"'<>]+$/i.test(url) ? url : null);
+
+/**
+ * Kacheln mit Bild (z. B. Cover): [{ bild, titel, text, url }] – Bild links, daneben Titel und eine Zeile Text, alles verlinkt.
+ * Ohne gültiges Bild erscheint ein neutrales Feld, damit die Liste gleichmäßig bleibt.
+ */
+function kachelnHtml(kacheln) {
+  const zeilen = (kacheln ?? []).filter((k) => k?.titel).slice(0, 8).map((k) => {
+    const bild = sichereBildUrl(k.bild);
+    const link = (inhalt) => (k.url ? `<a href="${esc(k.url)}" style="color:inherit;text-decoration:none">${inhalt}</a>` : inhalt);
+    return `<tr><td width="56" style="width:56px;padding:6px 12px 6px 0;vertical-align:top">${link(bild
+      ? `<img src="${esc(bild)}" alt="" width="56" height="75" style="display:block;width:56px;height:75px;max-width:56px;object-fit:cover;border:0;border-radius:8px;background:#ece9f5">`
+      : '<div style="width:56px;height:75px;border-radius:8px;background:#ece9f5"></div>')}</td>
+<td style="padding:6px 0;vertical-align:middle">${link(`<div style="font-weight:600;line-height:1.35">${esc(k.titel)}</div>`)}${k.text ? `<div class="zdb-leise" style="font-size:13px;line-height:1.4;color:#5f5873">${esc(k.text)}</div>` : ''}</td></tr>`;
+  });
+  return zeilen.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 12px">${zeilen.join('')}</table>` : '';
+}
+
+/**
+ * Einfache, gut lesbare HTML-Mail mit optionalem Knopf (Tabellenaufbau, damit auch Outlook die Größen einhält).
+ * `abschnitte`: weitere Blöcke [{ titel, kacheln }] nach den Absätzen, z. B. Angebote mit Cover.
+ */
+export function mailHtml({ titel, absaetze = [], abschnitte = [], knopf, fuss }) {
   return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>${STIL}</style></head>
 <body class="zdb-seite" style="margin:0;padding:0;background:#f6f4fb;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1d1830">
@@ -65,6 +87,7 @@ export function mailHtml({ titel, absaetze = [], knopf, fuss }) {
 <tr><td class="zdb-karte" style="background:#ffffff;border:1px solid #e2ddef;border-radius:16px;padding:24px">
 <h1 style="font-size:20px;margin:0 0 12px">${esc(titel)}</h1>
 ${absaetze.map((a) => `<p style="line-height:1.55;margin:0 0 12px">${esc(a)}</p>`).join('')}
+${abschnitte.map((ab) => { const k = kachelnHtml(ab.kacheln); return k ? `${ab.titel ? `<h2 style="font-size:16px;margin:16px 0 4px">${esc(ab.titel)}</h2>` : ''}${k}` : ''; }).join('')}
 ${knopf ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0"><tr>
 <td class="zdb-knopf" bgcolor="#7c3aed" style="background:#7c3aed;border-radius:12px"><a href="${esc(knopf.url)}" style="display:inline-block;padding:12px 20px;color:#ffffff;font-weight:600;text-decoration:none;border-radius:12px"><span style="color:#ffffff">${esc(knopf.text)}</span></a></td>
 </tr></table>

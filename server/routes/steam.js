@@ -14,7 +14,7 @@ export function steamRouter({ steam, erweiterungen }) {
     if (drossel.gesperrt(`s:${req.benutzer.id}`)) return res.status(429).json({ fehler: 'Bitte etwas warten, bevor du erneut importierst.' });
     drossel.fehlschlag(`s:${req.benutzer.id}`);
     try {
-      const ergebnis = await steam.importiere(req.benutzer, req.body?.profil);
+      const ergebnis = await steam.importiere(req.benutzer, req.body?.profil, req.body?.schluessel);
       erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
       res.json({ ...ergebnis, ...steam.status(req.benutzer) });
     } catch (e) {
@@ -23,7 +23,19 @@ export function steamRouter({ steam, erweiterungen }) {
     }
   });
 
-  router.delete('/steam', (req, res) => res.json(steam.entferne(req.benutzer)));
+  // ?behalten=1: nur die Verbindung lösen, die Spiele bleiben
+  router.delete('/steam', (req, res) => {
+    const ergebnis = steam.entferne(req.benutzer, { spieleBehalten: req.query.behalten === '1' });
+    erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
+    res.json(ergebnis);
+  });
+
+  // Ohne Abruf bei Steam: privat angelegte Steam-Spiele mit dem gemeinsamen Katalog verknüpfen
+  router.post('/steam/verknuepfen', (req, res) => {
+    const ergebnis = steam.verknuepfeNeu(req.benutzer);
+    if (ergebnis.verknuepft) erweiterungen.melde('benutzer.geaendert', req.benutzer.id);
+    res.json(ergebnis);
+  });
 
   return router;
 }

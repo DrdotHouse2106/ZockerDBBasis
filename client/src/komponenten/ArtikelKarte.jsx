@@ -1,4 +1,4 @@
-import { DIGITAL_QUELLEN, titelUndAusgabe } from '../../../shared/konstanten.js';
+import { DIGITAL_QUELLEN, beilageVorhanden, serienBezeichnung, titelUndAusgabe } from '../../../shared/konstanten.js';
 import Cover from './Cover.jsx';
 import Abzeichen from './Abzeichen.jsx';
 import Symbol from './Symbole.jsx';
@@ -14,7 +14,9 @@ export default function ArtikelKarte({ artikel, href, exemplare }) {
   // „Horizon Zero Dawn: Complete Edition“ erscheint als „Horizon Zero Dawn“ mit der Ausgabe darunter (wie eine erfasste Edition)
   const { titel, ausgabe } = titelUndAusgabe(artikel.titel);
   const edition = artikel.edition || ausgabe;
-  const variante = [edition, artikel.farbe, artikel.modellnummer].filter(Boolean).join(' · ');
+  // Steelbook als Beilage erfasst: auf der Karte nennen – sonst sehen zwei Exemplare mit gleicher Nummer gleich aus
+  const steelbook = beilageVorhanden(artikel.beilagen?.steelbook) && !/steelbook/i.test(edition ?? '') ? 'Steelbook' : null;
+  const variante = [edition, steelbook, artikel.farbe, artikel.modellnummer].filter(Boolean).join(' · ');
   return (
     <a
       href={href ?? `#/artikel/${artikel.id}`}
@@ -32,6 +34,8 @@ export default function ArtikelKarte({ artikel, href, exemplare }) {
             <span className="truncate">{artikel.plattform}</span>
           </p>
         )}
+        {artikel.typ === 'merch' && artikel.spiel_titel && <p className="truncate text-xs text-leise">gehört zu {artikel.spiel_titel}</p>}
+        {artikel.serie_name && <p className="truncate text-xs text-leise" data-testid="karte-serie">{serienBezeichnung(artikel)}</p>}
         {artikel.verliehen_an && <p className="truncate text-xs font-semibold text-sky-500">Verliehen an {artikel.verliehen_an}</p>}
         {artikel.bestand && !['besitz', 'digital'].includes(artikel.bestand) && (
           <p className="text-xs font-semibold text-warnung">

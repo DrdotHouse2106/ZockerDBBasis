@@ -12,3 +12,28 @@ export function setzeNativenScanner(funktion) {
 }
 
 export const nativerScanner = () => scanner;
+
+let upload = null;
+
+/**
+ * Nativen Hintergrund-Upload setzen: `(pfad, formular, onFortschritt) => Promise<{ status, text }>` – die Übertragung läuft
+ * weiter, wenn die App in den Hintergrund geht. Wirft bei Verbindungsfehlern. Ohne Setzen (Browser, Android) gilt der Web-Weg.
+ */
+export function setzeNativenUpload(funktion) {
+  upload = funktion;
+}
+
+export const nativerUpload = () => upload;
+
+let freistellen = null;
+
+/**
+ * Natives Freistellen setzen: `{ maske(bild: Blob) => Promise<Blob|null>, bildschirmAn(an: boolean) => Promise }` – liefert die
+ * Maske als Graustufen-PNG (weiß = Motiv) bzw. null, wenn kein Motiv erkannt wurde. Nur in der App (iOS ab 17).
+ * Optional `hintergrund: { stand(), ein(), aus(), probe(anzahl) }` – Freistellen im Hintergrund am Ladegerät.
+ */
+export function setzeNativesFreistellen(funktionen) {
+  freistellen = funktionen;
+}
+
+export const nativesFreistellen = () => freistellen;

@@ -2,7 +2,7 @@
 // Zusatzmodule ergänzen Abschnitte über Andockpunkte (katalog.*).
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, REGIONEN, VOLLSTAENDIGKEITEN, MEDIENARTEN, beschriftung, istModerator,
+  ARTIKELTYPEN, REGIONEN, VOLLSTAENDIGKEITEN, MEDIENARTEN, JUGENDSCHUTZ, beschriftung, istModerator, jugendschutzText,
 } from '../../../shared/konstanten.js';
 import { nachHersteller, usePlattformen } from '../plattformen.js';
 import Markdown from '../komponenten/Markdown.jsx';
@@ -24,6 +24,37 @@ import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { Andockpunkt } from '../erweiterungen.jsx';
 import { KatalogZockerdb } from '../komponenten/Zockerdb.jsx';
 
+/**
+ * Cover mit Umschalter je Region (PAL-DE, PAL-EU, NTSC-U, NTSC-J …): Standard ist das passendste für den deutschen Markt
+ * (Community-Foto der Fassung, sonst die EU-Fassung, sonst das allgemeine Cover).
+ */
+function CoverNachRegion({ eintrag: e, standard }) {
+  const [region, setRegion] = useState(null);
+  const liste = e.cover_regionen ?? [];
+  const gewaehlt = liste.find((c) => c.region === region);
+  const url = gewaehlt?.url ?? standard;
+  const knoepfe = [...liste, ...(e.cover_url && !liste.some((c) => c.url === e.cover_url) ? [{ region: 'allgemein', url: e.cover_url }] : [])];
+  return (
+    <>
+      <Cover url={url} typ={e.typ} alt={e.titel} className="mx-auto aspect-[3/4] w-1/2 rounded-2xl border border-rand md:w-full" />
+      {knoepfe.length > 1 && (
+        <div className="flex flex-wrap justify-center gap-1" role="group" aria-label="Cover nach Region" data-testid="cover-regionen">
+          {knoepfe.map((c) => {
+            const aktiv = (region ?? null) === c.region || (!region && c.url === url);
+            return (
+              <button key={c.region} type="button" aria-pressed={aktiv} onClick={() => setRegion(c.region === 'allgemein' ? null : c.region)}
+                title={c.quelle === 'community' ? 'Foto aus der Community' : undefined}
+                className={`rounded-full border px-2 py-0.5 text-xs ${aktiv ? 'border-akzent bg-akzent text-akzent-text' : 'border-rand text-leise hover:bg-karte-hover'}`}>
+                {c.region === 'allgemein' ? 'Allgemein' : beschriftung(REGIONEN, c.region, 'kurz')}{c.quelle === 'community' ? ' 📷' : ''}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function KatalogSeite({ route, id }) {
   const { benutzer, status, auth } = useSitzung();
   const zeigeHinweis = useHinweis();
@@ -31,8 +62,10 @@ export default function KatalogSeite({ route, id }) {
   const [fehler, setFehler] = useState(null);
   const [bearbeiten, setBearbeiten] = useState(false);
 
-  const laden = () => api.katalogSeite(id).then(setDaten).catch((e) => setFehler(e.message));
-  useEffect(() => { laden(); }, [id]);
+  // Plattform-Auswahl in der Adresse (#/katalog/:id?plattform=<id>); ohne Angabe wählt der Server den Standard
+  const plattformWunsch = route.parameter?.plattform ?? null;
+  const laden = () => api.katalogSeite(id, plattformWunsch || 'auto').then(setDaten).catch((e) => setFehler(e.message));
+  useEffect(() => { laden(); }, [id, plattformWunsch]);
 
   if (!daten) {
     return (
@@ -47,7 +80,13 @@ export default function KatalogSeite({ route, id }) {
   const erweiterung = { daten, eintrag: e, benutzer, laden };
   const darfBearbeiten = istModerator(benutzer) || (e.eigener && e.status !== 'freigegeben');
   // Fotos hängen am eigenen Exemplar (nur, was man wirklich besitzt, kann man fotografieren)
-  const fotoExemplar = daten.meineExemplare.find((a) => a.bestand === 'besitz');
+  // Für Fotos: eigenes Exemplar, sonst eine leere Verpackung (die es eigens für Fotos gibt)
+  const fotoExemplar = daten.meineExemplare.find((a) => a.bestand === 'besitz') ?? daten.meineExemplare.find((a) => a.bestand === 'verpackung');
+  const gewaehltePlattform = daten.plattformen.find((p) => p.id === daten.plattformWahl?.gewaehlt) ?? null;
+  const plattformWechseln = (p) => {
+    if (p.id === gewaehltePlattform?.id) return;
+    navigiere(`/katalog/${e.id}`, { ...route.parameter, plattform: p.id, foto: undefined, fotos: undefined }, { ersetzen: true });
+  };
   const oeffentlicheFotos = daten.oeffentlicheFotos ?? [];
 
   return (
@@ -59,7 +98,17 @@ export default function KatalogSeite({ route, id }) {
       )}>
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-[16rem_minmax(0,1fr)]">
         <div className="min-w-0 space-y-3">
-          <Cover url={e.cover_url} typ={e.typ} alt={e.titel} className="mx-auto aspect-[3/4] w-1/2 rounded-2xl border border-rand md:w-full" />
+          {/* Ohne Katalog-Cover: das Bild des eigenen Exemplars (nur für dich sichtbar, nicht öffentlich) */}
+          {(() => {
+            const passend = e.cover_passend || e.cover_url;
+            const eigenesBild = !passend ? daten.meineExemplare.find((a) => a.bild_url)?.bild_url : null;
+            return (
+              <>
+                <CoverNachRegion eintrag={e} standard={passend || eigenesBild} />
+                {eigenesBild && <p className="text-center text-xs text-leise" data-testid="cover-eigenes-exemplar">Bild deines Exemplars – im Katalog fehlt noch ein Cover</p>}
+              </>
+            );
+          })()}
           {benutzer ? (
             <button type="button" className="knopf-primaer w-full" onClick={() => navigiere('/neu/formular', { katalog: e.id, typ: e.typ })}>
               <Symbol name="plus" className="size-4" />{daten.meineExemplare.length ? 'Weiteres Exemplar hinzufügen' : 'Zur Sammlung hinzufügen'}
@@ -73,6 +122,7 @@ export default function KatalogSeite({ route, id }) {
               Nur eine leere Hülle? Fotos beitragen, ohne Sammlungseintrag
             </button>
           )}
+          <Andockpunkt name="katalog.aktionen" {...erweiterung} />
         </div>
 
         <div className="min-w-0 space-y-4">
@@ -82,18 +132,55 @@ export default function KatalogSeite({ route, id }) {
             {daten.titelSprache
               ? <p className="text-sm text-leise">Deutscher Titel: <span lang="de">{e.titel}</span></p>
               : e.titel_original && <p className="text-sm text-leise">Originaltitel: <span lang="en">{e.titel_original}</span></p>}
+            {e.weitere_titel?.length > 0 && <p className="text-xs text-leise" data-testid="weitere-titel">auch bekannt als {e.weitere_titel.join(', ')}</p>}
+            {daten.plattformen.length > 1 && (
+              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label="Plattform wählen" data-testid="plattform-leiste">
+                {daten.plattformen.map((p) => {
+                  const aktiv = p.id === gewaehltePlattform?.id;
+                  return (
+                    <button key={p.id} type="button" title={p.name} aria-pressed={aktiv} onClick={() => plattformWechseln(p)}
+                      className={`shrink-0 rounded-full border px-3 py-1 text-sm font-semibold ${aktiv ? 'border-akzent bg-akzent text-akzent-text' : 'border-rand text-akzent-hell hover:bg-karte-hover'}`}>
+                      {p.kurz || p.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="abzeichen">{beschriftung(ARTIKELTYPEN, e.typ)}</span>
-              {daten.plattformen.map((p) => (
-                <a key={p.id} href={`#/katalog?plattform=${p.id}`} className="abzeichen text-akzent-hell hover:underline" title={p.name}>{p.kurz}</a>
+              {daten.plattformen.length === 1 && daten.plattformen.map((p) => (
+                <a key={p.id} href={`#/katalog?plattform=${p.id}`} className="abzeichen text-akzent-hell hover:underline" title={p.name}>{p.kurz || p.name}</a>
               ))}
+              {/* Plattformen, die (noch) keiner festen Plattform zugeordnet sind (z. B. „PlayStation VR2“ aus IGDB), trotzdem zeigen */}
+              {daten.plattformen.length === 0 && (e.plattformen ?? []).map((name) => <span key={name} className="abzeichen text-akzent-hell">{name}</span>)}
               {e.erscheinungsjahr && <span className="abzeichen">{e.erscheinungsjahr}</span>}
+              {jugendschutzText(e) && (
+                <span className={`abzeichen ${e.jugendschutz === 'gestrichen' ? '' : 'border-gefahr/60 text-gefahr'}`} data-testid="katalog-jugendschutz"
+                  title={JUGENDSCHUTZ.find((j) => j.value === e.jugendschutz)?.erklaerung}>{jugendschutzText(e)}</span>
+              )}
               {e.status !== 'freigegeben' && <StatusAbzeichen status={e.status} />}
               {e.status === 'freigegeben' && e.automatisch_geprueft === 1 && (
                 <span className="abzeichen" title="Dieser Eintrag wurde automatisch durch eine KI geprüft und freigegeben.">KI-geprüft</span>
               )}
             </div>
             {e.hersteller && <p className="text-sm text-leise">{e.hersteller}</p>}
+            {e.serie && (
+              <p className="text-sm" data-testid="katalog-serie">
+                Figurenserie: <a href={`#/serien/${e.serie.id}`} className="text-akzent-hell underline">{[e.serie.ueber_name, e.serie.name].filter(Boolean).join(' · ')}</a>
+                {e.serien_nummer && <span className="text-leise"> · {e.serie.nummer_praefix ?? '#'}{e.serien_nummer}</span>}
+              </p>
+            )}
+            {e.figurenserien?.length > 0 && (
+              <div className="space-y-1 rounded-xl border border-rand p-3 text-sm" data-testid="katalog-figurenserien">
+                <p className="font-semibold">Figurenserie zum Spiel</p>
+                {e.figurenserien.map((f) => (
+                  <p key={f.id}>
+                    <a href={`#/serien/${f.id}`} className="text-akzent-hell underline">{f.name}</a>
+                    <span className="text-leise"> · {[f.hersteller, f.jahr].filter(Boolean).join(', ')}{f.figuren ? ` · ${f.figuren} Figuren` : ''}{f.besitz ? ` · ${f.besitz} davon in deiner Sammlung` : ''}</span>
+                  </p>
+                ))}
+              </div>
+            )}
             {/* Zusatzmodule können die Beschreibung in der Sprache des Benutzers liefern */}
             {(daten.beschreibungSprache?.text ?? e.beschreibung) && (
               <p className="text-sm whitespace-pre-line" lang={daten.beschreibungSprache?.sprache}>{daten.beschreibungSprache?.text ?? e.beschreibung}</p>
@@ -146,10 +233,11 @@ export default function KatalogSeite({ route, id }) {
           )}
 
           {(benutzer || oeffentlicheFotos.length > 0 || ((status ?? auth)?.oeffentlicheFotos && e.status === 'freigegeben')) && (
-            <Fotos katalogId={e.id} typ={e.typ} plattform={daten.plattformen[0] ?? null} artikelId={fotoExemplar?.id ?? null}
+            <Fotos katalogId={e.id} typ={e.typ} plattform={gewaehltePlattform ?? daten.plattformen[0] ?? null} artikelId={fotoExemplar?.id ?? null}
               oeffentliche={oeffentlicheFotos} vorauswahl={route.parameter.foto ?? null}
               hinscrollen={route.parameter.fotos === '1' || Boolean(route.parameter.foto)}
-              varianten={daten.varianten ?? []} standardVariante={fotoExemplar?.variante_id ?? null}
+              varianten={daten.varianten ?? []} standardVariante={fotoExemplar?.variante_id ?? null} fassung={fotoExemplar?.edition || null} region={fotoExemplar?.region || null}
+              nurVerpackung={fotoExemplar?.bestand === 'verpackung' || fotoExemplar?.vollstaendigkeit === 'nur_ovp'}
               versiegelt={fotoExemplar?.zustand === 'neu_ovp'} beilagen={fotoExemplar?.beilagen ?? null} />
           )}
 
@@ -192,6 +280,7 @@ function KatalogBearbeiten({ eintrag, plattformIds, onFertig }) {
     titel: eintrag.titel, typ: eintrag.typ, erscheinungsjahr: eintrag.erscheinungsjahr ?? '', hersteller: eintrag.hersteller ?? '',
     cover_url: eintrag.cover_url ?? '', beschreibung: eintrag.beschreibung ?? '',
     sammlerhinweise: eintrag.sammlerhinweise ?? '', seo_titel: eintrag.seo_titel ?? '', seo_beschreibung: eintrag.seo_beschreibung ?? '',
+    jugendschutz: eintrag.jugendschutz ?? '', jugendschutz_seit: eintrag.jugendschutz_seit ?? '', jugendschutz_bis: eintrag.jugendschutz_bis ?? '',
   });
   const { benutzer } = useSitzung();
   const moderator = istModerator(benutzer);
@@ -226,6 +315,24 @@ function KatalogBearbeiten({ eintrag, plattformIds, onFertig }) {
           <span className="text-xs text-leise">Eigene Worte statt kopierter Texte – z. B. Varianten, Lieferumfang, Revisionen, Fälschungsmerkmale. Erscheint auch auf der öffentlichen Seite.</span>
         </label>
       </div>
+      {moderator && (
+        <details className="rounded-xl border border-rand p-3" open={Boolean(w.jugendschutz)} data-testid="jugendschutz-bearbeiten">
+          <summary className="cursor-pointer font-semibold">Jugendschutz (Deutschland)</summary>
+          <p className="mt-2 text-xs text-leise">Indizierung bzw. Beschlagnahme laut BzKJ-Liste oder Gerichtsbeschluss – bei Neuauflagen gilt oft nur die alte Fassung.</p>
+          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+            <label><span className="beschriftung">Status</span>
+              <select className="eingabe" value={w.jugendschutz} onChange={setze('jugendschutz')}>
+                <option value="">nicht betroffen / unbekannt</option>
+                {JUGENDSCHUTZ.map((j) => <option key={j.value} value={j.value}>{j.label}</option>)}
+              </select>
+            </label>
+            {w.jugendschutz && <label><span className="beschriftung">{w.jugendschutz === 'beschlagnahmt' ? 'Beschlagnahmt seit (Jahr)' : 'Indiziert seit (Jahr)'}</span>
+              <input className="eingabe" inputMode="numeric" value={w.jugendschutz_seit} onChange={setze('jugendschutz_seit')} placeholder="z. B. 1997" /></label>}
+            {w.jugendschutz === 'gestrichen' && <label><span className="beschriftung">Gestrichen (Jahr)</span>
+              <input className="eingabe" inputMode="numeric" value={w.jugendschutz_bis} onChange={setze('jugendschutz_bis')} placeholder="z. B. 2019" /></label>}
+          </div>
+        </details>
+      )}
       {moderator && (
         <details className="rounded-xl border border-rand p-3">
           <summary className="cursor-pointer font-semibold">Suchmaschinen (optional)</summary>

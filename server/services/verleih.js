@@ -2,12 +2,16 @@
 // und sie unter „Ausgeliehen von anderen“ sieht (nur Titel, Plattform und Verleiher, keine Preise). Verliehene Exemplare bleiben
 // im Besitz und damit im Sammlungswert. Nach dem geplanten Rückgabetag erinnert die App den Verleiher (wöchentlich wiederholt).
 import { ValidierungsFehler, leerZuNull } from './validierung.js';
+import { KontoFehler } from './konten.js';
+import { erstelleDrossel } from './drossel.js';
 
 const TAG = /^\d{4}-\d{2}-\d{2}$/;
 const heute = () => new Date().toISOString().slice(0, 10);
 const name = (b) => b?.anzeigename || b?.benutzername || 'Jemand';
 
 export function erstelleVerleihDienst(db, { benachrichtigungen }) {
+  // Jede Leihe an einen Sammler löst bei ihm eine Benachrichtigung (ggf. E-Mail) aus – nicht als Spam-Kanal missbrauchbar
+  const anSammler = erstelleDrossel({ maxVersuche: 20, fensterMs: 60 * 60 * 1000 });
   const aktiv = db.prepare('SELECT * FROM verleihungen WHERE artikel_id = ? AND zurueck_am IS NULL');
   const benutzer = db.prepare('SELECT id, benutzername, anzeigename, gesperrt FROM benutzer WHERE id = ?');
   const perName = db.prepare('SELECT id, benutzername, anzeigename, gesperrt FROM benutzer WHERE benutzername = ? COLLATE NOCASE');
@@ -32,6 +36,10 @@ export function erstelleVerleihDienst(db, { benachrichtigungen }) {
     const notiz = leerZuNull(eingabe.notiz);
     if (notiz && notiz.length > 500) fehler.notiz = 'Höchstens 500 Zeichen.';
     if (Object.keys(fehler).length) throw new ValidierungsFehler(fehler);
+    if (an) {
+      if (anSammler.gesperrt(verleiher.id)) throw new KontoFehler('Du hast in der letzten Stunde schon viele Exemplare an andere Sammler verliehen. Bitte später weitermachen.', 429);
+      anSammler.fehlschlag(verleiher.id);
+    }
 
     const v = db.prepare(`INSERT INTO verleihungen (artikel_id, verleiher_id, an_name, an_benutzer_id, seit, rueckgabe_geplant, notiz, bestaetigung)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`)

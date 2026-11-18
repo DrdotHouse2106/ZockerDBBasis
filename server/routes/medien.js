@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { MEDIENARTEN, istModerator, istFotoArt } from '../../shared/konstanten.js';
+import { MEDIENARTEN, REGIONEN, istModerator, istFotoArt, FREISTELL_ARTEN } from '../../shared/konstanten.js';
 import { MEDIEN_TYPEN, verarbeiteMedium, neuerDateiname, medienDateien } from '../services/medien.js';
 import { ValidierungsFehler } from '../services/validierung.js';
 import { KontoFehler } from '../services/konten.js';
@@ -29,6 +29,13 @@ export function medienZuObjekt(m, benutzer) {
     // Variante (z. B. PAL-Modul) – eigene, noch nicht freigegebene Varianten nur für den Ersteller
     variante_id: m.variante_id ?? null,
     variante: m.variante_bezeichnung ?? null,
+    // Plattform des abgebildeten Exemplars (z. B. PS4-Hülle bei einem Spiel für mehrere Plattformen) – null = unbekannt
+    plattform_id: m.plattform_id ?? null,
+    plattform: m.plattform_kurz ?? m.plattform_name ?? null,
+    // Fassung des abgebildeten Spiels (z. B. „Platinum“) – null = Erstauflage/Standard bzw. unbekannt
+    edition: m.edition ?? null,
+    // Region des abgebildeten Exemplars (z. B. pal_de, pal_uk – Cover unterscheiden sich je Land) – null = unbekannt, passt überall
+    region: m.region ?? null,
     // Öffentlich (auch Suchmaschinen) nur mit Einwilligung des Fotografen und nach Prüfung durch die Moderation
     oeffentlich: Boolean(m.oeffentlich),
     oeffentlich_erlaubt: m.benutzer_id === benutzer.id || istModerator(benutzer) ? Boolean(m.oeffentlich_erlaubt) : undefined,
@@ -36,10 +43,21 @@ export function medienZuObjekt(m, benutzer) {
     geprueft_am: m.geprueft_am ?? null,
     pruefung_notiz: m.benutzer_id === benutzer.id || istModerator(benutzer) ? m.pruefung_notiz ?? null : null,
     eigenes: m.benutzer_id === benutzer.id,
+    // Eigenes Exemplar, zu dem das Foto gehört – nur für den Fotografen
+    artikel_id: m.benutzer_id === benutzer.id ? m.artikel_id ?? null : null,
     darf_bearbeiten: m.benutzer_id === benutzer.id || istModerator(benutzer),
     url: url(m.anzeige_datei ?? m.datei),
     original_url: url(m.datei),
     vorschau_url: url(m.vorschau_datei),
+    // Freigestellte Version (Hintergrund entfernt): für alle erst nach Annahme durch den Fotografen; zu prüfende nur für ihn und die Moderation
+    frei_url: m.frei_status === 'angenommen' && m.frei_datei ? url(m.frei_datei) : null,
+    frei_status: m.benutzer_id === benutzer.id || istModerator(benutzer) ? m.frei_status ?? null : undefined,
+    frei_pruefen_url: m.frei_status === 'fertig' && m.frei_datei && (m.benutzer_id === benutzer.id || istModerator(benutzer)) ? url(m.frei_datei) : null,
+    // Freistellen anfordern (z. B. Discs und Disc-Hüllen, die nicht automatisch drankommen): eigenes Foto ohne freigestellte
+    // Version und ohne laufenden Auftrag – ob die Funktion an ist, ergänzt die Route
+    frei_anfordern: m.benutzer_id === benutzer.id && FREISTELL_ARTEN.includes(m.art) && !m.frei_datei
+      && !['offen', 'in_arbeit'].includes(m.frei_auftrag),
+    frei_in_arbeit: m.benutzer_id === benutzer.id && ['offen', 'in_arbeit'].includes(m.frei_auftrag),
   };
 }
 
@@ -98,7 +116,7 @@ function pruefeMetadaten(eingabe, { teilweise = false, teilenErlaubt, moderator 
   return daten;
 }
 
-export function medienRouter({ db, konfiguration, dateien, katalog, speicher, erweiterungen }) {
+export function medienRouter({ db, konfiguration, dateien, katalog, speicher, erweiterungen, freistellen }) {
   // Andockpunkt „medien.eingereicht“ (id): ein Foto/Scan wartet (wieder) auf Prüfung – z. B. für eine automatische Vorprüfung
   const meldeEingereicht = (id) => {
     const m = db.prepare('SELECT sichtbarkeit, oeffentlich_offen FROM medien WHERE id = ?').get(id);
@@ -123,16 +141,19 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher, er
   const einzeldatei = (feld) => (req, res, next) => upload().single(feld)(req, res, next);
 
   // Bezeichnung der Variante nur, wenn sie für diesen Benutzer sichtbar ist
-  const VARIANTE = `LEFT JOIN katalog_varianten v ON v.id = m.variante_id AND (v.status = 'freigegeben' OR v.erstellt_von = @benutzer)`;
+  const VARIANTE = `LEFT JOIN katalog_varianten v ON v.id = m.variante_id AND (v.status = 'freigegeben' OR v.erstellt_von = @benutzer)
+    LEFT JOIN plattformen pf ON pf.id = m.plattform_id`;
   const sichtbareMedien = db.prepare(`
-    SELECT m.*, COALESCE(b.anzeigename, b.benutzername) AS hochgeladen_von, v.bezeichnung AS variante_bezeichnung
+    SELECT m.*, COALESCE(b.anzeigename, b.benutzername) AS hochgeladen_von, v.bezeichnung AS variante_bezeichnung, pf.kurz AS plattform_kurz, pf.name AS plattform_name,
+      (SELECT fa.status FROM freistell_auftraege fa WHERE fa.medien_id = m.id) AS frei_auftrag
     FROM medien m LEFT JOIN benutzer b ON b.id = m.benutzer_id ${VARIANTE}
     WHERE m.katalog_id = @katalog
       AND (m.benutzer_id = @benutzer OR m.sichtbarkeit = 'freigegeben' OR (@moderator = 1 AND m.sichtbarkeit = 'eingereicht'))
     ORDER BY CASE m.art WHEN 'cover_vorne' THEN 0 WHEN 'cover_hinten' THEN 1 WHEN 'cover_komplett' THEN 2
              WHEN 'handbuch' THEN 3 WHEN 'label' THEN 4 ELSE 5 END, m.erstellt_am`);
   const perIdMit = db.prepare(`
-    SELECT m.*, COALESCE(b.anzeigename, b.benutzername) AS hochgeladen_von, v.bezeichnung AS variante_bezeichnung
+    SELECT m.*, COALESCE(b.anzeigename, b.benutzername) AS hochgeladen_von, v.bezeichnung AS variante_bezeichnung, pf.kurz AS plattform_kurz, pf.name AS plattform_name,
+      (SELECT fa.status FROM freistell_auftraege fa WHERE fa.medien_id = m.id) AS frei_auftrag
     FROM medien m LEFT JOIN benutzer b ON b.id = m.benutzer_id ${VARIANTE} WHERE m.id = @id`);
   const perId = (id, benutzer = null) => perIdMit.get({ id: Number(id), benutzer: benutzer?.id ?? -1 });
   // Variante muss zum Katalogeintrag gehören und für den Benutzer sichtbar sein
@@ -161,8 +182,9 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher, er
 
   router.get('/katalog/:id/medien', (req, res) => {
     if (!katalog.holeSichtbar(req.params.id, req.benutzer)) return res.status(404).json({ fehler: 'Katalogeintrag nicht gefunden.' });
+    const freistellAn = Boolean(freistellen?.aktiv());
     res.json(sichtbareMedien.all({ katalog: Number(req.params.id), benutzer: req.benutzer.id, moderator: istModerator(req.benutzer) ? 1 : 0 })
-      .map((m) => medienZuObjekt(m, req.benutzer)));
+      .map((m) => medienZuObjekt(m, req.benutzer)).map((o) => (freistellAn ? o : { ...o, frei_anfordern: false })));
   });
 
   router.post('/artikel/:id/medien', speicher.vorabPruefung, einzeldatei('datei'), async (req, res) => {
@@ -196,12 +218,22 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher, er
       const { id } = db.prepare(`
         INSERT INTO medien (katalog_id, benutzer_id, art, titel, sichtbarkeit, datei, anzeige_datei, vorschau_datei,
                             originalname, mime, groesse, groesse_gesamt, breite, hoehe, dpi, seiten,
-                            oeffentlich_erlaubt, oeffentlich_erlaubt_am, name_nennen, oeffentlich, oeffentlich_offen, variante_id)
+                            oeffentlich_erlaubt, oeffentlich_erlaubt_am, name_nennen, oeffentlich, oeffentlich_offen, variante_id, plattform_id, edition, region, kamera_daten, artikel_id)
         VALUES (@katalog_id, @benutzer_id, @art, @titel, @sichtbarkeit, @datei, @anzeige_datei, @vorschau_datei,
                 @originalname, @mime, @groesse, @groesse_gesamt, @breite, @hoehe, @dpi, @seiten,
-                @oeffentlich_erlaubt, @oeffentlich_erlaubt_am, @name_nennen, @oeffentlich, @oeffentlich_offen, @variante_id) RETURNING id`).get({
+                @oeffentlich_erlaubt, @oeffentlich_erlaubt_am, @name_nennen, @oeffentlich, @oeffentlich_offen, @variante_id, @plattform_id, @edition, @region, @kamera_daten, @artikel_id) RETURNING id`).get({
+        // Exemplar, zu dem das Foto gehört (am Exemplar erscheinen nur dessen Fotos)
+        artikel_id: artikel.id,
         variante_id: varianteId,
+        // Plattform des Exemplars – das Foto zeigt diese Fassung (z. B. die PS5-Disc, nicht die PS4-Hülle)
+        plattform_id: artikel.plattform_id ?? null,
+        // … und seine Fassung bzw. Edition (z. B. Platinum, Konsole „Zelda 25th Anniversary“) – muss nicht in die Bezeichnung
+        edition: ['spiel', 'konsole'].includes(artikel.typ) ? String(artikel.edition ?? '').trim().slice(0, 60) || null : null,
+        // … und seine Region (PAL-DE, PAL-UK …), sonst die der gewählten Variante
+        region: artikel.region ?? (varianteId ? db.prepare('SELECT region FROM katalog_varianten WHERE id = ?').pluck().get(varianteId) : null) ?? null,
         ...verarbeitet,
+        // Im Browser zugeschnitten: die Kameradaten sind dann weg, der Browser meldet sie vorher (nur ein Hinweis für die Prüfung)
+        kamera_daten: verarbeitet.kamera_daten === 0 && req.body?.kamera_original === '1' ? 1 : verarbeitet.kamera_daten ?? null,
         groesse_gesamt: groesseGesamt,
         ...meta,
         titel: meta.titel ?? null,
@@ -211,7 +243,9 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher, er
         originalname: Buffer.from(req.file.originalname, 'latin1').toString('utf8').slice(0, 200),
       });
       meldeEingereicht(id);
-      res.status(201).json(medienZuObjekt(perId(id, req.benutzer), req.benutzer));
+      // Fotos des Gegenstands: in die Warteschlange für Helfer-Geräte – Discs und Disc-Hüllen nur auf Wunsch
+      const eingereiht = Boolean(freistellen?.einreihen(id));
+      res.status(201).json({ ...medienZuObjekt(perId(id, req.benutzer), req.benutzer), frei_automatisch: eingereiht });
     } catch (fehler) {
       // Beim Umwandeln kann die Datei eine neue Endung bekommen haben (.webp/.jpg)
       const basis = req.file.filename.replace(/\.[^.]+$/, '');
@@ -243,13 +277,43 @@ export function medienRouter({ db, konfiguration, dateien, katalog, speicher, er
       const varianteId = varianteAus(req.body.variante_id);
       daten.variante_id = varianteId ? pruefeVariante(varianteId, m.katalog_id, req.benutzer) : null;
     }
+    // Plattform korrigieren (z. B. ein PS4-Foto am PS5-Exemplar) – nur bekannte Plattformen, leer = unbekannt
+    if (Object.hasOwn(req.body ?? {}, 'plattform_id')) {
+      const roh = req.body.plattform_id;
+      const id = roh === null || roh === '' ? null : Number(roh);
+      if (id !== null && !(Number.isInteger(id) && db.prepare('SELECT 1 FROM plattformen WHERE id = ?').get(id))) {
+        throw new ValidierungsFehler({ plattform_id: 'Unbekannte Plattform.' });
+      }
+      daten.plattform_id = id;
+    }
+    // Fassung korrigieren (z. B. „Platinum“), leer = Erstauflage/Standard
+    if (Object.hasOwn(req.body ?? {}, 'edition')) {
+      const roh = req.body.edition;
+      if (roh !== null && typeof roh !== 'string') throw new ValidierungsFehler({ edition: 'Ungültige Fassung.' });
+      daten.edition = String(roh ?? '').trim().slice(0, 60) || null;
+    }
+    // Region korrigieren (z. B. ein PAL-UK-Cover am deutschen Exemplar), leer = unbekannt
+    if (Object.hasOwn(req.body ?? {}, 'region')) {
+      const roh = req.body.region;
+      if (roh !== null && roh !== '' && !REGIONEN.some((r) => r.value === roh)) throw new ValidierungsFehler({ region: 'Unbekannte Region.' });
+      daten.region = roh || null;
+    }
+    // Region bzw. Plattform passt nicht mehr zum Exemplar (z. B. ein falsch fotografiertes PAL-UK-Cover): Das Foto gehört nicht mehr
+    // zum Exemplar, bleibt aber beim Spiel – dort zählt es für Exemplare der richtigen Fassung
+    if (m.artikel_id && (daten.region || daten.plattform_id)) {
+      const a = db.prepare('SELECT region, plattform_id FROM artikel WHERE id = ?').get(m.artikel_id);
+      if (a && ((daten.region && a.region && daten.region !== a.region) || (daten.plattform_id && a.plattform_id && daten.plattform_id !== a.plattform_id))) {
+        daten.artikel_id = null;
+      }
+    }
     // Neu erlaubte öffentliche Anzeige: ein freigegebenes Foto bleibt für Mitglieder sichtbar – die Moderation entscheidet
     // nur noch über die öffentliche Anzeige (oeffentlich_offen, siehe Warteschlange)
     if (daten.oeffentlich_erlaubt === 1 && !m.oeffentlich_erlaubt) Object.assign(daten, { oeffentlich_erlaubt_am: jetzt(), oeffentlich_offen: 1 });
     if (daten.oeffentlich_erlaubt === 0) daten.oeffentlich_offen = 0;
     // Freigegebenes geändert (Art, Bezeichnung) → erneut prüfen lassen (außer durch die Moderation)
     const geaendert = (daten.art !== undefined && daten.art !== m.art) || (daten.titel !== undefined && daten.titel !== m.titel)
-      || (daten.variante_id !== undefined && daten.variante_id !== m.variante_id);
+      || (daten.variante_id !== undefined && daten.variante_id !== m.variante_id) || (daten.plattform_id !== undefined && daten.plattform_id !== m.plattform_id)
+      || (daten.edition !== undefined && daten.edition !== (m.edition ?? null)) || (daten.region !== undefined && daten.region !== (m.region ?? null));
     if (!moderator && m.sichtbarkeit === 'freigegeben' && geaendert) daten.sichtbarkeit = 'eingereicht';
     // Wechsel zwischen Foto und Scan: Ist das Teilen der neuen Art ausgeschaltet, wird die Datei privat
     if (daten.art && daten.art !== m.art && !teilen(daten.art) && (daten.sichtbarkeit ?? m.sichtbarkeit) !== 'privat') daten.sichtbarkeit = 'privat';

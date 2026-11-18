@@ -38,6 +38,9 @@ export function ladeKonfiguration(env = process.env) {
     // Eigene Fotos (Modul, Disc, Verpackung, Gerät) mit anderen teilen – ebenfalls mit Moderation; getrennt von Scans,
     // weil ein Foto des Gegenstands keine 1:1-Kopie eines geschützten Covers oder einer Anleitung ist
     fotosTeilenErlaubt: jaNein(env.PHOTO_SHARING, false),
+    // Fotos von Figuren, Karten, Modulen und Geräten freistellen lassen: Helfer-Geräte (Handys mit eingebauter Freistellung)
+    // holen sich Aufträge aus einer Warteschlange; der Fotograf prüft das Ergebnis
+    fotosFreistellen: jaNein(env.PHOTO_CUTOUT, true),
     // Speicherplatz je Benutzer für eigene Fotos und Scans in MB (0 = unbegrenzt)
     speicherKontingentMb: Math.max(0, zahl(env.STORAGE_QUOTA_MB, 1024)),
     // Katalog auch ohne Anmeldung zeigen (öffentliche Seiten liefert ein Zusatzmodul)

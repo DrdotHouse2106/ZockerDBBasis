@@ -34,7 +34,16 @@ export function ladePlattformIndex(db) {
 
 export function ordnePlattformZu(index, text) {
   if (!text) return null;
-  return index.get(normal(text)) ?? null;
+  const treffer = index.get(normal(text));
+  if (treffer) return treffer;
+  // Doppelnamen wie „Atari 2600/VCS“ (CLZ Games): die Teile einzeln versuchen
+  if (String(text).includes('/')) {
+    for (const teil of String(text).split('/')) {
+      const t = teil.trim() && index.get(normal(teil));
+      if (t) return t;
+    }
+  }
+  return null;
 }
 
 export function erstellePlattformDienst(db) {

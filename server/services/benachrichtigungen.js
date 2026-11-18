@@ -11,10 +11,14 @@ const MAX_JE_BENUTZER = 200;
  */
 export const KATEGORIEN = [
   { id: 'beitraege', label: 'Deine Beiträge', beschreibung: 'Einreichungen, Fotos und Vorschläge wurden geprüft', arten: ['freigabe', 'ablehnung'] },
+  // Freigestellte Fotos: höchstens eine Meldung am Tag, die hochzählt – nie per E-Mail
+  { id: 'freistellen', label: 'Freigestellte Fotos', beschreibung: 'Fotos ohne Hintergrund warten auf deine Prüfung – höchstens einmal am Tag, zusammengefasst', arten: ['freistellen'], ohneEmail: true, standard: { app: true, email: false, push: true } },
   { id: 'sammlung', label: 'Sammlungspflege', beschreibung: 'Erinnerungen, z. B. an Exemplare ohne Zustandsbewertung (höchstens wöchentlich)', arten: ['sammlung'] },
   { id: 'leihe', label: 'Verleih', beschreibung: 'Erinnerungen an verliehene Spiele', arten: ['leihe'] },
   { id: 'community', label: 'Community & Erfolge', beschreibung: 'Freunde, neue Erfolge und Termine aus dem Kalender', arten: ['freunde', 'erfolg', 'kalender'] },
   { id: 'moderation', label: 'Moderation', beschreibung: 'Neue Meldungen und Prüfaufgaben', arten: ['moderation', 'meldung'], nurModeration: true },
+  // Technische Hinweise für Administratoren (z. B. Bot-Falle, Kopierschutz) – ganz abschaltbar, per E-Mail standardmäßig aus
+  { id: 'admin_hinweise', label: 'Sicherheitshinweise (Administration)', beschreibung: 'Auffälligkeiten wie Bot-Falle, Kopierschutz oder Missbrauch des Empfehlungsprogramms – Details stehen in der Administration', arten: ['admin_hinweis'], nurAdmin: true, standard: { app: true, email: false, push: false } },
   // Sicherheitsrelevantes bleibt in der App immer sichtbar
   { id: 'system', label: 'Konto & Sicherheit', beschreibung: 'Wichtige Hinweise zu deinem Konto – in der App immer an', arten: ['system', 'rolle'], appPflicht: true },
 ];
@@ -33,7 +37,34 @@ export function erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erwei
     alleGelesen: db.prepare('UPDATE benachrichtigungen SET gelesen = 1 WHERE benutzer_id = ? AND gelesen = 0'),
     eineGelesen: db.prepare('UPDATE benachrichtigungen SET gelesen = 1 WHERE benutzer_id = ? AND id = ?'),
     loeschen: db.prepare('DELETE FROM benachrichtigungen WHERE benutzer_id = ? AND id = ?'),
+    katalogKachel: db.prepare("SELECT id, titel, cover_url, erscheinungsjahr FROM katalog WHERE id = ? AND status = 'freigegeben'"),
+    artikelKachel: db.prepare(`SELECT a.id, COALESCE(k.titel, a.titel) AS titel, COALESCE(k.cover_url, a.cover_url) AS cover_url, a.plattform
+      FROM artikel a LEFT JOIN katalog k ON k.id = a.katalog_id WHERE a.id = ? AND a.benutzer_id = ?`),
   };
+
+  /**
+   * Bild zur Benachrichtigung für die E-Mail: Cover des verlinkten Spiels (#/katalog/…, eigenes Exemplar #/artikel/…);
+   * Zusatzmodule ergänzen weitere Ziele über den Andockpunkt „benachrichtigung.kachel“ (link, benutzerId) → { bild, titel, text }.
+   */
+  function kachelZu(link, benutzerId) {
+    try {
+      let t = /^#\/katalog\/(\d+)/.exec(link ?? '');
+      if (t) {
+        const k = q.katalogKachel.get(Number(t[1]));
+        return k?.cover_url ? { bild: k.cover_url, titel: k.titel, text: k.erscheinungsjahr ? String(k.erscheinungsjahr) : null } : null;
+      }
+      t = /^#\/artikel\/(\d+)/.exec(link ?? '');
+      if (t) {
+        const a = q.artikelKachel.get(Number(t[1]), benutzerId);
+        return a?.cover_url ? { bild: a.cover_url, titel: a.titel, text: a.plattform ?? null } : null;
+      }
+      for (const fn of erweiterungen?.alle('benachrichtigung.kachel') ?? []) {
+        const k = fn(link, benutzerId);
+        if (k?.bild) return k;
+      }
+    } catch { /* ein fehlendes Bild verhindert nie die E-Mail */ }
+    return null;
+  }
 
   // Kategorien des Kerns und der Zusatzmodule (erst beim Aufruf gesammelt – Module melden sich nach dem Anlegen an)
   const kategorien = () => [...(erweiterungen?.alle('benachrichtigungen.kategorien').flatMap((fn) => fn()) ?? []), ...KATEGORIEN];
@@ -41,10 +72,11 @@ export function erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erwei
   function auswahlVon(b) {
     try { return JSON.parse(b?.benachrichtigung_auswahl || '{}') ?? {}; } catch { return {}; }
   }
-  /** Was der Benutzer für diese Art eingestellt hat (fehlende Angaben = Standard: alles an). */
+  /** Was der Benutzer für diese Art eingestellt hat (fehlende Angaben = Standard der Kategorie, sonst alles an). */
   function einstellung(b, kat) {
-    const e = { ...STANDARD, ...(kat ? auswahlVon(b)[kat.id] : {}) };
+    const e = { ...STANDARD, ...(kat?.standard ?? {}), ...(kat ? auswahlVon(b)[kat.id] : {}) };
     if (kat?.appPflicht) e.app = true;
+    if (kat?.ohneEmail) e.email = false;
     return e;
   }
 
@@ -52,10 +84,11 @@ export function erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erwei
   function auswahl(benutzerId) {
     const b = q.empfaenger.get(benutzerId);
     const moderation = ['admin', 'moderator'].includes(b?.rolle);
+    const admin = b?.rolle === 'admin';
     return {
       kanaele: { email: Boolean(mail.aktiv && b?.email && konfiguration.oeffentlicheUrl), email_an: Boolean(b?.benachrichtigung_email), push: Boolean(push) },
-      kategorien: kategorien().filter((k) => !k.nurModeration || moderation).map((k) => ({
-        id: k.id, label: k.label, beschreibung: k.beschreibung, app_pflicht: Boolean(k.appPflicht), ...einstellung(b, k),
+      kategorien: kategorien().filter((k) => (!k.nurModeration || moderation) && (!k.nurAdmin || admin)).map((k) => ({
+        id: k.id, label: k.label, beschreibung: k.beschreibung, app_pflicht: Boolean(k.appPflicht), ohne_email: Boolean(k.ohneEmail), ...einstellung(b, k),
       })),
     };
   }
@@ -65,7 +98,7 @@ export function erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erwei
     for (const k of kategorien()) {
       const neu = eingabe?.[k.id];
       if (!neu || typeof neu !== 'object') continue;
-      alt[k.id] = { ...STANDARD, ...alt[k.id] };
+      alt[k.id] = { ...STANDARD, ...(k.standard ?? {}), ...alt[k.id] };
       for (const kanal of ['app', 'email', 'push']) if (typeof neu[kanal] === 'boolean') alt[k.id][kanal] = neu[kanal];
       if (k.appPflicht) alt[k.id].app = true;
     }
@@ -99,6 +132,7 @@ export function erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erwei
         text: `${gruss}\n\n${titel}${text ? `\n${text}` : ''}\n\n${url}\n\nWelche E-Mails du bekommst, stellst du unter „Konto“ → „Benachrichtigungen“ ein.`,
         html: mailHtml({
           titel, absaetze: [gruss, text].filter(Boolean), knopf: { text: `In ${MARKE.name} ansehen`, url },
+          abschnitte: (() => { const k = kachelZu(link, b.id); return k ? [{ kacheln: [{ ...k, url }] }] : []; })(),
           fuss: 'Welche E-Mails du bekommst, stellst du in der App unter „Konto“ → „Benachrichtigungen“ ein.',
         }),
       }).catch((e) => console.warn('[benachrichtigung]', e.message));

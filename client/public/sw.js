@@ -3,7 +3,7 @@
 // - Gebaute Assets & Coverbilder: Cache zuerst (Dateinamen enthalten Hashes)
 // - API-GET-Anfragen: Netzwerk zuerst, offline die zuletzt gesehene Antwort
 
-const VERSION = 'v12';
+const VERSION = 'v13';
 // Vom Server erzeugte Seiten (geteilte Sammlung) nicht durch die App-Hülle ersetzen
 let SERVERSEITEN = /^\/sammlung(\/|$)/;
 const HUELLE = `huelle-${VERSION}`;

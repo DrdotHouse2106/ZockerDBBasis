@@ -10,6 +10,6 @@ test('Exemplar als privat markieren', async ({ page }) => {
   await page.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByText('Privat – nur für dich sichtbar')).toBeVisible();
   expect((await (await page.request.get(`/api/artikel/${a.id}`)).json()).privat).toBe(1);
-  await page.goto('/?app=1#/');
+  await page.goto('/?app=1#/sammlung');
   await expect(page.getByRole('img', { name: 'Privat – nur für dich sichtbar' })).toBeVisible();
 });

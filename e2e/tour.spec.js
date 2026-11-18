@@ -5,7 +5,7 @@ import { anmelden, fehlerSammeln, keinQuerScrollen } from './hilfen.js';
 test('Tour „Erste Schritte“ mit Beispieleintrag', async ({ page }) => {
   const fehler = fehlerSammeln(page);
   await anmelden(page, 'tour_e2e');
-  await page.goto('/?app=1#/');
+  await page.goto('/?app=1#/sammlung');
   await expect(page.getByText('Neu hier? Wir zeigen dir alles.')).toBeVisible();
   await page.getByRole('button', { name: 'Tour starten' }).click();
 
@@ -49,14 +49,14 @@ test('Tour „Erste Schritte“ mit Beispieleintrag', async ({ page }) => {
   await expect.poll(async () => (await (await page.request.get('/api/auth/status')).json()).benutzer.touren['erste-schritte']).toBe('fertig');
   await page.goto('/?app=1#/einstellungen');
   await expect(page.getByText('✓ erledigt')).toBeVisible();
-  await page.goto('/?app=1#/');
+  await page.goto('/?app=1#/sammlung');
   await expect(page.getByText('Neu hier? Wir zeigen dir alles.')).toHaveCount(0);
   expect(fehler).toEqual([]);
 });
 
 test('Tour abbrechen: Esc beendet, Beispiel verschwindet, Angebot kommt nicht wieder', async ({ page }) => {
   await anmelden(page, 'tour_abbruch_e2e');
-  await page.goto('/?app=1#/');
+  await page.goto('/?app=1#/sammlung');
   await page.getByRole('button', { name: 'Nein danke' }).click();
   await expect(page.getByText('Neu hier? Wir zeigen dir alles.')).toHaveCount(0);
   await expect.poll(async () => (await (await page.request.get('/api/auth/status')).json()).benutzer.touren['erste-schritte']).toBe('abgelehnt');

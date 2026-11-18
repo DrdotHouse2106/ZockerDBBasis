@@ -106,6 +106,13 @@ body {
   padding-bottom: calc(env(safe-area-inset-bottom) * 0.6);
 }
 
+.seite-sicher {
+  /* Seiten mit eigenem Rahmen (Anmeldung, Passwort-Links): in der App und als Homescreen-App reicht der Inhalt bis
+     unter Statusleiste und Home-Balken – deshalb mindestens den gewohnten Abstand, sonst Safe-Area plus etwas Luft */
+  padding-top: max(2.5rem, calc(env(safe-area-inset-top) + 1rem));
+  padding-bottom: max(2.5rem, calc(env(safe-area-inset-bottom) + 1rem));
+}
+
 /* Geführte Touren: pulsierender Rahmen und hüpfender Finger bei „Hier tippen“ */
 @keyframes tour-puls {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-akzent) 60%, transparent); }

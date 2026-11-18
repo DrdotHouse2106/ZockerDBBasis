@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { MARKE } from '../../../shared/marke.js';
-import { FUNKTIONEN, AUSBLENDBARE_FELDER } from '../../../shared/konstanten.js';
+import { FUNKTIONEN, AUSBLENDBARE_FELDER, AVATAR_SYMBOLE, AVATAR_FARBEN } from '../../../shared/konstanten.js';
+import Avatar, { avatarVergessen } from '../komponenten/Avatar.jsx';
 import { api } from '../api.js';
+import { apiUrl, FREISTELL_SYSTEME } from '../zugang.js';
+import { nativesFreistellen } from '../nativ.js';
+import FreistellenPruefenHinweis from '../komponenten/FreistellenPruefenHinweis.jsx';
 import { useSitzung } from '../sitzung.js';
 import { datumDe } from '../format.js';
 import Layout from '../komponenten/Layout.jsx';
@@ -42,6 +46,7 @@ export default function Konto({ route }) {
         {!konto ? <p className="text-leise">Wird geladen …</p> : (
           <>
             <Profil konto={konto} onSpeichern={speichereProfil} />
+            {!pflicht && <AvatarAuswahl konto={konto} onSpeichern={speichereProfil} onBild={(avatar) => { setKonto((k) => ({ ...k, avatar })); avatarVergessen(konto.id); aktualisiere(); }} />}
             {!pflicht && <EmailAdresse konto={konto} onGeaendert={laden} onSpeichern={speichereProfil} />}
             {!pflicht && <Benachrichtigungen emailAn={konto.benachrichtigung_email} email={konto.email} />}
             <ZweiFaktor konto={konto} pflicht={auth?.zweiFaktorPflicht} onGeaendert={() => { laden(); aktualisiere(); }} />
@@ -49,6 +54,8 @@ export default function Konto({ route }) {
               <>
                 <Sichtbarkeit konto={konto} onSpeichern={speichereProfil} />
                 {status?.fotosTeilenErlaubt && <FotosNachfragen konto={konto} onSpeichern={speichereProfil} oeffentlichMoeglich={Boolean(status?.oeffentlicheFotos)} />}
+                <FreistellenPruefenHinweis zuPruefen={konto.freistellen?.zuPruefen} />
+                <FreistellenHelfer konto={konto} onSpeichern={speichereProfil} />
                 <ZusatzFelder konto={konto} onSpeichern={speichereProfil} />
                 <KontoZockerdb konto={konto} onSpeichern={speichereProfil} />
                 <Andockpunkt name="konto.einstellungen" konto={konto} onSpeichern={speichereProfil} />
@@ -70,7 +77,8 @@ export default function Konto({ route }) {
                     <button type="button" className="knopf-sekundaer" onClick={abmelden}><Symbol name="abmelden" className="size-4" />Abmelden</button>
                   </div>
                 </section>
-                <KontoLoeschen />
+                <SammlungLeeren />
+                <KontoLoeschen geteilteFotos={konto.geteilte_fotos ?? 0} />
               </>
             )}
             {pflicht && <button type="button" className="knopf-sekundaer" onClick={abmelden}><Symbol name="abmelden" className="size-4" />Abmelden</button>}
@@ -78,6 +86,79 @@ export default function Konto({ route }) {
         )}
       </div>
     </Layout>
+  );
+}
+
+/** Avatar: Symbol und Farbe wählen oder ein eigenes Bild hochladen (ersetzt das Symbol). */
+function AvatarAuswahl({ konto, onSpeichern, onBild }) {
+  const zeigeHinweis = useHinweis();
+  const [laedt, setLaedt] = useState(false);
+  const avatar = konto.avatar ?? {};
+  async function bildGewaehlt(e) {
+    const datei = e.target.files?.[0];
+    e.target.value = '';
+    if (!datei) return;
+    setLaedt(true);
+    try {
+      onBild((await api.avatarBild(datei)).avatar);
+      zeigeHinweis('Profilbild gespeichert.');
+    } catch (fehler) {
+      zeigeHinweis(fehler.message, 'fehler');
+    } finally {
+      setLaedt(false);
+    }
+  }
+  async function bildEntfernen() {
+    try {
+      onBild((await api.avatarBildEntfernen()).avatar);
+      zeigeHinweis('Profilbild entfernt – jetzt wird dein Symbol gezeigt.');
+    } catch (fehler) { zeigeHinweis(fehler.message, 'fehler'); }
+  }
+  const waehle = (aenderung) => { avatarVergessen(konto.id); onSpeichern(aenderung); };
+  return (
+    <section className="karte space-y-3 p-4" data-testid="avatar-auswahl" data-tour="konto-avatar">
+      <h2 className="flex items-center gap-2 font-semibold"><Symbol name="benutzer" className="size-5" />Avatar</h2>
+      <div className="flex items-center gap-4">
+        <Avatar avatar={avatar} name={konto.anzeigename} groesse="gross" />
+        <div className="space-y-2 text-sm">
+          <label className={`knopf-sekundaer w-fit cursor-pointer px-3 py-1.5 ${laedt ? 'opacity-60' : ''}`}>
+            <Symbol name="kamera" className="size-4" />{laedt ? 'Wird hochgeladen …' : avatar.url ? 'Anderes Bild' : 'Eigenes Bild hochladen'}
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={laedt} onChange={bildGewaehlt} data-testid="avatar-datei" />
+          </label>
+          {avatar.url && <button type="button" className="block text-leise underline" onClick={bildEntfernen}>Bild entfernen</button>}
+        </div>
+      </div>
+      <p className="text-xs text-leise">
+        Dein Avatar erscheint oben in der Kopfleiste und überall neben deinem Namen, wo andere Sammler dich sehen. Ein eigenes Bild sehen nur angemeldete
+        Sammler; es wird auf 256 × 256 Pixel zugeschnitten, Kameradaten werden entfernt. Bitte keine Fotos anderer Personen und nichts Anstößiges –
+        unpassende Bilder entfernt die Administration. Auf geteilten Sammlungsseiten (ohne Anmeldung) erscheint nur dein Symbol.
+      </p>
+      <fieldset className="space-y-1">
+        <legend className="text-sm font-medium">Symbol {avatar.url && <span className="text-xs font-normal text-leise">(wird statt eines Bildes gezeigt)</span>}</legend>
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" aria-pressed={!avatar.symbol} title="Anfangsbuchstabe" onClick={() => waehle({ avatar_symbol: '' })}
+            className={`grid size-9 place-items-center rounded-full border text-sm font-bold ${!avatar.symbol ? 'border-akzent ring-2 ring-akzent' : 'border-rand'}`}>
+            {String(konto.anzeigename ?? '?').slice(0, 1).toUpperCase()}
+          </button>
+          {AVATAR_SYMBOLE.map((s) => (
+            <button key={s} type="button" aria-pressed={avatar.symbol === s} aria-label={`Symbol ${s}`} onClick={() => waehle({ avatar_symbol: s })}
+              className={`grid size-9 place-items-center rounded-full border text-lg ${avatar.symbol === s ? 'border-akzent ring-2 ring-akzent' : 'border-rand'}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="space-y-1">
+        <legend className="text-sm font-medium">Farbe</legend>
+        <div className="flex flex-wrap gap-1.5">
+          {AVATAR_FARBEN.map((f) => (
+            <button key={f.hex} type="button" aria-pressed={avatar.farbe === f.hex} aria-label={`Farbe ${f.name}`} title={f.name}
+              onClick={() => waehle({ avatar_farbe: f.hex })}
+              className={`size-8 rounded-full border-2 ${avatar.farbe === f.hex ? 'border-text ring-2 ring-akzent' : 'border-transparent'}`} style={{ backgroundColor: f.hex }} />
+          ))}
+        </div>
+      </fieldset>
+    </section>
   );
 }
 
@@ -179,6 +260,48 @@ function FotosNachfragen({ konto, onSpeichern, oeffentlichMoeglich }) {
             <span className="block text-xs text-leise">Beim Hochladen ist das Häkchen dann schon gesetzt; je Foto lässt es sich abwählen. Gezeigt wird jedes Foto erst nach der Prüfung.</span>
           </span>
         </label>
+      )}
+    </section>
+  );
+}
+
+/** Helfer-Gerät fürs Freistellen: nur, wenn die Funktion an ist und das Konto freigeschaltet wurde (Admins und Moderatoren immer). */
+function FreistellenHelfer({ konto, onSpeichern }) {
+  const freistellen = konto.freistellen;
+  const [hilft, setHilft] = useState(freistellen?.hilft === true);
+  useEffect(() => { setHilft(freistellen?.hilft === true); }, [freistellen?.hilft]);
+  const [limit, setLimit] = useState(String(freistellen?.limit ?? 50));
+  useEffect(() => { setLimit(String(freistellen?.limit ?? 50)); }, [freistellen?.limit]);
+  if (!freistellen?.aktiv || !freistellen.freigeschaltet) return null;
+  return (
+    <section className="karte space-y-2 p-4">
+      <h2 className="flex items-center gap-2 font-semibold"><Symbol name="kamera" className="size-5" />Beim Freistellen helfen</h2>
+      <label className="flex items-start gap-2 text-sm" data-testid="freistellen-helfer">
+        <input type="checkbox" className="mt-1 size-4 accent-akzent" checked={hilft}
+          onChange={(e) => { setHilft(e.target.checked); onSpeichern({ freistellen_hilft: e.target.checked }); }} />
+        <span>
+          Mein Handy hilft beim Freistellen von Fotos
+          <span className="block text-xs text-leise">
+            Nur in der App{FREISTELL_SYSTEME ? ` (${FREISTELL_SYSTEME})` : ''}: Sie holt sich Fotos von Figuren, Karten und Geräten aus der Warteschlange und entfernt den Hintergrund
+            auf dem Gerät – am besten am Ladegerät über „Freistellen nachholen“. Die Fotos werden dabei nicht angezeigt. Der Fotograf entscheidet danach selbst,
+            ob das Ergebnis gezeigt wird.
+          </span>
+        </span>
+      </label>
+      {hilft && (
+        <label className="flex flex-wrap items-center gap-2 text-sm" data-testid="freistellen-limit">
+          <span>Höchstens</span>
+          <select className="eingabe py-1" value={limit} onChange={(e) => { setLimit(e.target.value); onSpeichern({ freistellen_limit: Number(e.target.value) }); }}>
+            {[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100'], ['250', '250'], ['0', 'unbegrenzt viele']].map(([w, t]) => <option key={w} value={w}>{t}</option>)}
+          </select>
+          <span>Fotos am Tag{freistellen.heute ? ` · heute schon ${freistellen.heute}` : ''}</span>
+          <span className="block w-full text-xs text-leise">Danach bekommt dein Handy bis zum nächsten Tag keine weiteren Aufträge – so läuft es nicht ewig, nur weil wenige Helfer da sind.</span>
+        </label>
+      )}
+      {hilft && nativesFreistellen() && (
+        <a className="knopf-sekundaer w-fit" href="#/freistellen-nachholen" data-tour="freistellen-nachholen">
+          <Symbol name="kamera" className="size-4" />Freistellen nachholen
+        </a>
       )}
     </section>
   );
@@ -353,12 +476,13 @@ function PasswortAendern() {
 }
 
 /** Grobe Gerätebezeichnung aus der Browserkennung, z. B. „Firefox unter Windows“ bzw. „App · iPhone“. */
-function geraetName(ua = '', app = false) {
+function geraetName(ua = '', art = 'web') {
   const system = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
     : /Windows/.test(ua) ? 'Windows' : /Mac OS X|Macintosh/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : null;
   const browser = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome'
     : /Safari\//.test(ua) ? 'Safari' : null;
-  if (app) return `App · ${system ?? 'Handy'}`;
+  if (art === 'freistellen') return `Freistellen im Hintergrund · ${system ?? 'Handy'}`;
+  if (art === 'app') return `App · ${system ?? 'Handy'}`;
   if (browser && system) return `${browser} unter ${system}`;
   return browser ?? system ?? 'Unbekanntes Gerät';
 }
@@ -379,7 +503,7 @@ function Geraete() {
       {liste.map((s) => (
         <li key={s.id} className="flex items-center justify-between gap-3 py-2">
           <div className="min-w-0">
-            <p className="truncate font-medium">{geraetName(s.geraet ?? '', s.art === 'app')}
+            <p className="truncate font-medium">{geraetName(s.geraet ?? '', s.art)}
               {s.aktuell && <span className="ml-2 text-xs text-akzent-hell">dieses Gerät</span>}</p>
             <p className="text-xs text-leise">Angemeldet am {datumDe(s.erstellt_am)} · zuletzt aktiv am {datumDe(s.zuletzt_aktiv)}</p>
           </div>
@@ -398,11 +522,53 @@ function Geraete() {
   );
 }
 
-function KontoLoeschen() {
+/** Alle eigenen Einträge löschen und bei null anfangen – das Konto, Einstellungen, Freunde und Fotos bleiben. */
+function SammlungLeeren() {
+  const zeigeHinweis = useHinweis();
+  const [offen, setOffen] = useState(false);
+  const [passwort, setPasswort] = useState('');
+  const [fehler, setFehler] = useState(null);
+  return (
+    <section className="karte space-y-3 border-gefahr/40 p-4" data-testid="sammlung-leeren">
+      <h2 className="font-semibold text-gefahr">Sammlung leeren</h2>
+      <p className="text-sm text-leise">
+        Löscht alle Einträge deiner Sammlung – auch Verkauftes, Abgegebenes und Verliehenes – samt Konvoluten, um bei null anzufangen.
+        Konto, Einstellungen, Wunschliste, Freunde und Fotos bleiben erhalten; geteilte Fotos bleiben beim Katalogeintrag.
+      </p>
+      {!offen ? (
+        <button type="button" className="knopf-gefahr" onClick={() => setOffen(true)}>Alle Einträge löschen …</button>
+      ) : (
+        <form className="space-y-3" onSubmit={async (e) => {
+          e.preventDefault();
+          if (!window.confirm('Wirklich alle Einträge endgültig löschen? Das lässt sich nicht rückgängig machen.')) return;
+          try {
+            const { geloescht } = await api.sammlungLeeren(passwort);
+            zeigeHinweis(geloescht === 1 ? 'Ein Eintrag gelöscht – deine Sammlung ist leer.' : `${geloescht} Einträge gelöscht – deine Sammlung ist leer.`);
+            setOffen(false);
+            setPasswort('');
+            setFehler(null);
+          } catch (err) {
+            setFehler(Object.values(err.felder ?? {})[0] ?? err.message);
+          }
+        }}>
+          <p className="text-sm">
+            Tipp: Sichere vorher alles unter „Mehr → Datensicherung“: <a className="underline" href={apiUrl('/api/export.json')} download>JSON-Export herunterladen</a> (lässt sich wieder importieren).
+          </p>
+          <PasswortFeld wert={passwort} onChange={setPasswort} label="Passwort zur Bestätigung" />
+          <Aktionen fehler={fehler} onAbbrechen={() => { setOffen(false); setFehler(null); }} text="Alle Einträge löschen" gefahr />
+        </form>
+      )}
+    </section>
+  );
+}
+
+function KontoLoeschen({ geteilteFotos = 0 }) {
   const { aktualisiere } = useSitzung();
   const [offen, setOffen] = useState(false);
   const [passwort, setPasswort] = useState('');
   const [fehler, setFehler] = useState(null);
+  // Geteilte Fotos: löschen (Standard) oder anonym der Community überlassen – Einwilligung genau hier
+  const [ueberlassen, setUeberlassen] = useState(false);
   return (
     <>
     <section className="karte space-y-2 p-4">
@@ -410,7 +576,7 @@ function KontoLoeschen() {
       <p className="text-sm text-leise">
         Alle zu deinem Konto gespeicherten Daten als Datei (maschinenlesbar, Art. 15 und 20 DSGVO).
       </p>
-      <a className="knopf-sekundaer w-fit" href="/api/export/datenauskunft.json" download>Datenauskunft herunterladen</a>
+      <a className="knopf-sekundaer w-fit" href={apiUrl('/api/export/datenauskunft.json')} download>Datenauskunft herunterladen</a>
     </section>
     <Andockpunkt name="konto.vertraege" />
     <section className="karte space-y-3 border-gefahr/40 p-4">
@@ -420,9 +586,10 @@ function KontoLoeschen() {
       ) : (
         <form className="space-y-3" onSubmit={async (e) => {
           e.preventDefault();
-          if (!window.confirm('Wirklich endgültig löschen? Alle Artikel, Fotos und Scans gehen verloren.')) return;
+          const fotoHinweis = geteilteFotos && ueberlassen ? ` Deine ${geteilteFotos} geteilten Fotos bleiben ohne deinen Namen in der Community.` : '';
+          if (!window.confirm(`Wirklich endgültig löschen? Alle Artikel, Fotos und Scans gehen verloren.${fotoHinweis}`)) return;
           try {
-            await api.kontoLoeschen(passwort);
+            await api.kontoLoeschen(passwort, { fotosUeberlassen: Boolean(geteilteFotos && ueberlassen) });
             await aktualisiere();
           } catch (err) {
             setFehler(Object.values(err.felder ?? {})[0] ?? err.message);
@@ -431,6 +598,27 @@ function KontoLoeschen() {
           <p className="text-sm text-leise">
             Tipp: Erstelle vorher unter „Mehr → Datensicherung“ einen Export.
           </p>
+          {geteilteFotos > 0 && (
+            <fieldset className="space-y-2 rounded-lg border border-rand p-3 text-sm" data-testid="loeschen-fotos">
+              <legend className="px-1 font-medium">
+                Du hast {geteilteFotos === 1 ? 'ein Foto' : `${geteilteFotos} Fotos`} mit der Community geteilt. Was soll damit passieren?
+              </legend>
+              <label className="flex items-start gap-2">
+                <input type="radio" name="fotos" className="mt-1" checked={!ueberlassen} onChange={() => setUeberlassen(false)} />
+                <span>Mit meinem Konto löschen</span>
+              </label>
+              <label className="flex items-start gap-2">
+                <input type="radio" name="fotos" className="mt-1" checked={ueberlassen} onChange={() => setUeberlassen(true)} />
+                <span>
+                  Der Community überlassen – ohne meinen Namen
+                  <span className="block text-xs text-leise">
+                    Die Fotos bleiben im bisherigen Umfang sichtbar (öffentlich nur, wenn du das erlaubt hattest), aber ohne Bezug zu dir.
+                    Du räumst dafür das zeitlich unbeschränkte Recht ein, sie weiter zu zeigen. Private und noch nicht geprüfte Fotos werden immer gelöscht.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+          )}
           <PasswortFeld wert={passwort} onChange={setPasswort} label="Passwort zur Bestätigung" />
           <Aktionen fehler={fehler} onAbbrechen={() => setOffen(false)} text="Endgültig löschen" gefahr />
         </form>
@@ -581,7 +769,7 @@ function Benachrichtigungen({ emailAn, email }) {
               <p className="text-xs text-leise">{k.beschreibung}</p>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
-              {spalten.map((s) => {
+              {spalten.filter((s) => !(s.id === 'email' && k.ohne_email)).map((s) => {
                 const gesperrt = s.id === 'app' && k.app_pflicht;
                 return (
                   <label key={s.id} className={`flex items-center gap-2 text-sm ${gesperrt ? 'text-leise' : ''}`}>

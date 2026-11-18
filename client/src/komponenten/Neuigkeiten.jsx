@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import Symbol from './Symbole.jsx';
+import { nenntFremdePlattform } from '../zugang.js';
 
 const SCHLUESSEL = 'neuigkeiten-spaeter';
 const datumKurz = (iso) => iso.split('-').reverse().join('.');
@@ -11,7 +12,9 @@ export default function Neuigkeiten() {
   useEffect(() => {
     try { if (sessionStorage.getItem(SCHLUESSEL) === '1') return; } catch { /* egal */ }
     if (!navigator.onLine) return;
-    api.neuigkeiten().then((d) => setEintraege(d.eintraege ?? [])).catch(() => {});
+    api.neuigkeiten().then((d) => setEintraege((d.eintraege ?? [])
+      .map((e) => ({ ...e, punkte: e.punkte.filter((p) => !nenntFremdePlattform(p)) }))
+      .filter((e) => e.punkte.length && !nenntFremdePlattform(e.titel)))).catch(() => {});
   }, []);
   if (!eintraege.length) return null;
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, SPIELSTATUS, beschriftung,
+  ARTIKELTYPEN, MERCH_KATEGORIEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, SPIELSTATUS, beschriftung,
 } from '../../../shared/konstanten.js';
 import { api } from '../api.js';
 import { euro, anzahl, datumDe, euroMitVorzeichen } from '../format.js';
@@ -34,7 +34,7 @@ export default function Statistik({ route }) {
               <a href="#/konvolute" className="underline">Konvolute{daten.konvolute?.anzahl ? ` (${anzahl(daten.konvolute.anzahl)})` : ''}</a>
             </p>
           )}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {ARTIKELTYPEN.map((t) => (
               <Kachel key={t.value} titel={t.mehrzahl} wert={anzahl(daten.nachTyp.find((z) => z.wert === t.value)?.stueck ?? 0)} klein />
             ))}
@@ -42,6 +42,9 @@ export default function Statistik({ route }) {
 
           <div className="grid gap-4 md:grid-cols-2">
             <Balkenliste titel="Nach Plattform" zeilen={daten.nachPlattform} beschrifte={(w) => w ?? 'Ohne Plattform'} />
+            {daten.nachMerchKategorie?.length > 0 && (
+              <Balkenliste titel="Merch nach Kategorie" zeilen={daten.nachMerchKategorie} beschrifte={(w) => (w ? beschriftung(MERCH_KATEGORIEN, w) : 'Ohne Kategorie')} />
+            )}
             <Balkenliste titel="Nach Region" zeilen={daten.nachRegion} beschrifte={(w) => (w ? beschriftung(REGIONEN, w) : 'Keine Angabe')} />
             <Balkenliste titel="Nach Zustand" zeilen={daten.nachZustand} beschrifte={(w) => (w ? beschriftung(ZUSTAENDE, w) : 'Keine Angabe')} />
             <Balkenliste titel="Nach Vollständigkeit" zeilen={daten.nachVollstaendigkeit} beschrifte={(w) => (w ? beschriftung(VOLLSTAENDIGKEITEN, w) : 'Keine Angabe')} />
@@ -57,10 +60,10 @@ export default function Statistik({ route }) {
                 const n = (w) => daten.spielstatus.find((z) => z.wert === w)?.anzahl ?? 0;
                 return (
                   <>
-                    <p className="text-sm"><a href="#/?spielstatus=nicht_gespielt" className="underline"><strong>Pile of Shame: {anzahl(n('nicht_gespielt'))}</strong> Spiele noch nicht gespielt</a></p>
+                    <p className="text-sm"><a href="#/sammlung?spielstatus=nicht_gespielt" className="underline"><strong>Pile of Shame: {anzahl(n('nicht_gespielt'))}</strong> Spiele noch nicht gespielt</a></p>
                     <div className="flex flex-wrap gap-2">
                       {SPIELSTATUS.map((s) => (
-                        <a key={s.value} href={`#/?spielstatus=${s.value}`} className="chip">{s.icon} {s.label}: {anzahl(n(s.value))}</a>
+                        <a key={s.value} href={`#/sammlung?spielstatus=${s.value}`} className="chip">{s.icon} {s.label}: {anzahl(n(s.value))}</a>
                       ))}
                       {n('ohne') > 0 && <span className="chip opacity-70">ohne Angabe: {anzahl(n('ohne'))}</span>}
                     </div>
@@ -76,7 +79,7 @@ export default function Statistik({ route }) {
                 <strong>{anzahl(daten.digital.eintraege)} digitale Spiele</strong>
                 {daten.digital.minuten > 0 && ` · ${anzahl(Math.round(daten.digital.minuten / 60))} Stunden gespielt`} – nicht in den Zahlen oben enthalten.
               </span>
-              <a href="#/?bestand=digital" className="underline">Ansehen</a>
+              <a href="#/sammlung?bestand=digital" className="underline">Ansehen</a>
             </p>
           )}
 
@@ -84,7 +87,7 @@ export default function Statistik({ route }) {
             <section className="karte space-y-3 p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-semibold">Verkäufe</h2>
-                <a href="#/?bestand=weg" className="text-sm text-akzent-hell hover:underline">Verkauft & abgegeben ansehen →</a>
+                <a href="#/sammlung?bestand=weg" className="text-sm text-akzent-hell hover:underline">Verkauft & abgegeben ansehen →</a>
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <Kachel titel="Verkauft" wert={`${anzahl(daten.verkauf.stueck)} Stück`} klein />

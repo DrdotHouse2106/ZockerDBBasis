@@ -1,6 +1,6 @@
 // Bekannte Varianten/Revisionen eines Katalogeintrags als Sammel-Checkliste.
 import { useState } from 'react';
-import { REGIONEN, beschriftung, istModerator, KATALOGBEITRAG_HINWEIS } from '../../../shared/konstanten.js';
+import { REGIONEN, beschriftung, istModerator, KATALOGBEITRAG_HINWEIS, lieferumfangText } from '../../../shared/konstanten.js';
 import { MODUL } from '../erweiterungen.jsx';
 
 // Einreichen für einen gemeinsamen Katalog gibt es nur mit einem Modul, das die Prüfung übernimmt
@@ -10,6 +10,7 @@ import { navigiere } from '../router.js';
 import { useSitzung } from '../sitzung.js';
 import Symbol from './Symbole.jsx';
 import StatusAbzeichen from './StatusAbzeichen.jsx';
+import LieferumfangWahl from './LieferumfangWahl.jsx';
 import { useHinweis } from './Hinweise.jsx';
 
 export default function VariantenListe({ katalogId, katalogTyp, varianten, onGeaendert }) {
@@ -17,6 +18,7 @@ export default function VariantenListe({ katalogId, katalogTyp, varianten, onGea
   const zeigeHinweis = useHinweis();
   const [formOffen, setFormOffen] = useState(false);
   const [bearbeitet, setBearbeitet] = useState(null);
+  const [vorschlagFuer, setVorschlagFuer] = useState(null);
   const moderator = istModerator(benutzer);
   const vorhanden = varianten.filter((v) => v.meine > 0).length;
 
@@ -54,6 +56,12 @@ export default function VariantenListe({ katalogId, katalogTyp, varianten, onGea
                   {[v.modellnummer !== v.bezeichnung && v.modellnummer, v.farbe, v.edition, beschriftung(REGIONEN, v.region, 'kurz'), v.erscheinungsjahr]
                     .filter(Boolean).join(' · ')}
                 </span>
+                {lieferumfangText(v.lieferumfang) && <span className="block text-xs" data-testid="lieferumfang-text">Lieferumfang: {lieferumfangText(v.lieferumfang)}</span>}
+                {benutzer && !moderator && !formOffen && vorschlagFuer !== v.id && (
+                  <button type="button" className="mt-0.5 text-xs text-akzent-hell underline" onClick={() => setVorschlagFuer(v.id)}>
+                    {v.lieferumfang ? 'Lieferumfang ändern vorschlagen' : 'Lieferumfang vorschlagen'}
+                  </button>
+                )}
                 {v.status !== 'freigegeben' && <StatusAbzeichen status={v.status} className="mt-1" />}
                 {v.status === 'abgelehnt' && v.pruefung_notiz && <span className="block text-xs text-gefahr">{v.pruefung_notiz}</span>}
                 {v.status === 'freigegeben' && v.automatisch_geprueft === 1 && <span className="abzeichen mt-1" title="Automatisch durch KI geprüft">KI-geprüft</span>}
@@ -89,6 +97,12 @@ export default function VariantenListe({ katalogId, katalogTyp, varianten, onGea
           ))}
         </ul>
       )}
+      {vorschlagFuer && (
+        <LieferumfangVorschlag variante={varianten.find((v) => v.id === vorschlagFuer)} onFertig={(gesendet) => {
+          setVorschlagFuer(null);
+          if (gesendet) onGeaendert?.();
+        }} />
+      )}
       {bearbeitet && <VarianteFormular moderator={moderator} vorlage={bearbeitet} onFertig={async (daten) => {
         if (!daten) return setBearbeitet(null);
         await api.varianteAendern(bearbeitet.id, daten);
@@ -111,6 +125,7 @@ function VarianteFormular({ moderator, onFertig, vorlage }) {
   const [w, setW] = useState({
     bezeichnung: vorlage?.bezeichnung ?? '', modellnummer: vorlage?.modellnummer ?? '', farbe: vorlage?.farbe ?? '', edition: vorlage?.edition ?? '',
     region: vorlage?.region ?? '', erscheinungsjahr: vorlage?.erscheinungsjahr ?? '', beschreibung: vorlage?.beschreibung ?? '',
+    lieferumfang: vorlage?.lieferumfang ?? null,
     freigabe: moderator ? 'veroeffentlichen' : MODERATION ? 'einreichen' : 'privat',
   });
   const [fehler, setFehler] = useState(null);
@@ -136,6 +151,11 @@ function VarianteFormular({ moderator, onFertig, vorlage }) {
         </label>
         <label><span className="beschriftung">Erscheinungsjahr</span><input className="eingabe" inputMode="numeric" value={w.erscheinungsjahr} onChange={setze('erscheinungsjahr')} /></label>
         <label className="sm:col-span-2"><span className="beschriftung">Beschreibung (optional)</span><input className="eingabe" value={w.beschreibung} onChange={setze('beschreibung')} placeholder="Erkennungsmerkmale, Unterschiede …" /></label>
+        <div className="sm:col-span-2">
+          <span className="beschriftung">Lieferumfang (bei Sonderausgaben)</span>
+          <LieferumfangWahl wert={w.lieferumfang} onChange={(lu) => setW((x) => ({ ...x, lieferumfang: lu }))} />
+          <span className="mt-1 block text-xs text-leise">Was gehört zu dieser Ausgabe? Das Exemplar zeigt dann genau diese Punkte in der Beilagen-Checkliste.</span>
+        </div>
         {!vorlage && <label className="sm:col-span-2"><span className="beschriftung">Sichtbarkeit</span>
           <select className="eingabe" value={w.freigabe} onChange={setze('freigabe')}>
             <option value="privat">Nur für mich</option>
@@ -149,6 +169,42 @@ function VarianteFormular({ moderator, onFertig, vorlage }) {
       <div className="flex gap-2">
         <button type="button" className="knopf-sekundaer" onClick={() => onFertig(null)}>Abbrechen</button>
         <button type="submit" className="knopf-primaer">Speichern</button>
+      </div>
+    </form>
+  );
+}
+
+/** Lieferumfang einer bestehenden Ausgabe vorschlagen – optional mit Foto; die Moderation bestätigt. */
+function LieferumfangVorschlag({ variante, onFertig }) {
+  const zeigeHinweis = useHinweis();
+  const [lu, setLu] = useState(variante.lieferumfang ?? null);
+  const [begruendung, setBegruendung] = useState('');
+  const [foto, setFoto] = useState(null);
+  const [laeuft, setLaeuft] = useState(false);
+  return (
+    <form className="space-y-3 rounded-xl border border-rand p-3" data-testid="lieferumfang-vorschlag" onSubmit={async (e) => {
+      e.preventDefault();
+      setLaeuft(true);
+      try {
+        const r = await api.lieferumfangVorschlagen(variante.id, { lieferumfang: lu, begruendung, foto });
+        zeigeHinweis(r.vorgeschlagen ? 'Danke! Die Moderation prüft deinen Vorschlag.' : r.unveraendert ? 'Das steht schon so da.' : 'Lieferumfang gespeichert.');
+        onFertig(true);
+      } catch (err) {
+        zeigeHinweis(Object.values(err.felder ?? {})[0] ?? err.message, 'fehler');
+      } finally { setLaeuft(false); }
+    }}>
+      <p className="text-sm font-medium">Lieferumfang von „{variante.bezeichnung}“</p>
+      <LieferumfangWahl wert={lu} onChange={setLu} />
+      <label className="block text-sm"><span className="beschriftung">Woher weißt du das? (optional)</span>
+        <input className="eingabe" value={begruendung} maxLength={500} onChange={(e) => setBegruendung(e.target.value)} placeholder="z. B. eigenes Exemplar, Angabe auf der Rückseite" />
+      </label>
+      <label className="block text-sm"><span className="beschriftung">Foto der Beilagen (optional)</span>
+        <input type="file" accept="image/*" className="block text-xs" onChange={(e) => setFoto(e.target.files?.[0] ?? null)} />
+        <span className="block text-xs text-leise">Das Foto sieht nur die Moderation und wird nach der Entscheidung gelöscht.</span>
+      </label>
+      <div className="flex gap-2">
+        <button type="button" className="knopf-sekundaer" onClick={() => onFertig(false)}>Abbrechen</button>
+        <button type="submit" className="knopf-primaer" disabled={!lu || laeuft}>{laeuft ? 'Wird gesendet …' : 'Vorschlag senden'}</button>
       </div>
     </form>
   );

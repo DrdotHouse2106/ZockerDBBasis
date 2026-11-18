@@ -1,4 +1,4 @@
-import { ALLE_WERTE, BEILAGEN, INLAY_MAENGEL, bestandFuerVollstaendigkeit } from '../../shared/konstanten.js';
+import { ALLE_WERTE, BEILAGEN, INLAY_MAENGEL, JUGENDSCHUTZ, bestandFuerVollstaendigkeit, normalisiereLieferumfang } from '../../shared/konstanten.js';
 
 const BEILAGEN_SCHLUESSEL = new Set(Object.values(BEILAGEN).flat().map((b) => b.value));
 
@@ -28,7 +28,7 @@ const TEXTFELDER = {
   beilagen_notiz: 500,
 };
 
-const AUSWAHLFELDER = ['zustand', 'zustand_ovp', 'zustand_inlay', 'vollstaendigkeit', 'region', 'herkunft', 'spielstatus', 'kauf_quelle'];
+const AUSWAHLFELDER = ['merch_kategorie', 'zustand', 'zustand_ovp', 'zustand_inlay', 'vollstaendigkeit', 'region', 'herkunft', 'spielstatus', 'kauf_quelle'];
 
 /** Datum TT.MM.JJJJ-frei: JJJJ-MM-TT, plausibel. */
 const gueltigerTag = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d)) && Number(d.slice(0, 4)) >= 1950 && Number(d.slice(0, 4)) <= 2100;
@@ -60,7 +60,7 @@ export function pruefeArtikel(eingabe, teilweise = false) {
   eingabe ??= {};
 
   if (!teilweise || hat('typ')) {
-    if (!ALLE_WERTE.typ.includes(eingabe.typ)) fehler.typ = 'Bitte einen Artikeltyp wählen (Spiel, Konsole oder Zubehör).';
+    if (!ALLE_WERTE.typ.includes(eingabe.typ)) fehler.typ = 'Bitte einen Artikeltyp wählen (Spiel, Konsole, Zubehör oder Merch).';
     else daten.typ = eingabe.typ;
   }
 
@@ -180,6 +180,14 @@ export function pruefeArtikel(eingabe, teilweise = false) {
     else daten[feld] = id;
   }
 
+  // Merch: Kategorie nur bei diesem Typ; „gehört zu“ = Katalogeintrag eines Spiels (ob sichtbar, prüft die Route)
+  if (daten.typ !== undefined && daten.typ !== 'merch') Object.assign(daten, { merch_kategorie: null, spiel_katalog_id: null });
+  if ((!teilweise || hat('spiel_katalog_id')) && daten.spiel_katalog_id === undefined) {
+    const id = eingabe.spiel_katalog_id === '' || eingabe.spiel_katalog_id == null ? null : Number(eingabe.spiel_katalog_id);
+    if (id !== null && !Number.isInteger(id)) fehler.spiel_katalog_id = 'Ungültiger Katalogeintrag.';
+    else daten.spiel_katalog_id = id;
+  }
+
   if (!teilweise || hat('katalog_id')) {
     const id = eingabe.katalog_id === '' || eingabe.katalog_id == null ? null : Number(eingabe.katalog_id);
     if (id !== null && !Number.isInteger(id)) fehler.katalog_id = 'Ungültiger Katalogeintrag.';
@@ -205,6 +213,18 @@ export function pruefeKatalogEintrag(eingabe = {}) {
   const plattformen = Array.isArray(eingabe.plattformen)
     ? eingabe.plattformen.map(leerZuNull).filter(Boolean).slice(0, 20)
     : [leerZuNull(eingabe.plattformen)].filter(Boolean);
+  // Jugendschutz (Deutschland): Art und Jahre (seit = Indizierung/Beschlagnahme, bis = Listenstreichung)
+  const jugendschutz = JUGENDSCHUTZ.some((j) => j.value === eingabe.jugendschutz) ? eingabe.jugendschutz : null;
+  const jsJahr = (feld) => {
+    const roh = leerZuNull(eingabe[feld]);
+    if (roh === null || !jugendschutz) return null;
+    const n = Number(roh);
+    if (!Number.isInteger(n) || n < 1950 || n > 2100) { fehler[feld] = 'Ungültiges Jahr.'; return null; }
+    return n;
+  };
+  const jugendschutzSeit = jsJahr('jugendschutz_seit');
+  const jugendschutzBis = jugendschutz === 'gestrichen' ? jsJahr('jugendschutz_bis') : null;
+  if (jugendschutzSeit && jugendschutzBis && jugendschutzBis < jugendschutzSeit) fehler.jugendschutz_bis = 'Die Streichung kann nicht vor der Indizierung liegen.';
   if (Object.keys(fehler).length) throw new ValidierungsFehler(fehler);
   return {
     typ: eingabe.typ,
@@ -219,6 +239,9 @@ export function pruefeKatalogEintrag(eingabe = {}) {
     // Optionale Überschreibungen für Suchmaschinen (nur Moderatoren, siehe Route)
     seo_titel: leerZuNull(eingabe.seo_titel)?.replace(/\s+/g, ' ').slice(0, 120) ?? null,
     seo_beschreibung: leerZuNull(eingabe.seo_beschreibung)?.replace(/\s+/g, ' ').slice(0, 300) ?? null,
+    jugendschutz,
+    jugendschutz_seit: jugendschutzSeit,
+    jugendschutz_bis: jugendschutzBis,
   };
 }
 
@@ -246,6 +269,12 @@ export function pruefeVariante(eingabe = {}) {
       fehler.erscheinungsjahr = 'Ungültiges Jahr.';
     }
   }
+  // Lieferumfang der Ausgabe (optional): { artbook: 1, zweite_disc: 1 … } als Objekt oder JSON-Text
+  const lu = normalisiereLieferumfang(eingabe.lieferumfang);
+  if (!lu && eingabe.lieferumfang && typeof eingabe.lieferumfang === 'object' && Object.keys(eingabe.lieferumfang).length) {
+    fehler.lieferumfang = 'Bitte Bestandteile aus der Liste wählen.';
+  }
+  daten.lieferumfang = lu ? JSON.stringify(lu) : null;
   if (Object.keys(fehler).length) throw new ValidierungsFehler(fehler);
   return daten;
 }

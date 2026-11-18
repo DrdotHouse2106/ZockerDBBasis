@@ -23,6 +23,8 @@ const ABGLEICH_TAGE = 14;
 
 export class ZentraleFehler extends Error {}
 
+const MAX_BILD_BYTES = 10 * 1024 * 1024;
+
 const text = (wert, max) => (typeof wert === 'string' && wert.trim() ? wert.trim().slice(0, max) : null);
 
 /** Eintrag der Zentrale → Katalog-Datensatz dieser Installation (Daten von außen: streng geprüft). */
@@ -80,7 +82,13 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
     } catch (e) {
       throw new ZentraleFehler(`zockerdb.de ist nicht erreichbar (${e.message}).`);
     }
-    if (binaer && antwort.ok) return { puffer: Buffer.from(await antwort.arrayBuffer()) };
+    if (binaer && antwort.ok) {
+      // Fotos kommen verkleinert (höchstens 800 px) – alles darüber ist keine erwartete Antwort
+      if (Number(antwort.headers?.get?.('content-length') ?? 0) > MAX_BILD_BYTES) throw new ZentraleFehler('Die Datei von zockerdb.de ist zu groß.');
+      const puffer = Buffer.from(await antwort.arrayBuffer());
+      if (puffer.length > MAX_BILD_BYTES) throw new ZentraleFehler('Die Datei von zockerdb.de ist zu groß.');
+      return { puffer };
+    }
     const inhalt = await antwort.json().catch(() => ({}));
     if (!antwort.ok) {
       const fehler = new ZentraleFehler(inhalt.fehler ?? `zockerdb.de antwortet mit Fehler ${antwort.status}.`);
@@ -230,8 +238,10 @@ export function erstelleZentrale(db, { konfiguration: k, fetchFn = globalThis.fe
       const e = stand.get(z.zentral_id);
       if (!e || e.status === 'eingereicht') continue;
       geaendert += 1;
-      if (e.status === 'freigegeben') uebernimmFreigabe(z.id, Number(e.ziel_id ?? e.id));
-      else db.prepare('UPDATE katalog SET zentral_status = ?, zentral_hinweis = ? WHERE id = ?').run('abgelehnt', text(e.hinweis, 500), z.id);
+      const zielId = Number(e.ziel_id ?? e.id);
+      if (e.status === 'freigegeben') {
+        if (Number.isInteger(zielId) && zielId > 0) uebernimmFreigabe(z.id, zielId);
+      } else db.prepare('UPDATE katalog SET zentral_status = ?, zentral_hinweis = ? WHERE id = ?').run('abgelehnt', text(e.hinweis, 500), z.id);
     }
     return { geaendert };
   }

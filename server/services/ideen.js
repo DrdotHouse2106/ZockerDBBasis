@@ -4,10 +4,13 @@
 import { MODULE } from '../module.js';
 import { KontoFehler } from './konten.js';
 import { ValidierungsFehler } from './validierung.js';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import { verarbeiteBild } from './medien.js';
 
 // Zusatzmodule ergänzen eigene Bereiche (ideenBereiche), „Sonstiges“ bleibt am Ende
 export const IDEEN_BEREICHE = [
-  ['sammlung', 'Sammlung'], ['katalog', 'Katalog & Suche'], ['statistik', 'Statistik & Wert'],
+  ['sammlung', 'Sammlung'], ['katalog', 'Katalog & Suche'], ['statistik', 'Statistik & Wert'], ['import', 'Import & Umzug'],
   ...MODULE.flatMap((m) => m.ideenBereiche ?? []), ['app', 'App & Bedienung'], ['sonstiges', 'Sonstiges'],
 ];
 export const IDEEN_STATUS = [
@@ -23,10 +26,12 @@ export function pruefeIdee(eingabe = {}) {
   if (titel.length < 5 || titel.length > 120) fehler.titel = 'Bitte die Idee in 5 bis 120 Zeichen zusammenfassen.';
   const beschreibung = String(eingabe.beschreibung ?? '').trim().slice(0, 3000) || null;
   if (Object.keys(fehler).length) throw new ValidierungsFehler(fehler);
-  return { titel, beschreibung, bereich: BEREICHE.includes(eingabe.bereich) ? eingabe.bereich : 'sonstiges' };
+  // Woher gemeldet (z. B. „App (iOS) · iPhone“) – setzt die Oberfläche selbst, hilft bei Fehlermeldungen
+  const umgebung = String(eingabe.umgebung ?? '').replace(/[^\p{L}\p{N} ()·.,/+-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 80) || null;
+  return { titel, beschreibung, bereich: BEREICHE.includes(eingabe.bereich) ? eingabe.bereich : 'sonstiges', umgebung };
 }
 
-export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen, erweiterungen }) {
+export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen, erweiterungen, dateien = null }) {
   const stimmenVon = (id) => db.prepare('SELECT COUNT(*) FROM ideen_stimmen WHERE idee_id = ?').pluck().get(id) + 1;
 
   /**
@@ -53,6 +58,9 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen,
     id: i.id, titel: i.titel, beschreibung: i.beschreibung, bereich: i.bereich, status: i.status, antwort: i.antwort,
     stimmen: i.stimmen, gestimmt: Boolean(i.gestimmt), eigene: Boolean(benutzer && i.benutzer_id === benutzer.id),
     von: i.von ?? (i.instanz_id ? 'eigener Server' : null), erstellt_am: i.erstellt_am, geaendert_am: i.geaendert_am,
+    // Gerät/App nur für Einreicher und Administration
+    umgebung: benutzer && (i.benutzer_id === benutzer.id || benutzer.rolle === 'admin') ? (i.umgebung ?? null) : undefined,
+    anhaenge: anhaengeFuer(i, benutzer),
   });
 
   /** Brett: alle Ideen (beliebteste zuerst); selbst gehostet: nur die eigenen. */
@@ -89,8 +97,8 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen,
         throw new KontoFehler(e.message, 502);
       }
     }
-    const i = db.prepare(`INSERT INTO ideen (benutzer_id, titel, beschreibung, bereich, zentral_id) VALUES (?, ?, ?, ?, ?) RETURNING id`)
-      .get(benutzer.id, d.titel, d.beschreibung, d.bereich, zentralId);
+    const i = db.prepare(`INSERT INTO ideen (benutzer_id, titel, beschreibung, bereich, zentral_id, umgebung) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`)
+      .get(benutzer.id, d.titel, d.beschreibung, d.bereich, zentralId, d.umgebung);
     if (m === 'brett') neueIdee(i.id);
     return { ...hole(i.id, benutzer), ziel: m === 'brett' ? 'hier' : 'zockerdb.de' };
   }
@@ -119,6 +127,8 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen,
     if (!STATUS.includes(status)) throw new ValidierungsFehler({ status: 'Unbekannter Stand.' });
     const text = String(antwort ?? '').trim().slice(0, 2000) || null;
     db.prepare("UPDATE ideen SET status = ?, antwort = ?, geaendert_am = datetime('now') WHERE id = ?").run(status, text, i.id);
+    // Entschieden: Screenshots und Beispieldatei werden nicht mehr gebraucht
+    if (['umgesetzt', 'abgelehnt'].includes(status)) anhaengeEntfernen(i.id);
     if (status !== i.status && admin.id) erweiterungen?.melde('idee.entschieden', { id: i.id, status, antwort: text });
     if (status !== i.status && status !== 'neu') {
       const empfaenger = new Set([i.benutzer_id, ...db.prepare('SELECT benutzer_id FROM ideen_stimmen WHERE idee_id = ?').all(i.id).map((s) => s.benutzer_id)]);
@@ -172,7 +182,77 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen,
     const i = db.prepare('SELECT * FROM ideen WHERE id = ?').get(Number(id));
     const darf = i && (benutzer.rolle === 'admin' || (i.benutzer_id === benutzer.id && i.status === 'neu'));
     if (!darf) throw new KontoFehler('Idee nicht gefunden.', 404);
+    anhaengeEntfernen(i.id);
     db.prepare('DELETE FROM ideen WHERE id = ?').run(i.id);
+  }
+
+  // ── Anhänge (bisher nur „Import & Umzug“): Screenshots und eine kurze Beispieldatei ──
+  const MAX_BILDER = 3;
+  const MAX_TEXT_BYTES = 20 * 1024;
+  const MAX_TEXT_ZEILEN = 10;
+  const anhaengeVon = db.prepare('SELECT * FROM ideen_anhaenge WHERE idee_id = ? ORDER BY id');
+  const anhangObjekt = (a) => ({ id: a.id, art: a.art, name: a.name, url: `/api/dateien/${a.datei}` });
+  /** Anhänge sieht nur, wer die Idee eingereicht hat, und die Administration. */
+  const anhaengeFuer = (i, benutzer) => (benutzer && (i.benutzer_id === benutzer.id || benutzer.rolle === 'admin')
+    ? anhaengeVon.all(i.id).map(anhangObjekt) : undefined);
+  function anhaengeEntfernen(ideeId) {
+    const liste = anhaengeVon.all(ideeId);
+    dateien?.loesche(liste.map((a) => a.datei));
+    db.prepare('DELETE FROM ideen_anhaenge WHERE idee_id = ?').run(ideeId);
+  }
+  /** Zugriff auf eine Anhang-Datei (für /api/dateien). */
+  function darfAnhangSehen(benutzer, datei) {
+    const a = db.prepare('SELECT benutzer_id FROM ideen_anhaenge WHERE datei = ?').get(datei);
+    return Boolean(a && benutzer && (a.benutzer_id === benutzer.id || benutzer.rolle === 'admin'));
+  }
+  /** Dateien des Benutzers (Kontolöschung). */
+  const anhangDateienVon = (benutzerId) => db.prepare('SELECT datei FROM ideen_anhaenge WHERE benutzer_id = ?').pluck().all(benutzerId);
+
+  /** Anhänge zu einer eigenen, noch offenen Idee hochladen: Bilder als WebP ohne Metadaten, Text nur kurz und ohne Binärdaten. */
+  async function anhaengeHinzu(benutzer, id, hochgeladen = []) {
+    if (!dateien || modus() !== 'brett') throw new KontoFehler('Anhänge sind nur auf zockerdb.de möglich.', 409);
+    const i = db.prepare('SELECT * FROM ideen WHERE id = ?').get(Number(id));
+    if (!i || (i.benutzer_id !== benutzer.id && benutzer.rolle !== 'admin')) throw new KontoFehler('Idee nicht gefunden.', 404);
+    if (i.bereich !== 'import') throw new KontoFehler('Anhänge gibt es nur bei Anfragen zu Import-Vorlagen.', 409);
+    if (['umgesetzt', 'abgelehnt'].includes(i.status)) throw new KontoFehler('Entschiedene Ideen lassen sich nicht mehr ändern.', 409);
+    const vorhanden = anhaengeVon.all(i.id);
+    let bilder = vorhanden.filter((a) => a.art === 'bild').length;
+    let texte = vorhanden.filter((a) => a.art === 'text').length;
+    const neu = [];
+    try {
+      for (const d of hochgeladen) {
+        const puffer = await fs.readFile(d.path);
+        const name = String(d.originalname ?? '').replace(/[^\p{L}\p{N} ._()-]/gu, '').slice(0, 80) || null;
+        if (/\.(csv|txt|tsv)$/i.test(d.originalname ?? '')) {
+          if (texte >= 1) throw new KontoFehler('Bitte nur eine Beispieldatei anhängen.', 400);
+          if (puffer.length > MAX_TEXT_BYTES || puffer.includes(0)) throw new KontoFehler('Die Beispieldatei ist zu groß oder keine Textdatei – bitte nur die Kopfzeile und 2–3 Zeilen.', 400);
+          if (puffer.toString('utf8').split(/\r?\n/).filter((z) => z.trim()).length > MAX_TEXT_ZEILEN) {
+            throw new KontoFehler(`Bitte höchstens ${MAX_TEXT_ZEILEN} Zeilen – Kopfzeile und 2–3 Beispielzeilen reichen.`, 400);
+          }
+          const datei = `ia-${crypto.randomUUID()}.txt`;
+          await fs.writeFile(dateien.pfadVon(datei), puffer);
+          neu.push({ datei, art: 'text', name, groesse: puffer.length });
+          texte += 1;
+        } else {
+          if (bilder >= MAX_BILDER) throw new KontoFehler(`Höchstens ${MAX_BILDER} Screenshots.`, 400);
+          const datei = `ia-${crypto.randomUUID()}.webp`;
+          try {
+            await verarbeiteBild(puffer, (b) => b.rotate()
+              .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true }).webp({ quality: 85 }).toFile(dateien.pfadVon(datei)));
+          } catch {
+            throw new KontoFehler('Ein Screenshot konnte nicht gelesen werden – bitte JPG, PNG oder WebP.', 400);
+          }
+          neu.push({ datei, art: 'bild', name, groesse: (await fs.stat(dateien.pfadVon(datei))).size });
+          bilder += 1;
+        }
+      }
+    } catch (e) {
+      dateien.loesche(neu.map((n) => n.datei));
+      throw e;
+    }
+    const einfuegen = db.prepare('INSERT INTO ideen_anhaenge (idee_id, benutzer_id, datei, art, name, groesse) VALUES (?, ?, ?, ?, ?, ?)');
+    for (const n of neu) einfuegen.run(i.id, benutzer.id, n.datei, n.art, n.name, n.groesse);
+    return anhaengeVon.all(i.id).map(anhangObjekt);
   }
 
   /** zockerdb.de: Idee einer Installation übernehmen. */
@@ -180,7 +260,7 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen,
     const d = pruefeIdee(eingabe);
     const heute = db.prepare("SELECT COUNT(*) AS n FROM ideen WHERE instanz_id = ? AND erstellt_am >= datetime('now', '-1 day')").get(instanzId).n;
     if (heute >= 50) throw new KontoFehler('Heute wurden schon genug Ideen eingereicht.', 429);
-    const neu = db.prepare('INSERT INTO ideen (instanz_id, titel, beschreibung, bereich) VALUES (?, ?, ?, ?) RETURNING id').get(instanzId, d.titel, d.beschreibung, d.bereich);
+    const neu = db.prepare('INSERT INTO ideen (instanz_id, titel, beschreibung, bereich, umgebung) VALUES (?, ?, ?, ?, ?) RETURNING id').get(instanzId, d.titel, d.beschreibung, d.bereich, d.umgebung);
     neueIdee(neu.id);
     return neu;
   }
@@ -206,5 +286,5 @@ export function erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen,
     return geaendert;
   }
 
-  return { modus, alle, aehnliche, einreichen, stimme, entscheide, bearbeite, loesche, vonInstanz, vonInstanzAendern, pruefeZentrale };
+  return { modus, alle, aehnliche, einreichen, stimme, entscheide, bearbeite, loesche, vonInstanz, vonInstanzAendern, pruefeZentrale, anhaengeHinzu, darfAnhangSehen, anhangDateienVon };
 }

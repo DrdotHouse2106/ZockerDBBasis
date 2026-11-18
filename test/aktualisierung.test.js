@@ -140,7 +140,7 @@ test('Update-Prüfung bei GitHub: neuer Stand, aktuell, privates Repository ohne
   let p = await a.pruefe();
   assert.equal(p.neu, true);
   assert.equal(p.verfuegbar.commit, 'abcdef1');
-  assert.match(anfragen[0].url, /repos\/beispiel\/zockerdb\/actions\/workflows\/ci\.yml\/runs\?branch=main&status=success/);
+  assert.ok(anfragen.some((x) => /repos\/beispiel\/zockerdb\/actions\/workflows\/ci\.yml\/runs\?branch=main&status=success/.test(x.url)));
   // Was ist neu? Nur Einträge, die der installierte Stand noch nicht kennt – vom neuen Stand (ref = Commit des Builds)
   assert.deepEqual(p.neuerungen, [{ id: '29.09.2026 – Neuerungen sehen', datum: '2026-09-29', titel: 'Neuerungen sehen', punkte: ['Liste der Neuerungen', 'zweiter Punkt'], fuer: null }]);
   assert.ok(anfragen.some((x) => x.url.endsWith('/contents/NEUERUNGEN.md?ref=abcdef1234567') && x.accept === 'application/vnd.github.raw+json'));
@@ -161,4 +161,42 @@ test('Update-Prüfung bei GitHub: neuer Stand, aktuell, privates Repository ohne
   status = 200;
   await a.pruefe({ erzwingen: true });
   assert.equal(anfragen.at(-1).auth, 'Bearer ghp_geheim');
+});
+
+test('Update-Prüfung: lokal gebautes Image (Tag docker-latest) geht vor dem CI-Lauf', async () => {
+  const COMMIT = 'b'.repeat(40);
+  const anfragen = [];
+  let tagDa = true;
+  const fetchFn = async (url) => {
+    const u = String(url);
+    anfragen.push(u);
+    if (u.endsWith('/git/ref/tags/docker-latest')) {
+      return tagDa ? Response.json({ object: { type: 'tag', sha: 'c'.repeat(40) } }) : new Response('{}', { status: 404 });
+    }
+    if (u.includes('/git/tags/')) return Response.json({ object: { sha: COMMIT }, tagger: { date: '2026-10-09T18:00:00Z' }, message: 'Spieleseiten je Plattform\n' });
+    if (u.includes('/contents/')) return new Response('', { status: 404 });
+    if (u.includes('/compare/')) return Response.json({ ahead_by: 3 });
+    return Response.json({ workflow_runs: [{ head_sha: 'd'.repeat(40), updated_at: '2026-10-09T19:00:00Z', display_title: 'CI' }] });
+  };
+  const { erstelleAktualisierung } = await import('../server/services/aktualisierung.js');
+  const konfiguration = { aktualisierung: { repo: 'beispiel/zockerdb', githubToken: '' } };
+  const a = erstelleAktualisierung({ konfiguration, sicherung: { lauf: async () => {} }, build: { commit: '1111111', datum: '2026-10-08T10:00:00.000Z' }, fetchFn, quellen: [] });
+  let p = await a.pruefe();
+  assert.equal(p.neu, true);
+  assert.deepEqual(p.verfuegbar, { commit: 'bbbbbbb', datum: '2026-10-09T18:00:00Z', titel: 'Spieleseiten je Plattform' });
+  assert.ok(!anfragen.some((u) => u.includes('/actions/')), 'ohne CI-Abfrage');
+  // Ohne Tag wie bisher über den letzten erfolgreichen CI-Lauf
+  tagDa = false;
+  p = await a.pruefe({ erzwingen: true });
+  assert.equal(p.verfuegbar.commit, 'ddddddd');
+});
+
+test('NEUERUNGEN: jede Überschrift trägt ein Datum (sonst fehlt sie in „Neu seit deinem letzten Besuch“)', async () => {
+  const fs = await import('node:fs');
+  const { neuerungsQuellen } = await import('../server/services/aktualisierung.js');
+  // Zusatzmodule prüfen ihre eigene Datei in ihren Tests
+  for (const datei of neuerungsQuellen().map((q) => q.datei)) {
+    const ohne = fs.readFileSync(datei, 'utf8').split('\n').filter((z) => /^## /.test(z) && !/^## \d{1,2}\.\d{1,2}\.\d{4} [–-] /.test(z));
+    assert.deepEqual(ohne, [], `${datei}: Überschrift „## TT.MM.JJJJ – Titel“`);
+  }
 });

@@ -7,6 +7,30 @@ function lesen() {
   return { pfad: pfad || '/', parameter: Object.fromEntries(new URLSearchParams(suche)) };
 }
 
+// Die Seite lädt ihre Liste nach „Zurück“ oft erst neu – anfangs ist sie zu kurz, und der Browser kann nur ein Stück weit
+// scrollen (man landet fast oben). Deshalb bis zu 3 Sekunden nachfassen, bis die Seite lang genug ist; eigenes Scrollen
+// oder Tippen beendet das sofort.
+let scrollAbbruch = null;
+function scrolleZurueck(y) {
+  scrollAbbruch?.();
+  const ende = Date.now() + 3000;
+  let bild = null;
+  const ereignisse = ['touchstart', 'wheel', 'keydown', 'mousedown'];
+  const stopp = () => {
+    cancelAnimationFrame(bild);
+    ereignisse.forEach((e) => window.removeEventListener(e, stopp, true));
+    if (scrollAbbruch === stopp) scrollAbbruch = null;
+  };
+  scrollAbbruch = stopp;
+  ereignisse.forEach((e) => window.addEventListener(e, stopp, { capture: true, passive: true }));
+  const versuch = () => {
+    window.scrollTo(0, y);
+    if (Math.abs(window.scrollY - y) <= 2 || Date.now() > ende) return stopp();
+    bild = requestAnimationFrame(versuch);
+  };
+  bild = requestAnimationFrame(() => { bild = requestAnimationFrame(versuch); });
+}
+
 export function useRoute() {
   const [route, setRoute] = useState(lesen);
   useEffect(() => {
@@ -24,7 +48,13 @@ export function useRoute() {
       if (seitenwechsel && eingabe) fokus.blur();
       setRoute(neu);
       // Nach oben – außer man tippt gerade auf derselben Seite (Blättern, Filter usw. springen weiter nach oben)
-      if (seitenwechsel || !eingabe) window.scrollTo(0, 0);
+      // oder „Zurück“ führt zu einer Seite mit gemerkter Scrollposition (z. B. von der Artikelseite in die Sammlung).
+      if (seitenwechsel || !eingabe) {
+        const y = wiederherstellenY;
+        wiederherstellenY = null;
+        if (y) scrolleZurueck(y);
+        else { scrollAbbruch?.(); window.scrollTo(0, 0); }
+      }
     };
     window.addEventListener('hashchange', aktualisieren);
     return () => window.removeEventListener('hashchange', aktualisieren);
@@ -40,6 +70,10 @@ let ersetzen = false;
 // Schutz vor versehentlichem Verlassen (ungespeicherte Eingaben): { hash, frage } der geschützten Seite
 let schutz = null;
 let zuruecksetzen = false;
+// Scrollposition je Adresse, nur für „Zurück“: damit man in einer langen Sammlung/Liste nicht wieder ganz oben landet,
+// nachdem man sich einen Eintrag angesehen hat.
+const scrollPositionen = new Map();
+let wiederherstellenY = null;
 if (typeof window !== 'undefined') {
   // Wird vor dem Listener von useRoute registriert – so lässt sich ein Seitenwechsel abfangen, bevor er angezeigt wird
   window.addEventListener('hashchange', (ereignis) => {
@@ -53,9 +87,10 @@ if (typeof window !== 'undefined') {
       return;
     }
     if (schutz && pfadVon(h) !== pfadVon(schutz.hash)) schutz = null;
+    scrollPositionen.set(verlauf[verlauf.length - 1], window.scrollY);
     if (ersetzen) verlauf[verlauf.length - 1] = h;
-    else if (verlauf.length > 1 && verlauf[verlauf.length - 2] === h) verlauf.pop(); // Zurück (Knopf, Wischgeste)
-    else verlauf.push(h);
+    else if (verlauf.length > 1 && verlauf[verlauf.length - 2] === h) { verlauf.pop(); wiederherstellenY = scrollPositionen.get(h) ?? null; } // Zurück (Knopf, Wischgeste)
+    else { verlauf.push(h); wiederherstellenY = null; }
     ersetzen = false;
   });
 }

@@ -7,14 +7,14 @@ test('Offline: Sammlung lesbar, Spielstatus offline setzen, danach automatisch Ã
   const a = await (await page.request.post('/api/artikel', { data: { typ: 'spiel', titel: 'Offline-Abenteuer' } })).json();
 
   // Online: App laden, bis der Service-Worker die Seite steuert, dann Sammlung und Exemplar einmal ansehen (fÃ¼llt den Zwischenspeicher)
-  await page.goto('/?app=1#/');
+  await page.goto('/?app=1#/sammlung');
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
   await expect(page.getByText('Offline-Abenteuer')).toBeVisible();
   await page.goto(`/?app=1#/artikel/${a.id}`);
   await expect(page.getByLabel('Spielstatus')).toBeVisible();
-  await page.goto('/?app=1#/');
+  await page.goto('/?app=1#/sammlung');
   await expect(page.getByText('Offline-Abenteuer')).toBeVisible();
 
   // Verbindung weg: App startet trotzdem, zeigt die zuletzt geladenen Daten und den Hinweis

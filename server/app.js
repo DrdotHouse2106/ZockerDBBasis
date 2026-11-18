@@ -20,6 +20,7 @@ import { konvoluteRouter } from './routes/konvolute.js';
 import { zentraleRouter, zentraleAdminRouter } from './routes/zentrale.js';
 import { erstelleKontenDienst, KontoFehler } from './services/konten.js';
 import { erstelleDateiDienst } from './services/dateien.js';
+import { erstelleKontoLoeschung } from './services/kontoloeschung.js';
 import { erstelleSpeicherDienst } from './services/speicher.js';
 import { erstellePlattformDienst } from './services/plattformen.js';
 import { erstelleEinstellungsDienst } from './services/einstellungen.js';
@@ -31,11 +32,15 @@ import { erstelleIdeenDienst } from './services/ideen.js';
 import { ideenRouter } from './routes/ideen.js';
 import { kalenderRouter } from './routes/kalender.js';
 import { steamRouter } from './routes/steam.js';
+import { serienRouter } from './routes/serien.js';
 import { verleihRouter } from './routes/verleih.js';
 import { erstelleVerleihDienst } from './services/verleih.js';
 import { erstelleZustandserinnerung } from './services/zustandserinnerung.js';
 import { erstelleWartungDienst } from './services/wartung.js';
+import { erstelleLieferumfangDienst } from './services/lieferumfang.js';
 import { erstelleSteamDienst } from './services/steam.js';
+import { erstelleSerienDienst } from './services/serien.js';
+import { erstelleNachzuordnung } from './services/nachzuordnung.js';
 import { erstelleMailDienst, betreiberAusImpressum } from './services/mail.js';
 import { appLink } from '../shared/seo.js';
 import { erstelleCaptchaDienst } from './services/captcha.js';
@@ -57,6 +62,9 @@ import { statistikRouter } from './routes/statistik.js';
 import { exportRouter } from './routes/export.js';
 import { statusRouter } from './routes/status.js';
 import { medienRouter } from './routes/medien.js';
+import { freistellenRouter } from './routes/freistellen.js';
+import { avatarRouter } from './routes/avatar.js';
+import { erstelleFreistellDienst } from './services/freistellen.js';
 import { adminRouter } from './routes/admin.js';
 import { plattformenRouter } from './routes/plattformen.js';
 
@@ -103,19 +111,36 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   const mail = neueMail();
   const kontoMail = erstelleKontoMailDienst(db, { mail, konfiguration, konten });
   const benachrichtigungen = erstelleBenachrichtigungsDienst(db, { mail, konfiguration, erweiterungen });
+  const kontoLoeschung = erstelleKontoLoeschung(db, { dateien, benachrichtigungen });
   const konvolute = erstelleKonvolutDienst(db, { erweiterungen });
-  const vorschlaege = erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattformen, benachrichtigungen });
-  // Fotos zu Vorschlägen: nur für Einsender und Moderationsteam
+  const vorschlaege = erstelleVorschlagDienst(db, { katalog, dateien, zentrale, plattformen, benachrichtigungen, speicher });
+  // Fotos zu Vorschlägen: nur für Einsender und Moderationsteam; beim Löschen des Kontos räumt der Dienst sie weg
   erweiterungen.an('dateien.zugriff', (b, datei) => vorschlaege.darfSehen(b, datei));
-  const ideen = erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen, erweiterungen });
+  erweiterungen.an('dateien.benutzer', (benutzerId) => vorschlaege.benutzerDateien(benutzerId));
+  const freistellen = erstelleFreistellDienst(db, { dateien, benachrichtigungen, konfiguration });
+  freistellen.raeumeAuf(); // z. B. Disc-Hüllen, die nach neuer Regel nur noch auf Wunsch freigestellt werden
+  // Schon freigestellte Fotos einmalig auf das Motiv zuschneiden (im Hintergrund, nach dem Start)
+  setTimeout(() => {
+    freistellen.zuschnittNachholen().then((n) => { if (n) console.log(`[freistellen] ${n} freigestellte Fotos zugeschnitten.`); })
+      .catch((e) => console.warn('[freistellen] Zuschnitt', e.message));
+  }, 5000).unref();
+  const ideen = erstelleIdeenDienst(db, { katalog, zentrale, benachrichtigungen, erweiterungen, dateien });
+  // Anhänge zu Ideen (Import-Vorlage anfragen): nur für Einreicher und Administration; bei Kontolöschung mit weg
+  erweiterungen.an('dateien.zugriff', (b, datei) => ideen.darfAnhangSehen(b, datei));
+  erweiterungen.an('dateien.benutzer', (benutzerId) => ideen.anhangDateienVon(benutzerId));
   const sync = erstelleSyncDienst(db, { zentrale, katalog, schluessel, dateien, speicher, plattformen, erweiterungen });
-  const steam = erstelleSteamDienst(db, { konfiguration, fetchFn, katalog, plattformen });
+  const steam = erstelleSteamDienst(db, { konfiguration, fetchFn, katalog, plattformen, erweiterungen });
+  const serien = erstelleSerienDienst(db, { katalog, erweiterungen, vorschlaege });
+  const nachzuordnung = erstelleNachzuordnung(db, { katalog, benachrichtigungen, erweiterungen, onlineMoeglich: () => Boolean(zentrale?.aktiv || igdb.konfiguriert) });
   const verleih = erstelleVerleihDienst(db, { benachrichtigungen });
   const wartung = erstelleWartungDienst(db);
+  const lieferumfang = erstelleLieferumfangDienst(db, { dateien, benachrichtigungen });
+  erweiterungen.an('dateien.zugriff', (b, datei) => lieferumfang.darfSehen(b, datei));
+  erweiterungen.an('dateien.benutzer', (benutzerId) => lieferumfang.dateienVon(benutzerId));
   const zustandserinnerung = erstelleZustandserinnerung(db, { benachrichtigungen });
   const kontext = {
-    db, cache, igdb, barcode, zentrale, katalog, konten, dateien, speicher, plattformen, einstellungen, sicherung, aktualisierung, neuigkeiten, mail, kontoMail,
-    benachrichtigungen, sync, konvolute, vorschlaege, ideen, steam, verleih, wartung, zustandserinnerung, captcha, konfiguration, version, build, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
+    db, cache, igdb, barcode, zentrale, katalog, konten, dateien, speicher, plattformen, einstellungen, sicherung, aktualisierung, neuigkeiten, mail, kontoMail, freistellen, kontoLoeschung,
+    benachrichtigungen, sync, konvolute, vorschlaege, ideen, steam, serien, nachzuordnung, verleih, wartung, lieferumfang, zustandserinnerung, captcha, konfiguration, version, build, schluessel, erweiterungen, module: MODULE.map((m) => m.name),
   };
   // Zusatzmodule legen ihre Dienste im Kontext ab und registrieren sich an den Andockpunkten
   for (const modul of MODULE) modul.erstelle?.(kontext, { fetchFn });
@@ -188,7 +213,12 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   // Geteilte Sammlung per geheimem Link (auch ohne Konto)
   app.use(teilenRouter(kontext));
 
-  app.use('/api', pruefeHerkunft, express.json({ limit: '20mb' }), ladeSitzung(konten));
+  // JSON-Körper: große Grenze nur für Import, Sync und Datenspende – alles andere (auch ohne Anmeldung erreichbare
+  // Anmelde- und Melderouten) kommt mit 2 MB aus; sonst parst der Server für jeden Unbekannten 20 MB
+  const jsonGross = express.json({ limit: '20mb' });
+  const jsonNormal = express.json({ limit: '2mb' });
+  const grosserKoerper = /^\/(import(\/|$)|sync\/|zentral\/spende$)/;
+  app.use('/api', pruefeHerkunft, (req, res, next) => (grosserKoerper.test(req.path) ? jsonGross : jsonNormal)(req, res, next), ladeSitzung(konten));
   for (const modul of MODULE) modul.apiMiddleware?.(app, kontext);
   app.use('/api', authRouter(kontext));
   app.use('/api', seitenRouter(kontext)); // ohne Anmeldung: Rechtliches
@@ -203,9 +233,9 @@ export function erstelleApp(konfiguration, { db = oeffneDatenbank(konfiguration.
   app.use('/api/statistik', angemeldet, statistikRouter(kontext));
   app.use('/api/admin', angemeldet, erfordereAdmin, adminRouter(kontext), seitenAdminRouter(kontext), zentraleAdminRouter(kontext));
   app.use('/api/moderation/plattformen', angemeldet, plattformenRouter(kontext));
-  app.use('/api', angemeldet, vorschlaegeRouter(kontext), ideenRouter(kontext), kalenderRouter(kontext), steamRouter(kontext), verleihRouter(kontext));
+  app.use('/api', angemeldet, vorschlaegeRouter(kontext), ideenRouter(kontext), kalenderRouter(kontext), steamRouter(kontext), serienRouter(kontext), verleihRouter(kontext));
   app.use('/api', angemeldet, katalogUnterRouter(kontext), benachrichtigungenRouter(kontext), importCsvRouter(kontext), neuigkeitenRouter(kontext));
-  app.use('/api', angemeldet, medienRouter(kontext), exportRouter(kontext), zentraleRouter(kontext));
+  app.use('/api', angemeldet, medienRouter(kontext), freistellenRouter(kontext), avatarRouter(kontext), exportRouter(kontext), zentraleRouter(kontext));
   for (const modul of MODULE) modul.api?.(app, kontext, { angemeldet, erfordereAdmin });
   app.use('/api', (_req, res) => res.status(404).json({ fehler: 'Unbekannter API-Endpunkt.' }));
 

@@ -34,20 +34,41 @@ export const IMPORT_FELDER = [
   { feld: 'titel', titel: 'Titel', pflicht: true, namen: ['titel', 'title', 'name', 'spiel', 'game', 'bezeichnung', 'artikel'] },
   { feld: 'plattform', titel: 'Plattform', namen: ['plattform', 'platform', 'system', 'konsole', 'console'] },
   { feld: 'typ', titel: 'Artikeltyp', namen: ['artikeltyp', 'typ', 'type', 'kategorie', 'category', 'item type'] },
+  // CLZ Games: „Hardware Type“ (Console, Controller …) – gilt, wenn „Type“ leer ist
+  { feld: 'hardwaretyp', titel: 'Hardware-Typ', namen: ['hardware type', 'hardware-typ'] },
+  // CLZ Games: „Format“ (DVD, Cartridge, Download …) – „Download“ wird zum digitalen Spiel
+  { feld: 'format', titel: 'Format', namen: ['format', 'medium'] },
+  { feld: 'merch_kategorie', titel: 'Merch-Kategorie', namen: ['merch-kategorie', 'merch kategorie', 'merchkategorie'] },
   { feld: 'region', titel: 'Region', namen: ['region', 'land', 'country'] },
   { feld: 'zustand', titel: 'Zustand', namen: ['zustand', 'condition', 'grade'] },
-  { feld: 'vollstaendigkeit', titel: 'Vollständigkeit', namen: ['vollständigkeit', 'vollstaendigkeit', 'completeness', 'complete', 'box', 'status'] },
+  // CLZ Games: „Collection Status“ (In Collection, Wish List, For Sale, Sold …) – vor „Vollständigkeit“, die sonst „status“ greifen würde
+  { feld: 'sammlungsstatus', titel: 'Sammlungsstatus', namen: ['collection status', 'sammlungsstatus', 'bestand', 'owned status'] },
+  { feld: 'vollstaendigkeit', titel: 'Vollständigkeit', namen: ['vollständigkeit', 'vollstaendigkeit', 'completeness', 'complete', 'status'] },
+  // CLZ Games: Ja/Nein-Spalten „Box“ und „Manual“ – ergeben die Vollständigkeit, wenn keine eigene Spalte dafür da ist
+  { feld: 'box', titel: 'OVP/Hülle vorhanden (Ja/Nein)', namen: ['box', 'ovp', 'case', 'hülle'] },
+  { feld: 'anleitung', titel: 'Anleitung vorhanden (Ja/Nein)', namen: ['manual', 'anleitung', 'handbuch'] },
   { feld: 'edition', titel: 'Edition/Variante', namen: ['edition/variante', 'edition', 'variante', 'variant', 'version'] },
   { feld: 'farbe', titel: 'Farbe', namen: ['farbe', 'color', 'colour'] },
   { feld: 'modellnummer', titel: 'Modellnummer', namen: ['modellnummer', 'model', 'model number', 'modell'] },
-  { feld: 'seriennummer', titel: 'Seriennummer', namen: ['seriennummer', 'serial', 'serial number'] },
+  { feld: 'seriennummer', titel: 'Seriennummer', namen: ['seriennummer', 'serial', 'serial number', 'serial no.', 'serial no'] },
   { feld: 'barcode', titel: 'Barcode (EAN/UPC)', namen: ['barcode', 'ean', 'upc', 'gtin'] },
   { feld: 'anzahl', titel: 'Anzahl', namen: ['anzahl', 'quantity', 'qty', 'menge', 'copies'] },
   { feld: 'kaufpreis', titel: 'Kaufpreis', namen: ['kaufpreis (eur)', 'kaufpreis', 'purchase price', 'price paid', 'preis', 'price'] },
   { feld: 'kaufdatum', titel: 'Kaufdatum', namen: ['kaufdatum', 'purchase date', 'date purchased', 'gekauft am'] },
-  { feld: 'marktwert', titel: 'Marktwert', namen: ['marktwert (eur)', 'marktwert', 'current value', 'value', 'wert'] },
+  // Nicht „Value“: in CLZ Games sind das Schätzwerte in US-Dollar (lässt sich bei Bedarf von Hand zuordnen)
+  { feld: 'marktwert', titel: 'Marktwert', namen: ['marktwert (eur)', 'marktwert', 'wert'] },
   { feld: 'notizen', titel: 'Notizen', namen: ['eigene notizen', 'notizen', 'notes', 'note', 'comments', 'kommentar', 'bemerkung'] },
+  // CLZ Games: Kaufort (wird an die Notizen gehängt), Lagerort, „Completed“ (durchgespielt)
+  { feld: 'kaufort', titel: 'Gekauft bei', namen: ['purchase store', 'gekauft bei', 'kaufort', 'händler'] },
+  { feld: 'lagerort_ort', titel: 'Lagerort', namen: ['lagerort', 'location', 'ort'] },
+  { feld: 'lagerort_regal', titel: 'Regal/Box', namen: ['storage device', 'regal', 'box/regal'] },
+  { feld: 'lagerort_fach', titel: 'Fach', namen: ['storage slot', 'fach'] },
+  { feld: 'durchgespielt', titel: 'Durchgespielt (Ja/Nein)', namen: ['completed', 'durchgespielt'] },
+  { feld: 'durchgespielt_am', titel: 'Durchgespielt am', namen: ['completed date', 'durchgespielt am'] },
 ];
+
+// Nur bei genau gleicher Überschrift zuordnen – sonst griffe z. B. „complete“ auch „Completed Year“ und „box“ „Storage Box“
+const NUR_GENAU = new Set(['complete', 'status', 'box', 'case', 'manual', 'value', 'ort', 'fach', 'regal', 'completed', 'durchgespielt']);
 
 const norm = (t) => String(t ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -64,7 +85,7 @@ export function erkenneZuordnung(kopf, felder = IMPORT_FELDER) {
   // Zweiter Durchgang: Überschrift enthält den Namen (z. B. „Purchase Price (USD)“)
   for (const f of felder) {
     if (zuordnung[f.feld] !== undefined) continue;
-    const index = kopf.findIndex((k, i) => !vergeben.has(i) && f.namen.some((n) => n.length > 3 && norm(k).includes(n)));
+    const index = kopf.findIndex((k, i) => !vergeben.has(i) && f.namen.some((n) => n.length > 3 && !NUR_GENAU.has(n) && norm(k).includes(n)));
     if (index >= 0) { zuordnung[f.feld] = index; vergeben.add(index); }
   }
   return zuordnung;
@@ -76,10 +97,24 @@ const enthaelt = (text, ...muster) => muster.some((m) => text.includes(m));
 function typVon(wert, standard) {
   const t = norm(wert);
   if (!t) return standard;
+  if (enthaelt(t, 'merch', 'figur', 'funko', 'amiibo', 'sammlerst', 'statue', 'soundtrack')) return 'merch';
   if (enthaelt(t, 'zubeh', 'access', 'controller', 'peripher')) return 'zubehoer';
   if (enthaelt(t, 'konsole', 'console', 'hardware', 'system')) return 'konsole';
   if (enthaelt(t, 'spiel', 'game', 'software')) return 'spiel';
   return standard;
+}
+
+/** Merch-Kategorie aus Freitext (leer = keine Angabe). */
+export function merchKategorieVon(wert) {
+  const t = norm(wert);
+  if (!t) return null;
+  if (enthaelt(t, 'spielfigur', 'amiibo', 'skylander', 'infinity', 'dimensions', 'starlink')) return 'spielfigur';
+  if (enthaelt(t, 'figur', 'statue', 'funko', 'pop')) return 'figur';
+  if (enthaelt(t, 'buch', 'heft', 'book', 'magazin', 'lösung', 'loesung', 'artbook')) return 'buch';
+  if (enthaelt(t, 'musik', 'music', 'soundtrack', 'vinyl', 'cd')) return 'musik';
+  if (enthaelt(t, 'kleid', 'shirt', 'cloth', 'accessoire', 'mütze', 'tasche')) return 'kleidung';
+  if (enthaelt(t, 'promo', 'werbung', 'poster', 'aufsteller')) return 'promo';
+  return null;
 }
 
 export function regionVon(wert) {
@@ -105,6 +140,7 @@ export function vollstaendigkeitVon(wert) {
   const t = norm(wert);
   if (!t) return null;
   if (enthaelt(t, 'ohne anl', 'no manual', 'missing manual', 'fehlt anleitung', 'o. anl')) return 'fehlt_anleitung';
+  if (enthaelt(t, 'ohne inlay', 'fehlt inlay', 'o. inlay', 'no cover', 'missing cover', 'no insert', 'missing insert')) return 'fehlt_inlay';
   if (enthaelt(t, 'nur ovp', 'box only', 'only box')) return 'nur_ovp';
   if (enthaelt(t, 'schutzhülle', 'schutzhuelle', 'mit hülle', 'mit huelle', 'ohne karton', 'with sleeve', 'dust cover', 'in case')) return 'mit_huelle';
   if (enthaelt(t, 'loose', 'lose', 'cart only', 'disc only', 'nur modul', 'nur disc', 'nur gerät', 'nur geraet')) return 'nur_geraet';
@@ -125,13 +161,51 @@ export function zustandVon(wert, vollstaendigkeitRoh) {
   return null;
 }
 
-/** „01.05.2023“, „2023-05-01“, „2023/05/01“ → „2023-05-01“; andere Formate werden ignoriert. */
-function datumVon(wert) {
+const MONATE = { jan: 1, feb: 2, mar: 3, mär: 3, maer: 3, apr: 4, may: 5, mai: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, okt: 10, nov: 11, dec: 12, dez: 12 };
+
+/** „01.05.2023“, „2023-05-01“, „2023/05/01“, „May 01, 2023“ (CLZ Games), „1 May 2023“ → „2023-05-01“; andere Formate werden ignoriert. */
+export function datumVon(wert) {
   const t = String(wert ?? '').trim();
   let m = t.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
   if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
   m = t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
   if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  const monat = (name) => MONATE[name.toLowerCase().slice(0, 3)] ?? MONATE[name.toLowerCase().slice(0, 4)];
+  m = t.match(/^([A-Za-zäÄ]{3,})\.?\s+(\d{1,2}),?\s+(\d{4})$/);
+  if (m && monat(m[1])) return `${m[3]}-${String(monat(m[1])).padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  m = t.match(/^(\d{1,2})\.?\s+([A-Za-zäÄ]{3,})\.?\s+(\d{4})$/);
+  if (m && monat(m[2])) return `${m[3]}-${String(monat(m[2])).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return null;
+}
+
+/** Ja/Nein-Spalte: true, false oder null (leer/unbekannt). */
+export function jaNeinVon(wert) {
+  const t = norm(wert);
+  if (['yes', 'ja', 'y', 'j', 'x', '1', 'true', 'wahr', '✓', 'vorhanden'].includes(t)) return true;
+  if (['no', 'nein', 'n', '0', 'false', 'falsch', 'fehlt', 'missing'].includes(t)) return false;
+  return null;
+}
+
+/** Vollständigkeit aus den CLZ-Spalten „Box“ und „Manual“: mit Box und Anleitung CIB, Box ohne Anleitung, ohne Box lose. */
+export function vollstaendigkeitAusBoxAnleitung(box, anleitung) {
+  if (box === false) return anleitung === true ? null : 'nur_geraet';
+  if (box === true) return anleitung === false ? 'fehlt_anleitung' : anleitung === true ? 'cib' : null;
+  return null;
+}
+
+/**
+ * Sammlungsstatus (CLZ „Collection Status“ oder eigener Export „Bestand“): { bestand } oder { ueberspringen: Grund }.
+ * Leer/unbekannt → null (Standard „Im Besitz“).
+ */
+export function sammlungsstatusVon(wert) {
+  const t = norm(wert);
+  if (!t) return null;
+  if (enthaelt(t, 'wish', 'wunsch')) return { ueberspringen: 'Steht auf der Wunschliste – nicht importiert. Wunschliste bitte in der App anlegen.' };
+  if (enthaelt(t, 'not in collection', 'nicht in der sammlung')) return { ueberspringen: 'Nicht in der Sammlung – nicht importiert.' };
+  if (enthaelt(t, 'sold', 'verkauft')) return { bestand: 'verkauft' };
+  if (enthaelt(t, 'verschenkt', 'getauscht', 'abgegeben', 'traded', 'given away')) return { bestand: 'abgegeben' };
+  if (enthaelt(t, 'digital')) return { bestand: 'digital' };
+  if (enthaelt(t, 'leere', 'verpackung')) return { bestand: 'verpackung' };
   return null;
 }
 
@@ -150,10 +224,11 @@ export function zeileZuArtikel(zeile, zuordnung, { standardTyp = 'spiel' } = {})
   return {
     titel: w('titel'),
     plattform: w('plattform') || null,
-    typ: typVon(w('typ'), standardTyp),
+    typ: typVon(w('typ') || w('hardwaretyp'), standardTyp),
+    merch_kategorie: merchKategorieVon(w('merch_kategorie')),
     region: regionVon(w('region')),
     zustand: zustandVon(w('zustand'), w('vollstaendigkeit')),
-    vollstaendigkeit: vollstaendigkeitVon(w('vollstaendigkeit')),
+    vollstaendigkeit: vollstaendigkeitVon(w('vollstaendigkeit')) ?? vollstaendigkeitAusBoxAnleitung(jaNeinVon(w('box')), jaNeinVon(w('anleitung'))),
     edition: w('edition') || null,
     farbe: w('farbe') || null,
     modellnummer: w('modellnummer') || null,
@@ -163,6 +238,14 @@ export function zeileZuArtikel(zeile, zuordnung, { standardTyp = 'spiel' } = {})
     kaufpreis: betragVon(w('kaufpreis')),
     kaufdatum: datumVon(w('kaufdatum')),
     marktwert: betragVon(w('marktwert')),
-    notizen: w('notizen') || null,
+    // Unbekannte Zustandsangaben (z. B. „Verkratzt“) und der Kaufort gehen nicht verloren, sondern landen in den Notizen
+    notizen: [w('notizen'), w('zustand') && !zustandVon(w('zustand'), '') && `Zustand: ${w('zustand')}`, w('kaufort') && `Gekauft bei: ${w('kaufort')}`]
+      .filter(Boolean).join('\n') || null,
+    lagerort_ort: w('lagerort_ort') || null,
+    lagerort_regal: w('lagerort_regal') || null,
+    lagerort_fach: w('lagerort_fach') || null,
+    ...(jaNeinVon(w('durchgespielt')) || datumVon(w('durchgespielt_am')) ? { spielstatus: 'durchgespielt', durchgespielt_am: datumVon(w('durchgespielt_am')) } : {}),
+    ...(/^(download|digital)$/i.test(w('format')) ? { bestand: 'digital' } : {}),
+    ...(sammlungsstatusVon(w('sammlungsstatus')) ?? {}),
   };
 }

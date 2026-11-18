@@ -3,12 +3,13 @@ import { api, leereZwischenspeicher } from './api.js';
 import { starteAbgleich, loeseKonflikt, zustand as offlineZustand, WARTESCHLANGE_EREIGNIS } from './offline.js';
 import { useRoute, passt, navigiere } from './router.js';
 import { SitzungKontext } from './sitzung.js';
+import { istApp } from './zugang.js';
 import { HinweisAnbieter } from './komponenten/Hinweise.jsx';
 import Layout from './komponenten/Layout.jsx';
 import Anmelden from './seiten/Anmelden.jsx';
 import Sammlung from './seiten/Sammlung.jsx';
 import { spaeter } from './spaeter.js';
-import { MODUL } from './erweiterungen.jsx';
+import { MODUL, Andockpunkt } from './erweiterungen.jsx';
 import { TourAnbieter } from './tour.jsx';
 import Neuigkeiten from './komponenten/Neuigkeiten.jsx';
 import BildAnsicht from './komponenten/BildAnsicht.jsx';
@@ -23,6 +24,8 @@ const SEITEN = {
   statistik: () => import('./seiten/Statistik.jsx'),
   einstellungen: () => import('./seiten/Einstellungen.jsx'),
   konto: () => import('./seiten/Konto.jsx'),
+  freistellenNachholen: () => import('./seiten/FreistellenNachholen.jsx'),
+  freistellenPruefen: () => import('./seiten/FreistellenPruefen.jsx'),
   benachrichtigungen: () => import('./seiten/Benachrichtigungen.jsx'),
   import: () => import('./seiten/Import.jsx'),
   admin: () => import('./seiten/Admin.jsx'),
@@ -36,6 +39,9 @@ const SEITEN = {
   kalender: () => import('./seiten/Kalender.jsx'),
   verliehen: () => import('./seiten/Verliehen.jsx'),
   lagerorte: () => import('./seiten/Lagerorte.jsx'),
+  serien: () => import('./seiten/Serien.jsx'),
+  zuordnen: () => import('./seiten/Zuordnen.jsx'),
+  serieSeite: () => import('./seiten/SerieSeite.jsx'),
 };
 
 function vorladen() {
@@ -51,6 +57,8 @@ const ArtikelDetail = spaeter(SEITEN.artikelDetail);
 const Statistik = spaeter(SEITEN.statistik);
 const Einstellungen = spaeter(SEITEN.einstellungen);
 const Konto = spaeter(SEITEN.konto);
+const FreistellenNachholen = spaeter(SEITEN.freistellenNachholen);
+const FreistellenPruefen = spaeter(SEITEN.freistellenPruefen);
 const Benachrichtigungen = spaeter(SEITEN.benachrichtigungen);
 const Import = spaeter(SEITEN.import);
 const Admin = spaeter(SEITEN.admin);
@@ -63,21 +71,39 @@ const Ideen = spaeter(SEITEN.ideen);
 const Kalender = spaeter(SEITEN.kalender);
 const Verliehen = spaeter(SEITEN.verliehen);
 const Lagerorte = spaeter(SEITEN.lagerorte);
+const Serien = spaeter(SEITEN.serien);
+const Zuordnen = spaeter(SEITEN.zuordnen);
+const SerieSeite = spaeter(SEITEN.serieSeite);
 const KonvolutSeite = spaeter(SEITEN.konvolute, 'KonvolutSeite');
 const PasswortVergessen = spaeter(SEITEN.kontoLinks, 'PasswortVergessen');
 const PasswortNeu = spaeter(SEITEN.kontoLinks, 'PasswortNeu');
 const EmailBestaetigen = spaeter(SEITEN.kontoLinks, 'EmailBestaetigen');
 
+/** „/“ mit Zusatzmodul: zur Startseite des Moduls; alte Links mit Sammlungsfiltern (#/?typ=…) führen weiter zur Sammlung. */
+function Startseite({ route }) {
+  const filter = Object.fromEntries(Object.entries(route.parameter).filter(([k]) => !['app', 'wunsch', 'einladung', 'registrieren', 'zugang'].includes(k)));
+  const hatFilter = Object.keys(filter).length > 0;
+  useEffect(() => {
+    if (hatFilter) navigiere('/sammlung', filter, { ersetzen: true });
+    else navigiere(MODUL.startseite.pfad, null, { ersetzen: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return <Laden />;
+}
+
 const Laden = () => <div className="flex min-h-dvh items-center justify-center p-6 text-leise">Wird geladen …</div>;
 
 function Seite({ route }) {
   const { pfad } = route;
-  if (pfad === '/') return <Sammlung route={route} />;
+  // Mit Zusatzmodul ist „/“ dessen Startseite (MODUL.startseite), die Sammlung liegt dann unter /sammlung; ohne Modul ist „/“ die Sammlung
+  if (pfad === '/') return MODUL.startseite ? <Startseite route={route} /> : <Sammlung route={route} />;
+  if (pfad === '/sammlung') return <Sammlung route={route} />;
   if (pfad === '/neu') return <Hinzufuegen route={route} />;
   if (pfad === '/neu/formular') return <ArtikelFormular key={JSON.stringify(route.parameter)} route={route} />;
   if (pfad === '/statistik') return <Statistik route={route} />;
   if (pfad === '/einstellungen') return <Einstellungen route={route} />;
   if (pfad === '/konto') return <Konto route={route} />;
+  if (pfad === '/freistellen-nachholen') return <FreistellenNachholen route={route} />;
+  if (pfad === '/freistellen-pruefen') return <FreistellenPruefen route={route} />;
   if (pfad === '/benachrichtigungen') return <Benachrichtigungen route={route} />;
   if (pfad === '/import') return <Import route={route} />;
   if (pfad === '/admin') return <Admin route={route} />;
@@ -87,10 +113,14 @@ function Seite({ route }) {
   if (pfad === '/kalender') return <Kalender route={route} />;
   if (pfad === '/verliehen') return <Verliehen route={route} />;
   if (pfad === '/lagerorte') return <Lagerorte route={route} />;
+  if (pfad === '/serien') return <Serien route={route} />;
+  if (pfad === '/zuordnen') return <Zuordnen route={route} />;
   let t = passt('/artikel/:id/bearbeiten', pfad);
   if (t) return <ArtikelFormular key={`b${t.id}`} route={route} artikelId={t.id} />;
   t = passt('/artikel/:id', pfad);
   if (t) return <ArtikelDetail key={t.id} route={route} id={t.id} />;
+  t = passt('/serien/:id', pfad);
+  if (t) return <SerieSeite key={t.id} route={route} id={t.id} />;
   t = passt('/katalog/:id', pfad);
   if (t) return <KatalogSeite key={t.id} route={route} id={t.id} />;
   t = passt('/konvolut/:id', pfad);
@@ -106,14 +136,23 @@ function Seite({ route }) {
   }
   return (
     <Layout route={route} titel="Seite nicht gefunden">
-      <p className="text-leise">Diese Seite gibt es nicht. <a href="#/" className="underline">Zur Sammlung</a></p>
+      <p className="text-leise">Diese Seite gibt es nicht. <a href="#/sammlung" className="underline">Zur Sammlung</a></p>
     </Layout>
   );
 }
 
+/** App: zuletzt bekannte Anmeldung für den sofortigen Start (wird gleich darauf vom Server bestätigt oder ersetzt). */
+function gemerkteAnmeldung() {
+  if (!istApp) return null;
+  try {
+    const a = JSON.parse(localStorage.getItem('zockerdb-auth') ?? 'null');
+    return a?.angemeldet ? a : null;
+  } catch { return null; }
+}
+
 export default function App() {
   const route = useRoute();
-  const [auth, setAuth] = useState(null); // Antwort von /api/auth/status
+  const [auth, setAuth] = useState(gemerkteAnmeldung); // Antwort von /api/auth/status
   const [status, setStatus] = useState(null);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [fehler, setFehler] = useState(null);
@@ -143,13 +182,26 @@ export default function App() {
     await aktualisiere();
   }, [aktualisiere]);
 
+  // Nach der Anmeldung zurück zu der Seite, von der aus man zur Anmeldung geschickt wurde (z. B. „Foto hinzufügen“)
+  useEffect(() => {
+    if (!auth?.angemeldet) return;
+    let ziel = null;
+    try { ziel = sessionStorage.getItem('zockerdb-nach-anmeldung'); sessionStorage.removeItem('zockerdb-nach-anmeldung'); } catch { /* egal */ }
+    if (ziel?.startsWith('#/')) window.location.hash = ziel.slice(1);
+  }, [auth?.angemeldet]);
+
   useEffect(() => {
     aktualisiere();
     vorladen();
     const stoppeAbgleich = starteAbgleich();
     const an = () => { setOffline(false); aktualisiere(); };
     const aus = () => setOffline(true);
-    const abgemeldet = () => setAuth((a) => (a ? { ...a, angemeldet: false, benutzer: null } : a));
+    // Sitzung serverseitig beendet (abgelaufen, anderswo abgemeldet): Zwischenspeicher wie beim Abmelden leeren
+    const abgemeldet = () => {
+      leereZwischenspeicher().catch(() => {});
+      try { localStorage.removeItem('zockerdb-auth'); } catch { /* egal */ }
+      setAuth((a) => (a ? { ...a, angemeldet: false, benutzer: null } : a));
+    };
     const zweiFaktorPflicht = () => navigiere('/konto', { pflicht: '1' });
     window.addEventListener('online', an);
     window.addEventListener('offline', aus);
@@ -196,7 +248,8 @@ export default function App() {
   } else if (auth.zweiFaktorPflicht && !auth.benutzer.totp_aktiv) {
     inhalt = <Konto route={{ pfad: '/konto', parameter: { pflicht: '1' } }} />;
   } else {
-    inhalt = <><Seite route={route} /><Neuigkeiten /></>;
+    // Andockpunkt „app.angemeldet“: Zusatzmodule können nach der Anmeldung einmalig etwas erledigen (z. B. gemerkte Wünsche)
+    inhalt = <><Seite route={route} /><Neuigkeiten /><Andockpunkt name="app.angemeldet" /></>;
   }
 
   return (

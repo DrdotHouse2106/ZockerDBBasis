@@ -11,10 +11,19 @@ const modulDatei = path.resolve('geschaeft/client/index.jsx');
 const modulAus = ['aus', 'false', '0', 'nein'].includes(String(process.env.ZOCKERDB_MODULE ?? '').toLowerCase());
 const modul = !modulAus && fs.existsSync(modulDatei) ? modulDatei : path.resolve('client/src/modul-leer.js');
 
+// Kennung im Build: mit oder ohne Modul gebaut? Der Server der Browser-Tests (e2e/server.js) baut neu, wenn sie nicht zum Testlauf passt
+// (sonst testet z. B. „npx playwright test“ nach „npm run test:e2e:basis“ versehentlich die Basis-Oberfläche)
+const modulKennung = {
+  name: 'modul-kennung',
+  writeBundle() {
+    fs.writeFileSync(path.resolve('dist/.modul.json'), JSON.stringify({ modul: modul === modulDatei ? 'an' : 'aus', verfuegbar: fs.existsSync(modulDatei) }));
+  },
+};
+
 export default defineConfig({
   root: 'client',
   publicDir: 'public',
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), modulKennung],
   resolve: {
     alias: { '@zockerdb/modul': modul },
   },

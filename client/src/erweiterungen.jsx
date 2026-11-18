@@ -9,16 +9,24 @@
 //   vorladen      – Ladefunktionen der Seiten, die im Leerlauf vorgeladen werden
 //   touren        – weitere geführte Touren (Aufbau wie client/src/touren.js)
 //   tourSchritte  – zusätzliche Schritte bestehender Touren: { tourId: [{ nach: schrittId, schritte: […] }] }
-import { Suspense } from 'react';
+import { Component, Suspense } from 'react';
 import modul from '@zockerdb/modul';
 
 export const MODUL = modul ?? {};
+
+/** Fängt Fehler eines Zusatzbausteins ab (z. B. offline nicht nachladbar) – die Seite selbst bleibt benutzbar. */
+class Leise extends Component {
+  constructor(props) { super(props); this.state = { fehler: false }; }
+  static getDerivedStateFromError() { return { fehler: true }; }
+  componentDidCatch(fehler) { console.warn('[andockpunkt]', fehler?.message); }
+  render() { return this.state.fehler ? null : this.props.children; }
+}
 
 /** Rendert alle Komponenten, die Module für diesen Andockpunkt registriert haben (sonst nichts). */
 export function Andockpunkt({ name, ...props }) {
   const liste = MODUL.andockpunkte?.[name] ?? [];
   if (!liste.length) return null;
-  return <Suspense fallback={null}>{liste.map((Komponente, i) => <Komponente key={i} {...props} />)}</Suspense>;
+  return liste.map((Komponente, i) => <Leise key={i}><Suspense fallback={null}><Komponente {...props} /></Suspense></Leise>);
 }
 
 export const hatAndockpunkt = (name) => Boolean(MODUL.andockpunkte?.[name]?.length);

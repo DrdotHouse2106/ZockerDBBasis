@@ -4,7 +4,7 @@ import { anmelden } from './hilfen.js';
 
 test('Formular mit Eingaben: Zurück fragt nach, Abbrechen der Rückfrage behält die Eingaben', async ({ page }) => {
   await anmelden(page, 'verlassen_e2e');
-  await page.goto('/?app=1#/');
+  await page.goto('/?app=1#/sammlung');
   await page.goto('/?app=1#/neu/formular?typ=spiel');
   const titel = page.getByLabel('Titel', { exact: false }).first();
   await titel.fill('Halb eingetippt');
@@ -23,7 +23,7 @@ test('Formular mit Eingaben: Zurück fragt nach, Abbrechen der Rückfrage behäl
 
 test('Formular ohne Eingaben: Zurück ohne Rückfrage', async ({ page }) => {
   await anmelden(page, 'verlassen2_e2e');
-  await page.goto('/?app=1#/');
+  await page.goto('/?app=1#/sammlung');
   await page.goto('/?app=1#/neu/formular?typ=spiel');
   let gefragt = false;
   page.on('dialog', (d) => { gefragt = true; d.accept(); });

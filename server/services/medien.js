@@ -7,6 +7,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
+import { kameraAusExif } from '../../shared/exif.js';
+
+export { kameraAusExif };
 
 export const MEDIEN_TYPEN = {
   'image/jpeg': '.jpg',
@@ -17,6 +20,74 @@ export const MEDIEN_TYPEN = {
 };
 
 const BROWSERTAUGLICH = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+/**
+ * Bildformat an den ersten Bytes erkennen (JPEG, PNG, WebP, TIFF, GIF) – unabhängig vom Dateinamen und vom
+ * Content-Type, den der Browser mitschickt. Liefert null für alles andere (z. B. SVG, HTML, PDF).
+ */
+export function erkenneBildformat(kopf) {
+  const b = Buffer.isBuffer(kopf) ? kopf : Buffer.from(kopf ?? []);
+  if (b.length < 12) return null;
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'jpeg';
+  if (b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+  if (b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP') return 'webp';
+  if (b.subarray(0, 4).equals(Buffer.from([0x49, 0x49, 0x2a, 0x00])) || b.subarray(0, 4).equals(Buffer.from([0x4d, 0x4d, 0x00, 0x2a]))) return 'tiff';
+  if (['GIF87a', 'GIF89a'].includes(b.subarray(0, 6).toString('latin1'))) return 'gif';
+  return null;
+}
+
+/** Erste Bytes einer Datei oder eines Puffers lesen. */
+async function bildkopf(quelle) {
+  if (Buffer.isBuffer(quelle)) return quelle.subarray(0, 16);
+  const handle = await fs.open(quelle);
+  try {
+    const kopf = Buffer.alloc(16);
+    const { bytesRead } = await handle.read(kopf, 0, 16, 0);
+    return kopf.subarray(0, bytesRead);
+  } finally {
+    await handle.close();
+  }
+}
+
+/**
+ * sharp nur mit echten Rasterbildern füttern: libvips kann auch SVG (librsvg) und weitere Formate lesen – der vom
+ * Browser gemeldete Typ ist keine Prüfung, deshalb entscheiden die ersten Bytes. Wirft bei allem, was kein
+ * JPEG, PNG, WebP, TIFF oder GIF ist.
+ */
+export async function sicheresBild(quelle, optionen = {}) {
+  if (!erkenneBildformat(await bildkopf(quelle))) throw new Error('Keine unterstützte Bilddatei (erlaubt: JPEG, PNG, WebP, TIFF, GIF).');
+  return sharp(quelle, optionen);
+}
+
+// ── Grenzen gegen Pixelbomben ──────────────────────────────────
+// Ein einfarbiges JPEG mit 200 Millionen Pixeln ist nur ~1 MB groß, braucht beim Dekodieren aber rund 2 GB Arbeitsspeicher.
+// Deshalb: Fotos bis 80 Mpx, alles, was voll dekodiert werden muss (Neu-Kodieren, TIFF → JPEG), bis 120 Mpx – und nur
+// JPEG-Scans, die ohne Dekodieren verlustfrei bereinigt werden, bis 300 Mpx (A3 mit 1200 dpi).
+export const MAX_PIXEL_FOTO = 80_000_000;
+export const MAX_PIXEL_DEKODIEREN = 120_000_000;
+
+// Höchstens zwei Bildverarbeitungen gleichzeitig: begrenzt den Spitzen-Speicherbedarf, parallele Uploads warten kurz
+const MAX_GLEICHZEITIG = 2;
+let laufendeBildarbeiten = 0;
+const bildWarteschlange = [];
+export async function mitBildSperre(fn) {
+  if (laufendeBildarbeiten >= MAX_GLEICHZEITIG) await new Promise((weiter) => bildWarteschlange.push(weiter));
+  laufendeBildarbeiten += 1;
+  try {
+    return await fn();
+  } finally {
+    laufendeBildarbeiten -= 1;
+    bildWarteschlange.shift()?.();
+  }
+}
+
+/**
+ * Hochgeladenes Bild (Pfad oder Puffer) verarbeiten: Formatprüfung, Pixelgrenze für Fotos, Sperre gegen zu viele
+ * gleichzeitige Verarbeitungen. `pipeline` bekommt die sharp-Instanz und liefert das Ergebnis (toFile/toBuffer).
+ */
+export function verarbeiteBild(quelle, pipeline, optionen = {}) {
+  return mitBildSperre(async () => pipeline(await sicheresBild(quelle, { limitInputPixels: MAX_PIXEL_FOTO, failOn: 'error', ...optionen })));
+}
 
 /**
  * JPEG ohne Metadaten – EXIF (inkl. GPS), XMP, IPTC, Kommentare und angehängte Zusatzbilder (MPF) fallen weg,
@@ -56,7 +127,7 @@ export function jpegOhneMetadaten(puffer) {
  * gespeichert (nach EXIF gedreht, Farbprofil bleibt). Liefert die neue Dateigröße; wirft bei unlesbaren/zu großen Bildern.
  */
 export async function bereinigeBild(pfad, mime, { maxPixel = 100_000_000, qualitaet = 92 } = {}) {
-  const meta = await sharp(pfad, { limitInputPixels: maxPixel }).metadata();
+  const meta = await (await sicheresBild(pfad, { limitInputPixels: maxPixel })).metadata();
   if (!meta.width || !meta.height || meta.width * meta.height > maxPixel) throw new Error('Das Bild ist zu groß oder unlesbar.');
   if (mime === 'image/jpeg' && (meta.orientation ?? 1) <= 1) {
     const sauber = jpegOhneMetadaten(await fs.readFile(pfad));
@@ -68,6 +139,12 @@ export async function bereinigeBild(pfad, mime, { maxPixel = 100_000_000, qualit
   // Mehrseitige TIFF-Scans (z. B. ein ganzes Handbuch) unverändert lassen – beim Neuspeichern gingen sonst Seiten verloren;
   // sie stammen vom Scanner und enthalten keine Standortdaten
   if (mime === 'image/tiff' && (meta.pages ?? 1) > 1) return (await fs.stat(pfad)).size;
+  // Ab hier wird voll dekodiert – engere Grenze (siehe MAX_PIXEL_DEKODIEREN)
+  if (meta.width * meta.height > MAX_PIXEL_DEKODIEREN) throw new Error('Das Bild ist zu groß. JPEG-Scans ohne Drehung dürfen größer sein.');
+  return mitBildSperre(() => bereinigeDekodiert(pfad, mime, meta, { maxPixel, qualitaet }));
+}
+
+async function bereinigeDekodiert(pfad, mime, meta, { maxPixel, qualitaet }) {
   const gif = mime === 'image/gif';
   const animiert = gif || (mime === 'image/webp' && (meta.pages ?? 1) > 1);
   let bild = sharp(pfad, { limitInputPixels: maxPixel, failOn: 'error', animated: animiert });
@@ -87,7 +164,7 @@ export async function bereinigeBild(pfad, mime, { maxPixel = 100_000_000, qualit
   }
   return (await fs.stat(pfad)).size;
 }
-const MAX_PIXEL = 600_000_000; // reicht für A3 mit 1200 dpi
+const MAX_PIXEL = 300_000_000; // A3 mit 1200 dpi – nur für JPEG-Scans, die ohne Dekodieren bereinigt werden (siehe MAX_PIXEL_DEKODIEREN)
 const FOTO_QUALITAET = 82; // WebP – sichtbar verlustfrei am Bildschirm, ein Bruchteil der JPEG-Größe
 
 /**
@@ -98,32 +175,70 @@ const FOTO_QUALITAET = 82; // WebP – sichtbar verlustfrei am Bildschirm, ein B
  */
 export async function speichereEinheitlich(verzeichnis, datei, mime, { foto = false, maxPx = 2560, maxPixel = MAX_PIXEL } = {}) {
   const pfad = path.join(verzeichnis, datei);
-  const meta = await sharp(pfad, { limitInputPixels: maxPixel }).metadata();
+  const meta = await (await sicheresBild(pfad, { limitInputPixels: maxPixel })).metadata();
   if (!meta.width || !meta.height || meta.width * meta.height > maxPixel) throw new Error('Das Bild ist zu groß oder unlesbar.');
   // Scans (und animierte Bilder): nur Metadaten entfernen – volle Auflösung, Originalformat (JPEG ohne Qualitätsverlust)
   if (!foto || (meta.pages ?? 1) > 1) return { datei, mime, groesse: await bereinigeBild(pfad, mime, { maxPixel, qualitaet: 95 }) };
-  let bild = sharp(pfad, { limitInputPixels: maxPixel, failOn: 'error' }).rotate().keepIccProfile();
-  if (maxPx > 0) bild = bild.resize({ width: maxPx, height: maxPx, fit: 'inside', withoutEnlargement: true });
-  // WebP kann höchstens 16.383 Pixel je Seite – riesige Fotos in Originalgröße (Einstellung 0) als JPEG
-  const alsWebp = (maxPx > 0 ? Math.min(maxPx, Math.max(meta.width, meta.height)) : Math.max(meta.width, meta.height)) <= 16383;
-  bild = alsWebp ? bild.webp({ quality: FOTO_QUALITAET }) : bild.flatten({ background: '#ffffff' }).jpeg({ quality: 90 });
-  const neuMime = alsWebp ? 'image/webp' : 'image/jpeg';
-  const neueDatei = `${datei.replace(/\.[^.]+$/, '')}${MEDIEN_TYPEN[neuMime]}`;
-  const temp = path.join(verzeichnis, `${neueDatei}.${crypto.randomUUID()}.tmp`);
-  try {
-    await bild.toFile(temp);
-    await fs.rename(temp, path.join(verzeichnis, neueDatei));
-  } finally {
-    await fs.rm(temp, { force: true });
-  }
-  if (neueDatei !== datei) await fs.rm(pfad, { force: true });
-  return { datei: neueDatei, mime: neuMime, groesse: (await fs.stat(path.join(verzeichnis, neueDatei))).size };
+  // Fotos werden voll dekodiert (PNG/WebP ohne Verkleinern beim Laden) – engere Grenze
+  if (meta.width * meta.height > MAX_PIXEL_FOTO) throw new Error('Das Foto ist zu groß (höchstens 80 Megapixel).');
+  return mitBildSperre(async () => {
+    let bild = sharp(pfad, { limitInputPixels: MAX_PIXEL_FOTO, failOn: 'error' }).rotate().keepIccProfile();
+    if (maxPx > 0) bild = bild.resize({ width: maxPx, height: maxPx, fit: 'inside', withoutEnlargement: true });
+    // WebP kann höchstens 16.383 Pixel je Seite – riesige Fotos in Originalgröße (Einstellung 0) als JPEG
+    const alsWebp = (maxPx > 0 ? Math.min(maxPx, Math.max(meta.width, meta.height)) : Math.max(meta.width, meta.height)) <= 16383;
+    bild = alsWebp ? bild.webp({ quality: FOTO_QUALITAET }) : bild.flatten({ background: '#ffffff' }).jpeg({ quality: 90 });
+    const neuMime = alsWebp ? 'image/webp' : 'image/jpeg';
+    const neueDatei = `${datei.replace(/\.[^.]+$/, '')}${MEDIEN_TYPEN[neuMime]}`;
+    const temp = path.join(verzeichnis, `${neueDatei}.${crypto.randomUUID()}.tmp`);
+    try {
+      await bild.toFile(temp);
+      await fs.rename(temp, path.join(verzeichnis, neueDatei));
+    } finally {
+      await fs.rm(temp, { force: true });
+    }
+    if (neueDatei !== datei) await fs.rm(pfad, { force: true });
+    return { datei: neueDatei, mime: neuMime, groesse: (await fs.stat(path.join(verzeichnis, neueDatei))).size };
+  });
 }
 
+/** Beginnt die Datei mit „%PDF-“? Der vom Browser gemeldete Typ ist keine Prüfung. */
+export async function istPdf(pfad) {
+  return (await bildkopf(pfad)).subarray(0, 5).toString('latin1') === '%PDF-';
+}
+
+/** Ist die Datei ein Rasterbild (JPEG, PNG, WebP, TIFF, GIF)? */
+export const istBilddatei = async (pfad) => Boolean(erkenneBildformat(await bildkopf(pfad)));
+
+/**
+ * Seiten einer PDF zählen („/Type /Page“-Objekte) – blockweise, damit eine 200-MB-Datei beim Upload nicht komplett
+ * im Arbeitsspeicher landet. Ein kleiner Überhang am Blockende fängt Treffer über Blockgrenzen hinweg ab.
+ */
 async function pdfSeiten(pfad) {
-  const text = (await fs.readFile(pfad)).toString('latin1');
-  const treffer = text.match(/\/Type\s*\/Page(?!s)/g);
-  return treffer ? treffer.length : null;
+  const BLOCK = 1024 * 1024;
+  const UEBERHANG = 32; // länger als „/Type /Page“ samt Leerraum
+  const muster = /\/Type\s*\/Page(?!s)/g;
+  const handle = await fs.open(pfad);
+  try {
+    const puffer = Buffer.alloc(BLOCK + UEBERHANG);
+    let rest = '';
+    let anzahl = 0;
+    let position = 0;
+    for (;;) {
+      const { bytesRead } = await handle.read(puffer, 0, BLOCK, position);
+      if (!bytesRead) break;
+      position += bytesRead;
+      const text = rest + puffer.toString('latin1', 0, bytesRead);
+      // Treffer zählen, die vollständig vor dem Überhang liegen; der Überhang wandert in den nächsten Block
+      const grenze = bytesRead === BLOCK ? text.length - UEBERHANG : text.length;
+      let m;
+      muster.lastIndex = 0;
+      while ((m = muster.exec(text)) && m.index < grenze) anzahl += 1;
+      rest = bytesRead === BLOCK ? text.slice(grenze) : '';
+    }
+    return anzahl || null;
+  } finally {
+    await handle.close();
+  }
 }
 
 /**
@@ -138,19 +253,21 @@ export async function verarbeiteMedium({ verzeichnis, datei: hochgeladen, mime: 
   const ergebnis = { datei, mime, groesse: stat.size, anzeige_datei: null, vorschau_datei: null, breite: null, hoehe: null, dpi: null, seiten: null };
 
   if (mime === 'application/pdf') {
-    const kopf = Buffer.alloc(5);
-    const handle = await fs.open(pfad);
-    await handle.read(kopf, 0, 5, 0);
-    await handle.close();
-    if (kopf.toString() !== '%PDF-') throw new Error('Die Datei ist kein gültiges PDF.');
+    if (!(await istPdf(pfad))) throw new Error('Die Datei ist kein gültiges PDF.');
     ergebnis.seiten = await pdfSeiten(pfad);
     return ergebnis;
   }
 
-  const bild = sharp(pfad, { limitInputPixels: MAX_PIXEL, failOn: 'error' });
+  const bild = await sicheresBild(pfad, { limitInputPixels: MAX_PIXEL, failOn: 'error' });
   const meta = await bild.metadata();
+  // TIFF/PNG/WebP-Scans werden für Anzeige und Vorschau voll dekodiert – nur JPEG darf bis MAX_PIXEL gehen
+  if (meta.width && meta.height && meta.width * meta.height > MAX_PIXEL_DEKODIEREN && (foto || mime !== 'image/jpeg')) {
+    throw new Error(`Das Bild ist zu groß (höchstens ${Math.round(MAX_PIXEL_DEKODIEREN / 1e6)} Megapixel; JPEG-Scans bis ${Math.round(MAX_PIXEL / 1e6)}).`);
+  }
   // DPI nur übernehmen, wenn sie plausibel ist (72 dpi ist meist nur ein Standardwert).
   ergebnis.dpi = meta.density && meta.density > 72 ? Math.round(meta.density) : null;
+  // Fotos: hatte das Original Kameradaten (Hersteller/Modell)? Starker Hinweis auf ein eigenes Foto – die Daten selbst werden entfernt
+  if (foto) ergebnis.kamera_daten = kameraAusExif(meta.exif) ? 1 : 0;
   // Ohne Metadaten speichern (GPS, Kamera, Aufnahmezeit): Fotos verkleinert als WebP, Scans in voller Auflösung und Originalformat
   ({ datei, mime, groesse: ergebnis.groesse } = await speichereEinheitlich(verzeichnis, datei, mime, { foto, maxPx }));
   Object.assign(ergebnis, { datei, mime });
@@ -160,22 +277,24 @@ export async function verarbeiteMedium({ verzeichnis, datei: hochgeladen, mime: 
   ergebnis.hoehe = nachher.height ?? null;
   const basis = datei.replace(/\.[^.]+$/, '');
 
-  if (!BROWSERTAUGLICH.has(mime)) {
-    ergebnis.anzeige_datei = `${basis}-anzeige.jpg`;
+  await mitBildSperre(async () => {
+    if (!BROWSERTAUGLICH.has(mime)) {
+      ergebnis.anzeige_datei = `${basis}-anzeige.jpg`;
+      await sharp(pfad, { limitInputPixels: MAX_PIXEL_DEKODIEREN })
+        .rotate()
+        .flatten({ background: '#ffffff' })
+        .jpeg({ quality: 95, chromaSubsampling: '4:4:4' })
+        .keepIccProfile()
+        .toFile(path.join(verzeichnis, ergebnis.anzeige_datei));
+    }
+
+    ergebnis.vorschau_datei = `${basis}-vorschau.webp`;
     await sharp(pfad, { limitInputPixels: MAX_PIXEL })
       .rotate()
-      .flatten({ background: '#ffffff' })
-      .jpeg({ quality: 95, chromaSubsampling: '4:4:4' })
-      .keepIccProfile()
-      .toFile(path.join(verzeichnis, ergebnis.anzeige_datei));
-  }
-
-  ergebnis.vorschau_datei = `${basis}-vorschau.webp`;
-  await sharp(pfad, { limitInputPixels: MAX_PIXEL })
-    .rotate()
-    .resize({ width: 600, height: 600, fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: 80 })
-    .toFile(path.join(verzeichnis, ergebnis.vorschau_datei));
+      .resize({ width: 600, height: 600, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toFile(path.join(verzeichnis, ergebnis.vorschau_datei));
+  });
 
   return ergebnis;
 }
@@ -185,7 +304,8 @@ export const neuerDateiname = (mime) => `m-${crypto.randomUUID()}${MEDIEN_TYPEN[
 /** Web-Version eines öffentlichen Fotos (wird bei Bedarf erzeugt, siehe öffentliche Bildadressen). */
 export const webDateiVon = (datei) => `${String(datei).replace(/\.[^.]+$/, '')}-web.webp`;
 /** Alle Dateien eines Mediums – zum Löschen. */
-export const medienDateien = (m) => [m.datei, m.anzeige_datei, m.vorschau_datei, m.datei ? webDateiVon(m.datei) : null].filter(Boolean);
+export const medienDateien = (m) => [m.datei, m.anzeige_datei, m.vorschau_datei, m.frei_datei, m.datei ? webDateiVon(m.datei) : null,
+  m.frei_datei ? webDateiVon(m.frei_datei) : null, m.datei ? `${String(m.datei).replace(/\.[^.]+$/, '')}-helfer.webp` : null].filter(Boolean);
 
 const MIME_NACH_ENDUNG = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif', '.tif': 'image/tiff' };
 

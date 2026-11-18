@@ -20,7 +20,7 @@ export default function Benachrichtigungen({ route }) {
   };
 
   return (
-    <Layout route={route} titel="Benachrichtigungen" zurueck="/"
+    <Layout route={route} titel="Benachrichtigungen" zurueck="/sammlung"
       aktionen={daten?.ungelesen > 0 && <button type="button" className="knopf-sekundaer px-3 py-1.5 text-sm" onClick={() => gelesen(null)}>Alle gelesen</button>}>
       <div className="mx-auto max-w-2xl space-y-2 pb-8">
         {!daten ? <p className="text-leise">Wird geladen …</p> : daten.eintraege.length === 0 ? (

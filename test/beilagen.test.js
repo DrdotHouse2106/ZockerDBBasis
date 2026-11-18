@@ -16,6 +16,9 @@ test('Beilagen → Vollständigkeit', () => {
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: true, anleitung: 2 }), 'cib');
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: true, anleitung: false }), 'fehlt_anleitung');
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: false }), 'nur_geraet');
+  // „Nur OVP“ (leere Hülle ohne Disc) bleibt, auch wenn alle Beilagen angehakt werden – nur ohne OVP nicht mehr
+  assert.equal(vollstaendigkeitAusBeilagen({ ovp: true, anleitung: true, inlay: true, beilagen: 2 }, 'nur_ovp'), 'nur_ovp');
+  assert.equal(vollstaendigkeitAusBeilagen({ ovp: false }, 'nur_ovp'), 'nur_geraet');
   // Keine Anleitung beigelegt (gab es nicht, z. B. PS4) → trotzdem komplett; „CIB“ überschreibt das nicht
   assert.equal(vollstaendigkeitAusBeilagen({ ovp: true, anleitung: 'ohne' }), 'cib');
   assert.deepEqual(beilagenAusVollstaendigkeit('cib', { anleitung: 'ohne' }), { anleitung: 'ohne', ovp: true });
@@ -33,6 +36,24 @@ test('Inlay (Cover) löst kein Foto „Beilagen“ aus, andere Beilagen schon', 
   const ps4 = { kurz: 'PS4', name: 'PlayStation 4' };
   assert.ok(!gesuchteFotos('spiel', ps4, { beilagen: { ovp: true, inlay: true } }).includes('foto_beilagen'));
   assert.ok(gesuchteFotos('spiel', ps4, { beilagen: { ovp: true, inlay: true, poster: true } }).includes('foto_beilagen'));
+});
+
+test('Steelbook: eigenes Foto „Steelbook“ statt „Beilagen“', async () => {
+  const { gesuchteFotos } = await import('../shared/konstanten.js');
+  const ps3 = { kurz: 'PS3', name: 'PlayStation 3' };
+  const liste = gesuchteFotos('spiel', ps3, { beilagen: { ovp: true, steelbook: true } });
+  assert.ok(liste.includes('foto_steelbook'));
+  assert.ok(!liste.includes('foto_beilagen'));
+  assert.ok(gesuchteFotos('spiel', ps3, { beilagen: { steelbook: true, poster: true } }).includes('foto_beilagen'));
+  assert.ok(!gesuchteFotos('spiel', ps3, { beilagen: { ovp: true } }).includes('foto_steelbook'));
+});
+
+test('Leere Verpackung / Nur OVP: keine Disc, keine Figur – nur Verpackung und was drin liegt', async () => {
+  const { gesuchteFotos } = await import('../shared/konstanten.js');
+  const gc = { kurz: 'GC', name: 'Nintendo GameCube' };
+  assert.deepEqual(gesuchteFotos('spiel', gc, { nurVerpackung: true, beilagen: { ovp: true } }), ['foto_vorne', 'foto_hinten']);
+  assert.deepEqual(gesuchteFotos('spiel', gc, { nurVerpackung: true, beilagen: { ovp: true, anleitung: true, beilagen: true } }), ['foto_vorne', 'foto_hinten', 'foto_anleitung', 'foto_beilagen']);
+  assert.deepEqual(gesuchteFotos('merch', null, { nurVerpackung: true }), ['foto_vorne', 'foto_hinten']);
 });
 
 test('Inlay: Beschriftung je Datenträger, eigener Zustand mit Mängeln, Steelbook als Beilage', async () => {
@@ -83,4 +104,64 @@ test('„Nur OVP“ ist eine leere Verpackung: nicht in der Sammlung, eigener Fi
   } finally {
     await server.stoppe();
   }
+});
+
+test('Beilagen für Sonderausgaben: Schuber, zweite Disc, Artbook & Co. – als „sonder“ markiert, CIB unberührt', async () => {
+  const { beilagenFuer } = await import('../shared/konstanten.js');
+  const liste = beilagenFuer('spiel', 'PlayStation 4');
+  const sonder = liste.filter((b) => b.sonder).map((b) => b.value);
+  assert.deepEqual(sonder, ['schuber', 'zweite_disc', 'artbook', 'code', 'soundtrack', 'figur', 'extras']);
+  assert.ok(!beilagenFuer('konsole').some((b) => b.sonder), 'nur bei Spielen');
+  assert.ok(!liste.find((b) => b.value === 'ovp').sonder);
+});
+
+test('Inlay „gab es nicht“ (z. B. Steelbook-Edition): keine Inlay-Bewertung', async () => {
+  const { hatInlayZustand, BEILAGE_OHNE } = await import('../shared/konstanten.js');
+  const basis = { typ: 'spiel', plattform: 'PlayStation 4', bestand: 'besitz', vollstaendigkeit: 'cib' };
+  assert.equal(hatInlayZustand(basis), true);
+  assert.equal(hatInlayZustand({ ...basis, beilagen: { inlay: true } }), true);
+  assert.equal(hatInlayZustand({ ...basis, beilagen: { inlay: BEILAGE_OHNE, steelbook: true } }), false);
+});
+
+test('Sammlungssuche: Modellnummern ohne Bindestrich/Leerzeichen, mehrere Discs', async () => {
+  const server = await starteTestServer();
+  try {
+    const c = await server.registriere('sammlerin');
+    await c.api('/api/artikel', { methode: 'POST', daten: { typ: 'spiel', titel: 'Horizon Forbidden West', modellnummer: 'CUSA-24705, CUSA-24706' } });
+    const treffer = async (q) => (await c.api(`/api/artikel?q=${encodeURIComponent(q)}`)).json.map((a) => a.titel);
+    for (const q of ['CUSA-24706', 'CUSA24706', 'cusa 24705', 'Horizon']) assert.deepEqual(await treffer(q), ['Horizon Forbidden West'], q);
+    assert.deepEqual(await treffer('CUSA-99999'), []);
+  } finally {
+    await server.stoppe();
+  }
+});
+
+test('Plattformen ohne gedruckte Anleitung: CIB mit „gab es nicht“, Anleitung bleibt antippbar', async () => {
+  const k = await import('../shared/konstanten.js');
+  for (const p of ['PlayStation 4', 'PS5', 'Xbox One', 'Xbox Series X|S', 'Nintendo Switch', { name: 'PlayStation 5', kurz: 'PS5' }]) assert.equal(k.ohneAnleitungUeblich(p), true, JSON.stringify(p));
+  for (const p of ['PlayStation 3', 'PlayStation 2', 'Xbox 360', 'Super Nintendo', 'Wii U', null]) assert.equal(k.ohneAnleitungUeblich(p), false, String(p));
+  // CIB auf PS4: OVP vorhanden, Anleitung „gab es nicht“ – und das ist komplett
+  const ps4 = k.beilagenAusVollstaendigkeit('cib', {}, 'PlayStation 4');
+  assert.deepEqual(ps4, { ovp: true, anleitung: k.BEILAGE_OHNE, inlay: true }, 'Disc-Spiel: CIB mit Inlay');
+  assert.equal(k.vollstaendigkeitAusBeilagen(ps4), 'cib');
+  // Hat jemand doch eine Anleitung, bleibt sie erhalten
+  assert.equal(k.beilagenAusVollstaendigkeit('cib', { anleitung: true }, 'PlayStation 4').anleitung, true);
+  // Ältere Plattformen wie bisher: CIB heißt Anleitung vorhanden
+  assert.equal(k.beilagenAusVollstaendigkeit('cib', {}, 'PlayStation 2').anleitung, true);
+  // Inlay „gab es nicht“ (z. B. Steelbook) bleibt; Modul-Spiele bekommen kein Inlay vorbelegt
+  assert.equal(k.beilagenAusVollstaendigkeit('cib', { inlay: k.BEILAGE_OHNE }, 'PlayStation 4').inlay, k.BEILAGE_OHNE);
+  assert.equal(k.beilagenAusVollstaendigkeit('cib', {}, 'PlayStation 2').inlay, true);
+  assert.equal('inlay' in k.beilagenAusVollstaendigkeit('cib', {}, 'Game Boy'), false);
+});
+
+test('Fehlt Inlay: eigene Stufe, aus den Beilagen abgeleitet, kein Inlay-Zustand, CSV-Import', async () => {
+  const k = await import('../shared/konstanten.js');
+  const { vollstaendigkeitVon } = await import('../server/services/csvimport.js');
+  assert.ok(k.ALLE_WERTE.vollstaendigkeit.includes('fehlt_inlay'));
+  assert.equal(k.vollstaendigkeitAusBeilagen({ ovp: true, anleitung: k.BEILAGE_OHNE, inlay: false }), 'fehlt_inlay');
+  assert.equal(k.vollstaendigkeitAusBeilagen({ ovp: true, anleitung: true, inlay: true }), 'cib');
+  assert.deepEqual(k.beilagenAusVollstaendigkeit('fehlt_inlay', {}, 'PlayStation 4'), { ovp: true, inlay: false });
+  assert.equal(k.hatInlayZustand({ typ: 'spiel', plattform: 'PlayStation 4', vollstaendigkeit: 'fehlt_inlay' }), false);
+  assert.equal(vollstaendigkeitVon('ohne Inlay'), 'fehlt_inlay');
+  assert.equal(vollstaendigkeitVon('missing cover'), 'fehlt_inlay');
 });

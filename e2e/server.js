@@ -2,9 +2,19 @@
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { ladeKonfiguration } from '../server/config.js';
 import { erstelleApp } from '../server/app.js';
 import { oeffneDatenbank } from '../server/db.js';
+
+// Passt der Build in dist/ zum Testlauf (mit bzw. ohne Zusatzmodul)? Sonst kurz neu bauen – z. B. nach „npm run test:e2e:basis“
+const kennung = (() => { try { return JSON.parse(fs.readFileSync(path.resolve('dist/.modul.json'), 'utf8')); } catch { return null; } })();
+const modulAus = ['aus', 'false', '0', 'nein'].includes(String(process.env.ZOCKERDB_MODULE ?? '').toLowerCase());
+const erwartet = modulAus || kennung?.verfuegbar === false ? 'aus' : 'an';
+if (!kennung || kennung.modul !== erwartet) {
+  console.log(`E2E: Oberfläche wird neu gebaut (${erwartet === 'aus' ? 'ohne' : 'mit'} Zusatzmodul) …`);
+  execSync('npx vite build', { stdio: 'inherit', env: process.env });
+}
 
 const ordner = fs.mkdtempSync(path.join(os.tmpdir(), 'zockerdb-e2e-'));
 const konfiguration = ladeKonfiguration({

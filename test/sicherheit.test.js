@@ -171,7 +171,7 @@ test('JSON-Import prüft eigene Katalogeinträge wie beim Anlegen', async () => 
       },
     });
     assert.equal(r.status, 200, r.text);
-    const eigene = server.db.prepare("SELECT titel, typ, cover_url, plattformen FROM katalog WHERE quelle = 'eigen'").all();
+    const eigene = server.db.prepare("SELECT titel, typ, cover_url, plattformen FROM katalog WHERE quelle = 'eigen' AND serie_id IS NULL").all(); // ohne vorbelegte Figurenserien
     assert.equal(eigene.length, 1, 'ungültiger Eintrag übersprungen');
     assert.equal(eigene[0].cover_url, null, 'nur http(s)-Bildadressen');
     assert.deepEqual(JSON.parse(eigene[0].plattformen), ['SNES']);

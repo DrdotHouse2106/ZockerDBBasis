@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTIKELTYPEN, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, beilagenFuer, INLAY_MAENGEL, beschriftung, beilageText, beilageVorhanden, beilageOhne, zustandBeschriftung, KAUFQUELLEN,
+  ARTIKELTYPEN, MERCH_KATEGORIEN, MERCH_VERPACKUNGEN, merchVerpackung, ZUSTAENDE, VOLLSTAENDIGKEITEN, REGIONEN, HERKUNFT, BESTAND, SPIELSTATUS, beilagenFuer, lieferumfangStand, INLAY_MAENGEL, beschriftung, beilageText, beilageVorhanden, beilageOhne, zustandBeschriftung, KAUFQUELLEN, serienBezeichnung,
 } from '../../../shared/konstanten.js';
 import { deutschKurz } from '../../../shared/sprachen.js';
 import { api } from '../api.js';
@@ -8,6 +8,7 @@ import { navigiere } from '../router.js';
 import { euro, datumDe, euroMitVorzeichen } from '../format.js';
 import Layout from '../komponenten/Layout.jsx';
 import Cover from '../komponenten/Cover.jsx';
+import { ZuschnittDialog } from '../komponenten/Zuschnitt.jsx';
 import Abzeichen from '../komponenten/Abzeichen.jsx';
 import { digitalBand } from '../komponenten/ArtikelKarte.jsx';
 import Symbol from '../komponenten/Symbole.jsx';
@@ -20,6 +21,7 @@ import { Andockpunkt } from '../erweiterungen.jsx';
 import { ArtikelFotoSync } from '../komponenten/Zockerdb.jsx';
 import { SeriennummerAbgleich, lagerortText } from '../komponenten/ZusatzFelder.jsx';
 import Wartung from '../komponenten/Wartung.jsx';
+import KatalogWechsel from '../komponenten/KatalogWechsel.jsx';
 import { useSitzung } from '../sitzung.js';
 
 /** Exemplar als verkauft bzw. verschenkt/getauscht markieren – bei mehreren Stück wahlweise nur einen Teil. */
@@ -133,21 +135,25 @@ function VerleihDialog({ artikel, onFertig }) {
  * Detailansicht eines Artikels. Mit „sammlerName“ und „fremdLaden“ (von einem Zusatzmodul, z. B. Community)
  * wird ein Artikel aus einer fremden Sammlung schreibgeschützt angezeigt.
  */
-export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zurueck = '/' }) {
+export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zurueck = '/sammlung' }) {
   const zeigeHinweis = useHinweis();
   const eigener = !sammlerName;
   const { benutzer } = useSitzung();
   const [artikel, setArtikel] = useState(null);
+  const [katalogWahlOffen, setKatalogWahlOffen] = useState(false);
   const [sammler, setSammler] = useState(null);
   const [fehler, setFehler] = useState(null);
   const [laedtBild, setLaedtBild] = useState(false);
+  const [bildZuschneiden, setBildZuschneiden] = useState(null); // gewählte Datei, bis der Zuschnitt übernommen ist
   const [abgangOffen, setAbgangOffen] = useState(false);
   const [verleihOffen, setVerleihOffen] = useState(false);
 
   const [exemplare, setExemplare] = useState([]);
   const [katalogDaten, setKatalogDaten] = useState(null);
+  // App: sofort den Stand aus dem letzten Abgleich zeigen, während der Server noch antwortet – sonst lädt jedes
+  // Exemplar erst einmal leer, außer man war gerade schon einmal drin (dann steckt es noch im Komponenten-Zustand)
   const laden = () => (eigener
-    ? api.artikel(id).then((a) => {
+    ? api.artikel(id, { zwischenstand: setArtikel }).then((a) => {
       setArtikel(a);
       if (a.katalog_id) api.katalogSeite(a.katalog_id).then((d) => { setExemplare(d.meineExemplare); setKatalogDaten(d); }).catch(() => {});
     })
@@ -161,16 +167,20 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     try {
       const r = await api.artikelLoeschen(id, { basis: artikel.aktualisiert_am, beschreibung: `„${artikel.titel}“ löschen` });
       zeigeHinweis(r?.offline ? 'Offline gemerkt – wird gelöscht, sobald du wieder online bist.' : 'Artikel gelöscht.');
-      navigiere('/');
+      navigiere('/sammlung');
     } catch (e) {
       zeigeHinweis(e.message, 'fehler');
     }
   }
 
-  async function bildWaehlen(e) {
+  function bildWaehlen(e) {
     const datei = e.target.files?.[0];
     e.target.value = '';
-    if (!datei) return;
+    if (datei) setBildZuschneiden(datei);
+  }
+
+  async function bildHochladen(datei) {
+    setBildZuschneiden(null);
     setLaedtBild(true);
     try {
       setArtikel(await api.bildHochladen(id, datei));
@@ -231,27 +241,33 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
     );
   }
 
+  const merch = artikel.typ === 'merch';
   const angaben = [
     ['Artikeltyp', beschriftung(ARTIKELTYPEN, artikel.typ)],
+    ['Kategorie', merch ? beschriftung(MERCH_KATEGORIEN, artikel.merch_kategorie) : null],
+    ['Serie', artikel.serie_id ? <a className="underline" href={`#/serien/${artikel.serie_id}`} data-testid="artikel-serie">{serienBezeichnung(artikel)}</a> : null],
+    ['Gehört zu', merch && artikel.spiel_katalog_id
+      ? <a className="underline" href={`#/katalog/${artikel.spiel_katalog_id}`}>{artikel.spiel_titel}</a> : null],
+    ['Verpackung', merch ? beschriftung(MERCH_VERPACKUNGEN, merchVerpackung(artikel)) : null],
     ['Plattform', artikel.plattform],
-    ['Region', beschriftung(REGIONEN, artikel.region)],
+    ['Region', merch ? null : beschriftung(REGIONEN, artikel.region)],
     ['Sprache', artikel.typ === 'spiel' ? deutschKurz(artikel.katalog_sprachen) : null],
-    [artikel.zustand_ovp ? zustandBeschriftung(artikel.typ).traeger : 'Zustand', beschriftung(ZUSTAENDE, artikel.zustand)],
+    [artikel.zustand_ovp ? zustandBeschriftung(artikel.typ).traeger : 'Zustand', merch ? null : beschriftung(ZUSTAENDE, artikel.zustand)],
     [zustandBeschriftung(artikel.typ).ovp, artikel.zustand_ovp ? beschriftung(ZUSTAENDE, artikel.zustand_ovp) : null],
     ['Zustand Inlay', [artikel.zustand_inlay && beschriftung(ZUSTAENDE, artikel.zustand_inlay),
       ...String(artikel.inlay_maengel ?? '').split(',').filter(Boolean).map((m) => INLAY_MAENGEL.find((x) => x.value === m)?.label ?? m)]
       .filter(Boolean).join(' · ') || null],
-    ['Vollständigkeit', beschriftung(VOLLSTAENDIGKEITEN, artikel.vollstaendigkeit)],
+    ['Vollständigkeit', merch ? null : beschriftung(VOLLSTAENDIGKEITEN, artikel.vollstaendigkeit)],
     ['Farbe', artikel.farbe],
     ['Edition/Variante', artikel.edition],
-    ['Modellnummer', artikel.modellnummer],
+    [merch ? 'Nummer' : 'Modellnummer', artikel.modellnummer],
     ['Drucknummer (Cover)', artikel.drucknummer],
     ['Seriennummer', artikel.seriennummer],
     ['Seriennummer OVP', artikel.seriennummer_ovp ? <>{artikel.seriennummer_ovp} <SeriennummerAbgleich geraet={artikel.seriennummer} ovp={artikel.seriennummer_ovp} /></> : null],
     ['Beilagen', beilagenText(artikel)],
     ['Beilagen genau', artikel.beilagen_notiz],
     ['Lagerort', eigener && lagerortText(artikel)
-      ? <a className="underline" href={`#/?lagerort_ort=${encodeURIComponent(artikel.lagerort_ort)}${artikel.lagerort_regal ? `&lagerort_regal=${encodeURIComponent(artikel.lagerort_regal)}` : ''}`}>{lagerortText(artikel)}</a> : null],
+      ? <a className="underline" href={`#/sammlung?lagerort_ort=${encodeURIComponent(artikel.lagerort_ort)}${artikel.lagerort_regal ? `&lagerort_regal=${encodeURIComponent(artikel.lagerort_regal)}` : ''}`}>{lagerortText(artikel)}</a> : null],
     ['Barcode', artikel.barcode],
     ['Anzahl', artikel.anzahl > 1 ? `${artikel.anzahl} Stück` : null],
     ['Herkunft', beschriftung(HERKUNFT, artikel.herkunft)],
@@ -329,6 +345,15 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
             </nav>
           )}
 
+          {eigener && bildZuschneiden && (
+            <ZuschnittDialog datei={bildZuschneiden} titel="Eigenes Foto zuschneiden"
+              hinweis="Nur das Cover statt der ganzen Hülle? Wähle „Frei“ (Breite und Höhe einzeln) oder ein Format und zieh den Rahmen an die richtige Stelle. Mit „Original“ bleibt das ganze Foto."
+              onFertig={bildHochladen} onAbbrechen={() => setBildZuschneiden(null)} />
+          )}
+          {eigener && katalogWahlOffen && (
+            <KatalogWechsel artikel={artikel} onSchliessen={() => setKatalogWahlOffen(false)} onGeaendert={(a) => { setKatalogWahlOffen(false); setArtikel(a); laden(); }} />
+          )}
+
           {/* Aktionen: das Wichtigste sichtbar, der Rest im Menü */}
           {eigener && (
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -346,8 +371,9 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
               <AktionenMenue>
                 <button type="button" onClick={() => navigiere('/neu/formular', { von: artikel.id })}>Weiteres Exemplar / Variante</button>
                 {artikel.katalog_id && <a href={`#/katalog/${artikel.katalog_id}`}>Zur Katalogseite</a>}
+                {['spiel', 'konsole', 'zubehoer'].includes(artikel.typ) && <button type="button" onClick={() => setKatalogWahlOffen(true)}>Anderen Katalogeintrag wählen …</button>}
                 {artikel.bestand === 'besitz' && !artikel.verleih_id && <button type="button" onClick={() => setVerleihOffen(true)}>Verleihen …</button>}
-                {artikel.bestand === 'besitz' && !artikel.verleih_id && <button type="button" onClick={() => setAbgangOffen(true)}>Verkauft / abgegeben …</button>}
+                {['besitz', 'verpackung'].includes(artikel.bestand) && !artikel.verleih_id && <button type="button" onClick={() => setAbgangOffen(true)}>Verkauft / abgegeben …</button>}
                 <label className={`cursor-pointer ${laedtBild ? 'opacity-50' : ''}`}>
                   {laedtBild ? 'Foto lädt hoch …' : artikel.bild_datei ? 'Eigenes Foto ersetzen' : 'Eigenes Foto hinzufügen'}
                   <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={bildWaehlen} disabled={laedtBild} />
@@ -380,6 +406,9 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
             }} />
           )}
 
+          {/* Andockpunkt „artikel.hinweise“: Hinweise zum Exemplar, die eine Entscheidung brauchen (z. B. Regionsvorschlag) – oben, gut sichtbar */}
+          <Andockpunkt name="artikel.hinweise" artikel={artikel} eigenerArtikel={eigener} onGeaendert={laden} />
+
           <dl className="karte divide-y divide-rand" data-tour="artikel-angaben">
             {angaben.map(([label, wert]) => (
               <div key={label} className="grid grid-cols-[8rem_1fr] gap-2 px-4 py-2 text-sm">
@@ -399,12 +428,13 @@ export default function ArtikelDetail({ route, id, sammlerName, fremdLaden, zuru
           )}
 
           {artikel.bestand !== 'digital' && (eigener || (benutzer && artikel.katalog_id)) && (
-            <Fotos katalogId={artikel.katalog_id} typ={artikel.typ} plattform={{ kurz: artikel.plattform_kurz, name: artikel.plattform }}
-              artikelId={eigener && artikel.bestand === 'besitz' ? artikel.id : null} vorauswahl={route.parameter?.foto ?? null}
+            <Fotos katalogId={artikel.katalog_id} typ={artikel.typ} plattform={{ id: artikel.plattform_id ?? null, kurz: artikel.plattform_kurz, name: artikel.plattform }}
+              artikelId={eigener && ['besitz', 'verpackung'].includes(artikel.bestand) ? artikel.id : null} vorauswahl={route.parameter?.foto ?? null}
               hinscrollen={Boolean(route.parameter?.foto)}
-              varianten={katalogDaten?.varianten ?? []} variante={artikel.variante_id ?? null}
+              varianten={katalogDaten?.varianten ?? []} variante={artikel.variante_id ?? null} fassung={artikel.edition || null} region={artikel.region || null}
+              nurVerpackung={artikel.bestand === 'verpackung' || artikel.vollstaendigkeit === 'nur_ovp'}
               neu={eigener && route.parameter?.neu === '1'}
-              versiegelt={artikel.zustand === 'neu_ovp'} beilagen={artikel.beilagen}
+              versiegelt={artikel.zustand === 'neu_ovp'} beilagen={artikel.beilagen} mitVerpackung={artikel.vollstaendigkeit === 'cib'} merchKategorie={artikel.merch_kategorie ?? artikel.serie_merch_kategorie ?? null}
               onKatalogVerknuepft={() => laden()} />
           )}
 
@@ -496,6 +526,11 @@ function beilagenText(a) {
   const liste = beilagenFuer(a.typ, a.plattform);
   const teile = liste.filter((b) => b.value in a.beilagen).map((b) => beilageText(b.label, a.beilagen[b.value]));
   if (!teile.length) return null;
+  // Ausgabe mit Lieferumfang: „Vollständig (CIB)“ heißt auch, dass alles aus dem Lieferumfang da ist („Unvollständig – Artbook fehlt“)
+  if (a.variante_lieferumfang) {
+    const stand = lieferumfangStand(a.beilagen, a.variante_lieferumfang);
+    return `${stand.text ? `${stand.text} – ` : ''}${teile.join(', ')}`;
+  }
   // Automatisch: vollständig (CIB), wenn OVP und Anleitung da sind und nichts als fehlend markiert ist
   const werte = Object.values(a.beilagen);
   const cib = beilageVorhanden(a.beilagen.ovp) && (beilageVorhanden(a.beilagen.anleitung) || beilageOhne(a.beilagen.anleitung)) && !werte.includes(false);

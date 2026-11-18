@@ -6,7 +6,7 @@ import Cover from '../komponenten/Cover.jsx';
 import { useHinweis } from '../komponenten/Hinweise.jsx';
 import { LagerortFelder, lagerortText } from '../komponenten/ZusatzFelder.jsx';
 
-const link = (o) => `#/?einzeln=1${[['lagerort_ort', o.ort], ['lagerort_regal', o.regal], ['lagerort_fach', o.fach]]
+const link = (o) => `#/sammlung?einzeln=1${[['lagerort_ort', o.ort], ['lagerort_regal', o.regal], ['lagerort_fach', o.fach]]
   .filter(([, w]) => w).map(([k, w]) => `&${k}=${encodeURIComponent(w)}`).join('')}`;
 
 export default function Lagerorte({ route }) {
@@ -59,7 +59,7 @@ export default function Lagerorte({ route }) {
             </ul>
           </section>
         ))}
-        {ohne > 0 && <a href="#/?einzeln=1&ohne_lagerort=1" className="block text-sm underline">{ohne} {ohne === 1 ? 'Exemplar' : 'Exemplare'} ohne Lagerort</a>}
+        {ohne > 0 && <a href="#/sammlung?einzeln=1&ohne_lagerort=1" className="block text-sm underline">{ohne} {ohne === 1 ? 'Exemplar' : 'Exemplare'} ohne Lagerort</a>}
         <Zuordnen onFertig={laden} />
       </div>
     </Layout>
